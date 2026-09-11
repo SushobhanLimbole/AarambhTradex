@@ -1,0 +1,959 @@
+/* =========================
+   GLOBAL
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+
+/* =========================
+   MAIN WRAPPER
+========================= */
+
+.amu-wrap {
+  height: 100vh;
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eef5fc;
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+
+  padding: 24px;
+
+  overflow: hidden;
+}
+
+
+/* =========================
+   MAIN CARD
+========================= */
+
+.amu-card {
+  width: 100%;
+  max-width: 1000px;
+
+  height: 100%;
+  max-height: 640px;
+
+  background: #ffffff;
+
+  border-radius: 20px;
+
+  display: flex;
+
+  overflow: hidden;
+
+  box-shadow: 0 30px 80px rgba(47, 91, 143, 0.16);
+  border: 1px solid #e3edf7;
+}
+
+
+/* =========================
+   LEFT PANEL
+========================= */
+
+.amu-left {
+  position: relative;
+
+  flex: 1 1 50%;
+
+  min-width: 0;
+
+  margin: 14px;
+
+  border-radius: 16px;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      160deg,
+      #eaf4ff 0%,
+      #dcecfd 55%,
+      #cfe4fa 100%
+    );
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 20px;
+}
+
+
+/* =========================
+   LOGO
+========================= */
+
+.amu-logo {
+  color: #123a66;
+
+  font-weight: 700;
+  font-size: 22px;
+
+  letter-spacing: 1px;
+}
+
+
+/* =========================
+   TOP BAR
+========================= */
+
+.amu-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 18px;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================
+   BACK BUTTON
+========================= */
+
+.amu-back-btn {
+  background: rgba(255, 255, 255, 0.65);
+
+  backdrop-filter: blur(6px);
+
+  border: 1px solid rgba(47, 125, 225, 0.22);
+
+  color: #14314f;
+
+  font-size: 13px;
+
+  padding: 8px 16px;
+
+  border-radius: 999px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   STOCK TICKER
+========================= */
+
+.amu-ticker {
+  flex: 1;
+
+  min-width: 0;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+
+/* =========================
+   TICKER HEADER
+========================= */
+
+.amu-ticker-head {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  color: #4d6a8c;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  letter-spacing: 0.3px;
+
+  margin-bottom: 10px;
+
+  padding-left: 2px;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================
+   LIVE DOT
+========================= */
+
+.amu-live-dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #9db6d1;
+
+  flex-shrink: 0;
+}
+
+.amu-live-dot[data-live="true"] {
+  background: #16a34a;
+
+  box-shadow:
+    0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+
+
+/* =========================
+   TICKER MASK
+========================= */
+
+.amu-ticker-mask {
+  flex: 1 1 auto;
+
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+
+  border-radius: 12px;
+
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 18px,
+      #000 calc(100% - 18px),
+      transparent 100%
+    );
+
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 18px,
+      #000 calc(100% - 18px),
+      transparent 100%
+    );
+}
+
+
+/* =========================
+   TICKER TRACK
+========================= */
+
+.amu-ticker-track {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  animation: amu-scroll 34s linear infinite;
+}
+
+.amu-ticker-mask:hover .amu-ticker-track {
+  animation-play-state: paused;
+}
+
+
+/* =========================
+   TICKER ANIMATION
+========================= */
+
+@keyframes amu-scroll {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+
+/* =========================
+   TICKER CARD
+========================= */
+
+.amu-tick-card {
+  width: 100%;
+
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(90px, 1.1fr)
+    minmax(45px, 1fr)
+    minmax(90px, auto);
+
+  align-items: center;
+
+  gap: 10px;
+
+  background: #ffffff;
+
+  border: 1px solid #dceafb;
+
+  border-radius: 9px;
+
+  padding: 9px 10px;
+
+  overflow: hidden;
+
+  flex-shrink: 0;
+
+  box-shadow: 0 1px 3px rgba(47, 91, 143, 0.06);
+}
+
+
+/* =========================
+   STOCK NAME
+========================= */
+
+.amu-tick-left {
+  min-width: 0;
+
+  width: 100%;
+}
+
+.amu-tick-name {
+  color: #123a66;
+
+  font-size: 12.5px;
+  font-weight: 600;
+
+  line-height: 1.2;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+.amu-tick-sub {
+  color: #7590ac;
+
+  font-size: 9.5px;
+
+  line-height: 1.2;
+
+  margin-top: 3px;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
+/* =========================
+   SPARKLINE
+========================= */
+
+.amu-tick-spark {
+  display: block;
+
+  width: 100%;
+
+  min-width: 35px;
+
+  height: 22px;
+
+  overflow: visible;
+}
+
+
+/* =========================
+   PRICE
+========================= */
+
+.amu-tick-right {
+  min-width: 0;
+
+  width: 100%;
+
+  text-align: right;
+}
+
+.amu-tick-price {
+  color: #123a66;
+
+  font-size: 11.5px;
+  font-weight: 600;
+
+  line-height: 1.2;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
+/* =========================
+   CHANGE BADGE
+========================= */
+
+.amu-tick-badge {
+  display: inline-block;
+
+  margin-top: 3px;
+
+  font-size: 9.5px;
+
+  font-weight: 700;
+
+  padding: 2px 5px;
+
+  border-radius: 4px;
+
+  color: #fff;
+
+  line-height: 1.1;
+}
+
+.amu-tick-badge.up {
+  background: #16a34a;
+}
+
+.amu-tick-badge.down {
+  background: #dc2626;
+}
+
+
+/* =========================
+   RIGHT PANEL
+========================= */
+
+.amu-right {
+  flex: 1 1 50%;
+
+  min-width: 0;
+  min-height: 0;
+
+  padding: 48px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+
+  overflow-y: auto;
+}
+
+
+/* =========================
+   TITLE
+========================= */
+
+.amu-title {
+  color: #10233f;
+
+  font-size: 32px;
+
+  font-weight: 700;
+
+  margin: 0 0 10px 0;
+}
+
+
+/* =========================
+   SUBTITLE
+========================= */
+
+.amu-subtitle {
+  color: #5b7290;
+
+  font-size: 14px;
+
+  margin: 0 0 28px 0;
+}
+
+
+/* =========================
+   LINKS
+========================= */
+
+.amu-link {
+  color: #2f7de1;
+
+  text-decoration: underline;
+
+  cursor: pointer;
+
+  background: none;
+
+  border: none;
+
+  font-size: 14px;
+
+  padding: 0;
+
+  font-family: inherit;
+}
+
+
+/* =========================
+   INPUT ROW
+========================= */
+
+.amu-row {
+  display: flex;
+
+  gap: 12px;
+
+  margin-bottom: 12px;
+}
+
+
+/* =========================
+   INPUT FIELDS
+========================= */
+
+.amu-field {
+  display: block;
+
+  width: 100%;
+
+  height: 48px;
+
+  background: #f5f9fe;
+
+  border: 1px solid #d7e6f7;
+
+  border-radius: 10px;
+
+  padding: 0 16px;
+
+  color: #10233f;
+
+  font-size: 14px;
+
+  line-height: 48px;
+
+  outline: none;
+
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  font-family: inherit;
+
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.amu-field::placeholder {
+  color: #8ba0ba;
+}
+
+.amu-field:focus {
+  border-color: #2f7de1;
+  background: #ffffff;
+}
+
+.amu-field-single {
+  margin-bottom: 12px;
+}
+
+
+/* =========================
+   FIELD ERROR STATE
+========================= */
+
+.amu-field-error {
+  border-color: #dc2626;
+  background: #fdf3f3;
+}
+
+.amu-error {
+  display: block;
+
+  color: #dc2626;
+
+  font-size: 12px;
+
+  margin-top: 6px;
+}
+
+
+/* =========================
+   PASSWORD FIELD
+========================= */
+
+.amu-field-wrap {
+  position: relative;
+
+  margin-bottom: 12px;
+}
+
+.amu-field-wrap .amu-field {
+  padding-right: 44px;
+}
+
+
+/* =========================
+   PASSWORD EYE
+========================= */
+
+.amu-eye {
+  position: absolute;
+
+  right: 14px;
+
+  top: 24px;
+
+  transform: translateY(-50%);
+
+  background: none;
+
+  border: none;
+
+  color: #7590ac;
+
+  cursor: pointer;
+
+  display: flex;
+
+  align-items: center;
+
+  padding: 0;
+
+  line-height: 0;
+}
+
+.amu-eye:hover {
+  color: #2f7de1;
+}
+
+
+/* =========================
+   TERMS
+========================= */
+
+.amu-terms {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin: 6px 0 8px 0;
+}
+
+.amu-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 18px;
+  height: 18px;
+
+  border-radius: 5px;
+
+  border: 1px solid #b7cce6;
+
+  background: #f5f9fe;
+
+  cursor: pointer;
+
+  display: grid;
+
+  place-content: center;
+
+  flex-shrink: 0;
+}
+
+.amu-checkbox:checked {
+  background: #2f7de1;
+
+  border-color: #2f7de1;
+}
+
+.amu-checkbox:checked::after {
+  content: "";
+
+  width: 5px;
+  height: 9px;
+
+  border: solid #fff;
+
+  border-width: 0 2px 2px 0;
+
+  transform:
+    rotate(45deg)
+    translate(-1px, -1px);
+}
+
+.amu-terms-text {
+  color: #5b7290;
+
+  font-size: 13px;
+}
+
+.amu-terms-text .amu-link {
+  font-size: 13px;
+}
+
+
+/* =========================
+   SUBMIT BUTTON
+========================= */
+
+.amu-submit {
+  width: 100%;
+
+  padding: 14px;
+
+  border-radius: 10px;
+
+  border: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      #4fa3f7 0%,
+      #2f7de1 100%
+    );
+
+  color: #fff;
+
+  font-size: 15px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  margin-top: 14px;
+  margin-bottom: 26px;
+
+  font-family: inherit;
+
+  transition: opacity 0.15s ease;
+}
+
+.amu-submit:hover {
+  opacity: 0.92;
+}
+
+.amu-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* =========================
+   DIVIDER
+========================= */
+
+.amu-divider {
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+  margin-bottom: 22px;
+}
+
+.amu-divider .line {
+  flex: 1;
+
+  height: 1px;
+
+  background: #e3edf7;
+}
+
+.amu-divider span {
+  color: #8ba0ba;
+
+  font-size: 12px;
+
+  white-space: nowrap;
+}
+
+
+/* =========================
+   SOCIAL BUTTONS
+========================= */
+
+.amu-social-row {
+  display: flex;
+
+  gap: 12px;
+}
+
+.amu-social-btn {
+  flex: 1;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 12px;
+
+  border-radius: 10px;
+
+  border: 1px solid #d7e6f7;
+
+  background: #ffffff;
+
+  color: #10233f;
+
+  font-size: 14px;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.amu-social-btn:hover {
+  background: #f5f9fe;
+  border-color: #b7cce6;
+}
+
+
+/* =========================
+   TABLET
+========================= */
+
+@media (max-width: 850px) {
+
+  .amu-card {
+    max-width: 620px;
+
+    max-height: min(700px, 92vh);
+  }
+
+  .amu-left {
+    flex: 1 1 50%;
+
+    padding: 18px;
+  }
+
+  .amu-right {
+    padding: 40px 32px;
+  }
+
+  .amu-tick-card {
+    grid-template-columns:
+      minmax(80px, 1fr)
+      minmax(40px, 0.8fr)
+      minmax(85px, auto);
+
+    gap: 8px;
+  }
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 760px) {
+
+  .amu-wrap {
+    padding: 16px;
+  }
+
+  .amu-card {
+    flex-direction: column;
+
+    max-width: 520px;
+
+    height: auto;
+    max-height: 92vh;
+
+    overflow-y: auto;
+  }
+
+  .amu-left {
+    display: none;
+  }
+
+  .amu-right {
+    width: 100%;
+
+    padding: 40px 28px;
+
+    overflow-y: visible;
+  }
+}
+
+
+/* =========================
+   SMALL MOBILE
+========================= */
+
+@media (max-width: 500px) {
+
+  .amu-wrap {
+    padding: 10px;
+  }
+
+  .amu-right {
+    padding: 30px 20px;
+  }
+
+  .amu-title {
+    font-size: 28px;
+  }
+
+  .amu-row {
+    flex-direction: column;
+
+    gap: 0;
+  }
+
+  .amu-tick-card {
+    grid-template-columns:
+      minmax(70px, 1fr)
+      minmax(35px, 0.7fr)
+      minmax(75px, auto);
+
+    gap: 7px;
+
+    padding: 8px;
+  }
+
+  .amu-tick-name {
+    font-size: 11.5px;
+  }
+
+  .amu-tick-sub {
+    font-size: 8.5px;
+  }
+
+  .amu-tick-price {
+    font-size: 10.5px;
+  }
+
+  .amu-tick-badge {
+    font-size: 8.5px;
+  }
+}
