@@ -1,20 +1,14 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
-import AuthPage from './components/Auth/AuthPage'
-import StockAnalytics from './components/Home/StockAnalytics'
+import React from 'react';
+import './App.css';
+import { AuthProvider } from './context/AuthContext';
+import AuthPage from './components/Auth/AuthPage';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
+    <AuthProvider>
       <AuthPage />
-      {/* <StockAnalytics/> */}
-    </>
-  )
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

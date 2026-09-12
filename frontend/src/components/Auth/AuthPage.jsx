@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./AuthPage.css";
 import StockAnalytics from "../Home/StockAnalytics";
+import MainLayout from "../Home/MainLayout";
+import logoImg from "../../assets/logo.jpeg";
+import { useAuth } from "../../context/AuthContext";
+import Toast from "../Common/Toast";
 
 /* ---------------------------------------------------------
    Instrument list (matches the requested watchlist)
@@ -333,10 +337,11 @@ function validateLogin({ email, password }) {
 }
 
 export default function AuthPage() {
+  const { signup, login, isAuthenticated, user, loading } = useAuth();
   const [mode, setMode] = useState("register"); // 'register' | 'login'
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   // Register form state
   const [firstName, setFirstName] = useState("");
@@ -344,12 +349,14 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registerErrors, setRegisterErrors] = useState({});
+  const [serverRegisterError, setServerRegisterError] = useState("");
   const [registerSubmitting, setRegisterSubmitting] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginErrors, setLoginErrors] = useState({});
+  const [serverLoginError, setServerLoginError] = useState("");
   const [loginSubmitting, setLoginSubmitting] = useState(false);
 
   const isRegister = mode === "register";
@@ -358,33 +365,40 @@ export default function AuthPage() {
     setMode(next);
     setRegisterErrors({});
     setLoginErrors({});
+    setServerRegisterError("");
+    setServerLoginError("");
   };
 
   const handleRegisterSubmit = async () => {
+    setServerRegisterError("");
     const errors = validateRegister({ firstName, lastName, email, password, agree });
     setRegisterErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setRegisterSubmitting(true);
     try {
-      // TODO: wire up to your actual sign-up endpoint
-      // await api.register({ firstName, lastName, email, password });
-      setAuthenticated(true);
+      const name = `${firstName} ${lastName}`.trim();
+      await signup({ name, email, password });
+      setToast({ message: "Registration successful! Welcome to Aarambh TradeX.", type: "success" });
+    } catch (err) {
+      setServerRegisterError(err.message || "Registration failed. Please try again.");
     } finally {
       setRegisterSubmitting(false);
     }
   };
 
   const handleLoginSubmit = async () => {
+    setServerLoginError("");
     const errors = validateLogin({ email: loginEmail, password: loginPassword });
     setLoginErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setLoginSubmitting(true);
     try {
-      // TODO: wire up to your actual login endpoint
-      // await api.login({ email: loginEmail, password: loginPassword });
-      setAuthenticated(true);
+      await login({ email: loginEmail, password: loginPassword });
+      setToast({ message: "Signed in successfully! Welcome back.", type: "success" });
+    } catch (err) {
+      setServerLoginError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoginSubmitting(false);
     }
@@ -392,16 +406,17 @@ export default function AuthPage() {
 
   // Once login or register succeeds, route straight into the
   // stock analytics screen instead of the auth card.
-  if (authenticated) {
-    return <StockAnalytics />;
+  if (isAuthenticated) {
+    return <MainLayout />;
   }
 
   return (
     <div className="amu-wrap">
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
       <div className="amu-card">
         <div className="amu-left">
           <div className="amu-topbar">
-            <div className="amu-logo">AMU</div>
+            <div className="amu-logo">Aarambh TradeX</div>
             <button className="amu-back-btn">
               Back to website
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -414,6 +429,10 @@ export default function AuthPage() {
         </div>
 
         <div className="amu-right">
+          <div className="amu-right-header">
+            <img src={logoImg} alt="Aarambh TradeX Logo" className="amu-brand-logo" />
+          </div>
+
           {isRegister ? (
             <>
               <h1 className="amu-title">Create an account</h1>
@@ -423,6 +442,12 @@ export default function AuthPage() {
                   Log in
                 </button>
               </p>
+
+              {serverRegisterError && (
+                <div className="amu-server-error">
+                  <span>⚠️</span> {serverRegisterError}
+                </div>
+              )}
 
               <div className="amu-row">
                 <div className="amu-field-wrap">
@@ -505,11 +530,11 @@ export default function AuthPage() {
                 {registerSubmitting ? "Creating account..." : "Create account"}
               </button>
 
-              <div className="amu-divider">
+              {/* <div className="amu-divider">
                 <span className="line"></span>
                 <span>Or register with</span>
                 <span className="line"></span>
-              </div>
+              </div> */}
             </>
           ) : (
             <>
@@ -520,6 +545,12 @@ export default function AuthPage() {
                   Sign up
                 </button>
               </p>
+
+              {serverLoginError && (
+                <div className="amu-server-error">
+                  <span>⚠️</span> {serverLoginError}
+                </div>
+              )}
 
               <div className="amu-field-wrap">
                 <input
@@ -561,15 +592,17 @@ export default function AuthPage() {
               >
                 {loginSubmitting ? "Logging in..." : "Log in"}
               </button>
-
+              {/* 
               <div className="amu-divider">
                 <span className="line"></span>
                 <span>Or continue with</span>
                 <span className="line"></span>
               </div>
+               */}
             </>
           )}
 
+          {/*
           <div className="amu-social-row">
             <button className="amu-social-btn">
               <GoogleIcon />
@@ -580,6 +613,7 @@ export default function AuthPage() {
               Apple
             </button>
           </div>
+          */}
         </div>
       </div>
     </div>
@@ -608,10 +642,10 @@ function EyeOffIcon() {
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 35.1 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/>
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.6l6.6 5.6C41.6 36.3 44 30.7 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6 29.6 4 24 4 16.3 4 9.6 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.5 0 10.5-1.9 14.3-5.1l-6.6-5.6C29.6 35.1 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.6l6.6 5.6C41.6 36.3 44 30.7 44 24c0-1.3-.1-2.7-.4-3.5z" />
     </svg>
   );
 }
@@ -619,7 +653,7 @@ function GoogleIcon() {
 function AppleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M16.365 1.43c0 1.14-.396 2.11-1.19 2.91-.9.9-2.03 1.42-3.06 1.34-.13-1.11.39-2.25 1.17-3.02.78-.76 2.1-1.32 3.08-1.23zM20.9 17.27c-.32.74-.7 1.42-1.13 2.06-.6.87-1.09 1.47-1.47 1.8-.59.55-1.22.84-1.9.85-.49 0-1.08-.14-1.76-.42-.68-.28-1.31-.42-1.88-.42-.6 0-1.24.14-1.94.42-.7.28-1.26.43-1.69.44-.65.03-1.29-.27-1.92-.88-.41-.36-.92-.97-1.53-1.85-.66-.94-1.2-2.03-1.62-3.27-.45-1.34-.68-2.63-.68-3.88 0-1.44.31-2.68.93-3.72.49-.84 1.14-1.5 1.96-1.99.82-.49 1.7-.74 2.65-.76.51 0 1.18.16 2.02.47.84.31 1.38.47 1.62.47.18 0 .78-.19 1.79-.55.96-.34 1.77-.48 2.43-.43 1.79.14 3.14.85 4.03 2.13-1.6.97-2.4 2.33-2.38 4.08.02 1.36.51 2.49 1.47 3.39.44.42.93.74 1.48.97-.12.35-.25.68-.4 1z"/>
+      <path d="M16.365 1.43c0 1.14-.396 2.11-1.19 2.91-.9.9-2.03 1.42-3.06 1.34-.13-1.11.39-2.25 1.17-3.02.78-.76 2.1-1.32 3.08-1.23zM20.9 17.27c-.32.74-.7 1.42-1.13 2.06-.6.87-1.09 1.47-1.47 1.8-.59.55-1.22.84-1.9.85-.49 0-1.08-.14-1.76-.42-.68-.28-1.31-.42-1.88-.42-.6 0-1.24.14-1.94.42-.7.28-1.26.43-1.69.44-.65.03-1.29-.27-1.92-.88-.41-.36-.92-.97-1.53-1.85-.66-.94-1.2-2.03-1.62-3.27-.45-1.34-.68-2.63-.68-3.88 0-1.44.31-2.68.93-3.72.49-.84 1.14-1.5 1.96-1.99.82-.49 1.7-.74 2.65-.76.51 0 1.18.16 2.02.47.84.31 1.38.47 1.62.47.18 0 .78-.19 1.79-.55.96-.34 1.77-.48 2.43-.43 1.79.14 3.14.85 4.03 2.13-1.6.97-2.4 2.33-2.38 4.08.02 1.36.51 2.49 1.47 3.39.44.42.93.74 1.48.97-.12.35-.25.68-.4 1z" />
     </svg>
   );
 }

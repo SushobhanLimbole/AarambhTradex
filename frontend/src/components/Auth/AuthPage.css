@@ -463,6 +463,39 @@ html, body {
   overflow-y: auto;
 }
 
+/* =========================
+   RIGHT PANEL LOGO
+========================= */
+
+.amu-right-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.amu-brand-logo {
+  width: 20vw;
+  max-width: 220px;
+  min-width: 130px;
+  height: auto;
+  object-fit: contain;
+}
+
+.amu-server-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 
 /* =========================
    TITLE
