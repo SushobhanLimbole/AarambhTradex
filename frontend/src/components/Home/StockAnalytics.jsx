@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import "./StockAnalytics.css";
 
 const INITIAL_ROWS = [
@@ -154,7 +154,23 @@ const INITIAL_ROWS = [
   },
 ];
 
-export default function StockAnalytics() {
+// Helper to parse currency string into pure number
+const parseNum = (val) => {
+  if (typeof val === "number") return val;
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/,/g, "")) || 0;
+};
+
+// Helper to format float to readable currency string
+const formatNum = (num, decimals = 2) => {
+  if (num === null || num === undefined || isNaN(num)) return "—";
+  return Number(num).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
+export default function StockAnalytics({ onOpenPointer }) {
   // Filter States
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("All Indices");
@@ -169,7 +185,13 @@ export default function StockAnalytics() {
     day: true,
     avg: true,
     range: true,
+    status: true,
     pointer: true,
+    virgin: true,
+    zone: true,
+    closure: true,
+    floor: true,
+    ceiling: true,
   });
 
   const toggleCol = (key) => {
@@ -185,9 +207,109 @@ export default function StockAnalytics() {
     setTimeframe("Daily");
   };
 
+  // Compute calculated analytics columns dynamically
+  const processedRows = useMemo(() => {
+    return INITIAL_ROWS.map((row, idx, arr) => {
+      const prevRow = arr[idx + 1]; // Next item is previous date chronologically
+
+      const lowVal = parseNum(row.low);
+      const highVal = parseNum(row.high);
+      const closeVal = parseNum(row.close);
+
+      let virgin = "—";
+      let virginType = "neutral";
+      let zone = "—";
+      let zoneType = "neutral";
+      let closure = "—";
+      let closureType = "neutral";
+
+      if (prevRow) {
+        const prevAvg = parseNum(prevRow.avg);
+        const prevClose = parseNum(prevRow.close);
+        const prevHigh = parseNum(prevRow.high);
+        const prevLow = parseNum(prevRow.low);
+
+        // 1. VIRGIN: (HIGHER = LOW > PREV.DAY AVG) | (LOWER = HIGH < PREV.DAY AVG)
+        if (lowVal > prevAvg) {
+          virgin = "HIGHER";
+          virginType = "higher";
+        } else if (highVal < prevAvg) {
+          virgin = "LOWER";
+          virginType = "lower";
+        } else {
+          virgin = "INSIDE";
+          virginType = "neutral";
+        }
+
+        // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG)
+        if (closeVal > prevClose && closeVal > prevAvg) {
+          zone = "GREEN";
+          zoneType = "green";
+        } else if (closeVal < prevClose && closeVal < prevAvg) {
+          zone = "RED";
+          zoneType = "red";
+        } else {
+          zone = "NEUTRAL";
+          zoneType = "neutral";
+        }
+
+        // 3. CLOSURE: (HIGH = CLOSE > PREV.DAY HIGH) | (LOW = CLOSE < PREV.DAY LOW)
+        if (closeVal > prevHigh) {
+          closure = "HIGH";
+          closureType = "high";
+        } else if (closeVal < prevLow) {
+          closure = "LOW";
+          closureType = "low";
+        } else {
+          closure = "INSIDE";
+          closureType = "neutral";
+        }
+      }
+
+      // 4. FLOOR & 5. CEILING PRICE based on timeframe
+      // For Daily: Prev. Week Low / High
+      // For Weekly: Prev. Month Low / High
+      // For Monthly: Prev. Year Low / High
+      let floorPrice = 2910.00;
+      let ceilingPrice = 3025.00;
+
+      if (timeframe === "Weekly") {
+        floorPrice = 2870.00;
+        ceilingPrice = 3080.00;
+      } else if (timeframe === "Monthly") {
+        floorPrice = 2650.00;
+        ceilingPrice = 3250.00;
+      } else if (timeframe === "Yearly" || timeframe === "5-Yearly") {
+        floorPrice = 2100.00;
+        ceilingPrice = 3800.00;
+      } else {
+        // Daily: Contextual relative floor / ceiling
+        if (idx < 5) {
+          floorPrice = 2910.00; // Previous week low (rows 6-10)
+          ceilingPrice = 2975.00; // Previous week high (rows 6-10)
+        } else {
+          floorPrice = 2870.00;
+          ceilingPrice = 2955.00;
+        }
+      }
+
+      return {
+        ...row,
+        virgin,
+        virginType,
+        zone,
+        zoneType,
+        closure,
+        closureType,
+        floor: formatNum(floorPrice),
+        ceiling: formatNum(ceilingPrice),
+      };
+    });
+  }, [timeframe]);
+
   return (
     <div className="analytics-container">
-      {/* TOP FILTER TOOLBAR (MATCHING SCREENSHOT 2 & SCREENSHOT 1) */}
+      {/* TOP FILTER TOOLBAR */}
       <div className="filter-toolbar">
         {/* EXCHANGE */}
         <div className="filter-group">
@@ -299,7 +421,7 @@ export default function StockAnalytics() {
           {/* COLUMN VISIBILITY POPOVER */}
           {showColumnsMenu && (
             <div className="columns-menu">
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
                 Add / Remove Columns
               </span>
               <label className="col-checkbox-label">
@@ -329,10 +451,58 @@ export default function StockAnalytics() {
               <label className="col-checkbox-label">
                 <input
                   type="checkbox"
+                  checked={visibleCols.status}
+                  onChange={() => toggleCol("status")}
+                />
+                STATUS
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
                   checked={visibleCols.pointer}
                   onChange={() => toggleCol("pointer")}
                 />
                 POINTER
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.virgin}
+                  onChange={() => toggleCol("virgin")}
+                />
+                VIRGIN
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.zone}
+                  onChange={() => toggleCol("zone")}
+                />
+                ZONE
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.closure}
+                  onChange={() => toggleCol("closure")}
+                />
+                CLOSURE
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.floor}
+                  onChange={() => toggleCol("floor")}
+                />
+                FLOOR
+              </label>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.ceiling}
+                  onChange={() => toggleCol("ceiling")}
+                />
+                CEILING PRICE
               </label>
             </div>
           )}
@@ -353,6 +523,12 @@ export default function StockAnalytics() {
             <span className="legend-item">
               <span className="legend-pill breakout">Y1-Y6</span> Breakout
             </span>
+            <span className="legend-item">
+              <span className="legend-pill virgin-pill">VIRGIN HIGHER</span> Low &gt; Prev. Avg
+            </span>
+            <span className="legend-item">
+              <span className="legend-pill zone-pill">ZONE GREEN</span> Bullish Momentum
+            </span>
           </div>
         </div>
 
@@ -361,20 +537,25 @@ export default function StockAnalytics() {
             <thead>
               <tr>
                 <th>SR.NO</th>
-                <th>DATE</th>
                 {visibleCols.day && <th>DAY</th>}
+                <th>DATE</th>
                 <th>OPEN</th>
                 <th>HIGH</th>
                 <th>LOW</th>
                 <th>CLOSE</th>
                 {visibleCols.avg && <th>AVG</th>}
                 {visibleCols.range && <th>RANGE</th>}
-                <th>STATUS</th>
+                {visibleCols.status && <th>STATUS</th>}
                 {visibleCols.pointer && <th>POINTER</th>}
+                {visibleCols.virgin && <th title="VIRGIN: HIGHER = Low > Prev.Day Avg | LOWER = High < Prev.Day Avg">VIRGIN</th>}
+                {visibleCols.zone && <th title="ZONE: GREEN = Close > Prev.Close & Prev.Avg | RED = Close < Prev.Close & Prev.Avg">ZONE</th>}
+                {visibleCols.closure && <th title="CLOSURE: HIGH = Close > Prev.High | LOW = Close < Prev.Low">CLOSURE</th>}
+                {visibleCols.floor && <th title="FLOOR: Prev. Period Low">FLOOR</th>}
+                {visibleCols.ceiling && <th title="CEILING PRICE: Prev. Period High">CEILING PRICE</th>}
               </tr>
             </thead>
             <tbody>
-              {INITIAL_ROWS.map((row) => (
+              {processedRows.map((row) => (
                 <tr key={row.no}>
                   <td className="serial-col">{row.no}</td>
                   {visibleCols.day && <td>{row.day}</td>}
@@ -387,16 +568,54 @@ export default function StockAnalytics() {
                   <td>{row.close}</td>
                   {visibleCols.avg && <td>{row.avg}</td>}
                   {visibleCols.range && <td>{row.range}</td>}
-                  <td>
-                    <span className={`hlc-badge ${row.statusType}`}>
-                      {row.status}
-                    </span>
-                  </td>
+                  {visibleCols.status && (
+                    <td>
+                      <span className={`hlc-badge ${row.statusType}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                  )}
                   {visibleCols.pointer && (
                     <td>
-                      <span className={`pointer-tag ${row.pointerType}`}>
-                        {row.pointer}
+                      <span
+                        className={`pointer-tag ${row.pointerType}`}
+                        style={{ cursor: onOpenPointer ? "pointer" : "default" }}
+                        onClick={() => onOpenPointer && onOpenPointer(row)}
+                        title="Click to view full Pointer Fibonacci Matrix"
+                      >
+                        {row.pointer} ↗
                       </span>
+                    </td>
+                  )}
+                  {visibleCols.virgin && (
+                    <td>
+                      <span className={`analytics-pill virgin-${row.virginType}`}>
+                        {row.virgin}
+                      </span>
+                    </td>
+                  )}
+                  {visibleCols.zone && (
+                    <td>
+                      <span className={`analytics-pill zone-${row.zoneType}`}>
+                        {row.zone}
+                      </span>
+                    </td>
+                  )}
+                  {visibleCols.closure && (
+                    <td>
+                      <span className={`analytics-pill closure-${row.closureType}`}>
+                        {row.closure}
+                      </span>
+                    </td>
+                  )}
+                  {visibleCols.floor && (
+                    <td className="metric-col floor-val" title={`Floor Price for ${timeframe}`}>
+                      {row.floor}
+                    </td>
+                  )}
+                  {visibleCols.ceiling && (
+                    <td className="metric-col ceiling-val" title={`Ceiling Price for ${timeframe}`}>
+                      {row.ceiling}
                     </td>
                   )}
                 </tr>

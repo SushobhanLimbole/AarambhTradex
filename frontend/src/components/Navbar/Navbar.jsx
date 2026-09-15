@@ -23,6 +23,22 @@ export default function Navbar({ activeTab, setActiveTab }) {
           <span>Reports</span>
         </button>
 
+        <button
+          className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
+          onClick={() => setActiveTab("pointer")}
+        >
+          <span>🎯</span>
+          <span>Pointer Page</span>
+        </button>
+
+        <button
+          className={`nav-btn ${activeTab === "strategy" ? "active" : ""}`}
+          onClick={() => setActiveTab("strategy")}
+        >
+          <span>💡</span>
+          <span>Strategy Page</span>
+        </button>
+
         {user?.isAdmin && (
           <button
             className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
