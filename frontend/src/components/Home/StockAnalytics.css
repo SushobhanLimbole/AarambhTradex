@@ -1,0 +1,459 @@
+/* =========================
+   APPLE-LIKE STOCK ANALYTICS STYLES
+========================= */
+
+.analytics-container {
+  width: 100%;
+  max-width: 100%;
+  padding: 24px 32px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+/* TOP FILTER TOOLBAR (MATCHING SCREENSHOT 2) */
+.filter-toolbar {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+  flex: 1;
+}
+
+.filter-group.wide {
+  flex: 2;
+  min-width: 220px;
+}
+
+.filter-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.2px;
+}
+
+.filter-label span {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.apple-input,
+.apple-select {
+  height: 42px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  width: 100%;
+}
+
+.apple-input:focus,
+.apple-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1px;
+}
+
+.btn-analyze {
+  height: 42px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  white-space: nowrap;
+}
+
+.btn-analyze:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-clear {
+  height: 42px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-clear:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.btn-columns {
+  height: 42px;
+  background: #f0f9ff;
+  color: #0284c7;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 14px;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-columns:hover {
+  background: #e0f2fe;
+}
+
+/* BANNER HEADER (MATCHING SCREENSHOT 1) */
+.software-banner {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: center;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner-tag {
+  background: rgba(255, 255, 255, 0.22);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* COLUMN TOGGLE MENU */
+.columns-menu {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  padding: 14px;
+  z-index: 100;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.col-checkbox-label {
+  font-size: 13px;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* APPLE MATRIX TABLE CARD */
+.matrix-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.matrix-header-bar {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fafafa;
+}
+
+.matrix-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.matrix-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.legend-pill {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.legend-pill.bullish {
+  background: #16a34a;
+}
+
+.legend-pill.bearish {
+  background: #dc2626;
+}
+
+.legend-pill.breakout {
+  background: #f59e0b;
+}
+
+/* TABLE STYLING */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.apple-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.apple-table th {
+  background: #f8fafc;
+  padding: 14px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.apple-table td {
+  padding: 14px 16px;
+  font-size: 13.5px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.apple-table tr:hover {
+  background: #f8fafc;
+}
+
+.serial-col {
+  font-weight: 700;
+  color: #64748b;
+}
+
+.high-green {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.low-red {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.hlc-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.hlc-badge.bullish {
+  background: #16a34a;
+}
+
+.hlc-badge.bearish {
+  background: #dc2626;
+}
+
+.pointer-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.pointer-tag.orange {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.pointer-tag.red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.pointer-tag.green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* ANALYTICS BADGES (VIRGIN, ZONE, CLOSURE) */
+.analytics-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* VIRGIN variants */
+.analytics-pill.virgin-higher {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.analytics-pill.virgin-lower {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.analytics-pill.virgin-neutral {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* ZONE variants */
+.analytics-pill.zone-green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+}
+
+.analytics-pill.zone-red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+}
+
+.analytics-pill.zone-neutral {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* CLOSURE variants */
+.analytics-pill.closure-high {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.analytics-pill.closure-low {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fee2e2;
+}
+
+.analytics-pill.closure-neutral {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* FLOOR & CEILING columns */
+.metric-col.floor-val {
+  font-weight: 700;
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.25);
+}
+
+.metric-col.ceiling-val {
+  font-weight: 700;
+  color: #15803d;
+  background: rgba(220, 252, 231, 0.25);
+}
+
+.legend-pill.virgin-pill {
+  background: #15803d;
+}
+
+.legend-pill.zone-pill {
+  background: #059669;
+}
+
+.tbl-action-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: all 0.15s ease;
+}
+
+.tbl-action-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
