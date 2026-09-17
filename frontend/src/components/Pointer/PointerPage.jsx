@@ -228,46 +228,19 @@ export default function PointerPage({ initialData }) {
           </p>
         </div>
 
-        {/* CONTROLS BAR */}
-        {/* <div className="pointer-controls-bar">
-          <div className="preset-selector-group">
-            <label className="ctrl-label">Quick Preset</label>
-            <select
-              className="apple-ctrl-select"
-              value={selectedPresetName}
-              onChange={(e) => {
-                setSelectedPresetName(e.target.value);
-                const p = PRESETS.find((x) => x.name === e.target.value);
-                if (p) loadPreset(p);
-              }}
+        {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
+        <div className="pointer-timeframe-tab-bar">
+          {["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"].map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
+              onClick={() => setTimeframe(tf)}
             >
-              {PRESETS.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-              {!PRESETS.some((p) => p.name === selectedPresetName) && (
-                <option value={selectedPresetName}>{selectedPresetName}</option>
-              )}
-            </select>
-          </div>
-
-          <div className="timeframe-toggle-group">
-            <label className="ctrl-label">Timeframe</label>
-            <div className="segmented-control">
-              {["Daily", "Weekly", "Monthly"].map((tf) => (
-                <button
-                  key={tf}
-                  type="button"
-                  className={`segment-btn ${timeframe === tf ? "active" : ""}`}
-                  onClick={() => setTimeframe(tf)}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div> */}
+              {tf}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* COPIED TOAST NOTIFICATION */}
@@ -282,79 +255,6 @@ export default function PointerPage({ initialData }) {
       <div className="pointer-matrix-card">
         <div className="pointer-compact-layout">
           
-          {/* ========================================================= */}
-          {/* LEFT SIDEBAR: KPI PARAMETERS                              */}
-          {/* ========================================================= */}
-          <div className="pointer-compact-sidebar">
-            <div className="sidebar-top-badges">
-              <span className="sidebar-rising-badge">RISING CHANNEL</span>
-              <span className="sidebar-timeframe-badge">{timeframe}</span>
-            </div>
-
-            <div className="sidebar-blue-accent-strip"></div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">HIGH &amp; LOW</span>
-              <span className="metric-value">{fmt(calcs.highLow)}</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">LOW &amp; CLOSE</span>
-              <span className="metric-value">{fmt(calcs.lowClose)}</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">HIGH &amp; CLOSE</span>
-              <span className="metric-value">{fmt(calcs.highClose)}</span>
-            </div>
-
-            <div className="sidebar-blue-divider"></div>
-
-            <div className="sidebar-metric-card highlight-close">
-              <span className="metric-label yellow-bg">Close Price</span>
-              <span className="metric-value">{fmt(close)}</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">DAILY Range</span>
-              <span className="metric-value">{fmt(calcs.range)}</span>
-            </div>
-
-            <div className="sidebar-blue-divider"></div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">HIGH</span>
-              <span className="metric-value">{fmt(high)}</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">LOW</span>
-              <span className="metric-value">{fmt(low)}</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">Close</span>
-              <span className="metric-value">{fmt(close)}</span>
-            </div>
-
-            <div className="sidebar-metric-card single-tag">
-              <span className="metric-label yellow-bg full-width">FALLING CHANNEL</span>
-            </div>
-
-            <div className="sidebar-metric-card">
-              <span className="metric-label yellow-bg">Average</span>
-              <span className="metric-value">{fmt(calcs.average)}</span>
-            </div>
-
-            <div className="sidebar-blue-divider"></div>
-
-            <div className="sidebar-falling-badge cyan">FALLING CHANNEL</div>
-            <div className="sidebar-falling-badge red">FALLING CHANNEL</div>
-          </div>
-
-          {/* VERTICAL DIVIDER STRIP */}
-          <div className="pointer-vertical-accent-divider"></div>
-
           {/* ========================================================= */}
           {/* RIGHT MATRIX: CONTINUOUS STAIRCASE (EXACT MATCHING ROWS)  */}
           {/* ========================================================= */}
@@ -437,14 +337,7 @@ export default function PointerPage({ initialData }) {
                   </div>
                 </div>
 
-                {/* ROW 3: Zone 3 Mini-Header (127.2, 161.8, 261.8, 423.6) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-offset offset-5"></div>
-                  <div className="stair-cell mini-header">127.2</div>
-                  <div className="stair-cell mini-header">161.8</div>
-                  <div className="stair-cell mini-header">261.8</div>
-                  <div className="stair-cell mini-header">423.6</div>
-                </div>
+
 
                 {/* ROW 4: [1,352.48 IN LINE WITH 1,365.39] */}
                 {/* Zone 2 Upper (1284.15, 1352.48) + Zone 3 Lower (1365.39, 1429.25, 1580.04) */}
@@ -508,13 +401,7 @@ export default function PointerPage({ initialData }) {
                   <div className="stair-offset offset-4"></div>
                 </div>
 
-                {/* ROW 6: Zone 2 Mini-Header (61.8, 100) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-offset offset-3"></div>
-                  <div className="stair-cell mini-header">61.8</div>
-                  <div className="stair-cell mini-header">100</div>
-                  <div className="stair-offset offset-4"></div>
-                </div>
+
 
                 {/* ROW 7: [1,225.50 IN LINE WITH 1,236.70] */}
                 {/* Zone 1 Upper (1166.86, 1178.04, 1225.50) + Zone 2 Lower (1236.70, 1302.27) */}
@@ -583,13 +470,7 @@ export default function PointerPage({ initialData }) {
                   <div className="stair-offset offset-6"></div>
                 </div>
 
-                {/* ROW 9: Zone 1 Mini-Header (14.6, 23.6, 38.2) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-cell mini-header">14.6</div>
-                  <div className="stair-cell mini-header">23.6</div>
-                  <div className="stair-cell mini-header">38.2</div>
-                  <div className="stair-offset offset-6"></div>
-                </div>
+
 
                 {/* ROW 10: Zone 1 Lower (1137.53, 1178.04 [YELLOW], 1196.17) */}
                 <div className="stair-row">
@@ -620,9 +501,18 @@ export default function PointerPage({ initialData }) {
               </div>
 
               {/* ----------------------------------------------------- */}
-              {/* THE MASTER HORIZONTAL DIVIDER                         */}
+              {/* THE MASTER HORIZONTAL DIVIDER WITH CLOSE PRICE        */}
               {/* ----------------------------------------------------- */}
               <div className="matrix-horizontal-divider">
+                <div className="divider-line"></div>
+                <div
+                  className="divider-close-badge"
+                  onClick={() => handleCopy(close, "Close Price")}
+                  title="Click to copy Close Price"
+                >
+                  <span className="close-badge-label">CLOSE PRICE</span>
+                  <span className="close-badge-val">{fmt(close)}</span>
+                </div>
                 <div className="divider-line"></div>
               </div>
 
@@ -683,13 +573,7 @@ export default function PointerPage({ initialData }) {
                   <div className="stair-offset offset-6"></div>
                 </div>
 
-                {/* ROW 3: Falling Zone 1 Mini-Header (14.60, 23.60, 38.20) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-cell mini-header">14.60</div>
-                  <div className="stair-cell mini-header">23.60</div>
-                  <div className="stair-cell mini-header">38.20</div>
-                  <div className="stair-offset offset-6"></div>
-                </div>
+
 
                 {/* ROW 4: [1035.70 IN LINE WITH 1024.50] */}
                 {/* Zone 1 Lower (1094.34, 1083.16, 1035.70) + Zone 2 Upper (1024.50, 958.93) */}
@@ -752,13 +636,7 @@ export default function PointerPage({ initialData }) {
                   <div className="stair-offset offset-4"></div>
                 </div>
 
-                {/* ROW 6: Falling Zone 2 Mini-Header (61.80, 100.00) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-offset offset-3"></div>
-                  <div className="stair-cell mini-header">61.80</div>
-                  <div className="stair-cell mini-header">100.00</div>
-                  <div className="stair-offset offset-4"></div>
-                </div>
+
 
                 {/* ROW 7: [908.72 IN LINE WITH 895.81] */}
                 {/* Zone 2 Lower (977.05, 908.72) + Zone 3 Upper (895.81, 831.95, 681.16) */}
@@ -835,14 +713,7 @@ export default function PointerPage({ initialData }) {
                   </div>
                 </div>
 
-                {/* ROW 9: Falling Zone 3 Mini-Header (127.20, 161.80, 261.80, 423.60) */}
-                <div className="stair-row mini-header-row">
-                  <div className="stair-offset offset-5"></div>
-                  <div className="stair-cell mini-header">127.20</div>
-                  <div className="stair-cell mini-header">161.80</div>
-                  <div className="stair-cell mini-header">261.80</div>
-                  <div className="stair-cell mini-header">423.60</div>
-                </div>
+
 
                 {/* ROW 10: Falling Zone 3 Lower (848.36, 728.60, 480.15) */}
                 <div className="stair-row">
@@ -953,7 +824,7 @@ export default function PointerPage({ initialData }) {
       </div>
 
       {/* FOOTER LEGEND */}
-      <div className="pointer-footer-legend">
+      {/* <div className="pointer-footer-legend">
         <div className="legend-chip">
           <span className="chip-dot golden"></span>
           <span><strong>Fibonacci Headers &amp; Pivots (23.6%)</strong>: Key turning inflection levels</span>
@@ -970,7 +841,7 @@ export default function PointerPage({ initialData }) {
           <span className="chip-dot slate"></span>
           <span><strong>Upper/Lower Bands</strong>: Dynamic volatility buffer bands</span>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

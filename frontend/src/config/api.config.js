@@ -13,4 +13,18 @@ export const ENDPOINTS = {
     ADMIN_REQUESTS: `${API_BASE_URL}/strategy-access/requests`,
     REVIEW_REQUEST: (id) => `${API_BASE_URL}/strategy-access/requests/${id}`,
   },
+  STOCKS: {
+    GET_ALL: `${API_BASE_URL}/stocks`,
+    GET_LATEST_ALL: `${API_BASE_URL}/stocks/latest`,
+    GET_BY_TIMEFRAME: (symbol) => `${API_BASE_URL}/stocks/${encodeURIComponent(symbol)}`,
+    GET_SYMBOLS: `${API_BASE_URL}/stocks/symbols`,
+    CREATE: `${API_BASE_URL}/stocks`,
+    BULK_CREATE: `${API_BASE_URL}/stocks/bulk`,
+    UPDATE_ALL: `${API_BASE_URL}/stocks`,
+    DELETE_ALL: `${API_BASE_URL}/stocks`,
+    GET_BY_ID: (id) => `${API_BASE_URL}/stocks/record/${id}`,
+    UPDATE: (id) => `${API_BASE_URL}/stocks/record/${id}`,
+    DELETE: (id) => `${API_BASE_URL}/stocks/record/${id}`,
+    DELETE_BY_SYMBOL: (symbol) => `${API_BASE_URL}/stocks/symbol/${encodeURIComponent(symbol)}`,
+  },
 };
