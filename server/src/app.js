@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import strategyAccessRoutes from "./routes/strategyAccess.routes.js";
+import stockDataRoutes from "./routes/stockData.routes.js";
 import { notFoundHandler, errorHandler } from "./middlewares/error.middleware.js";
 
 dotenv.config();
@@ -26,6 +27,7 @@ app.get("/health", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/strategy-access", strategyAccessRoutes);
+app.use("/api/stocks", stockDataRoutes);
 
 // Global Error Handling Middlewares
 app.use(notFoundHandler);

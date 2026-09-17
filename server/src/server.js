@@ -1,9 +1,11 @@
 import app from "./app.js";
 import connectDB from "./config/db.js";
+import { testMySQLConnection } from "./config/mysql.js";
 
 const startServer = async () => {
     try {
         await connectDB();
+        await testMySQLConnection();
 
         const PORT = process.env.PORT || 3000;
         const server = app.listen(PORT, () => {
