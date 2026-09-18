@@ -39,6 +39,14 @@ export default function Navbar({ activeTab, setActiveTab }) {
           <span>Strategy Page</span>
         </button>
 
+        <button
+          className={`nav-btn ${activeTab === "screener" ? "active" : ""}`}
+          onClick={() => setActiveTab("screener")}
+        >
+          <span>🚀</span>
+          <span>Screener</span>
+        </button>
+
         {user?.isAdmin && (
           <button
             className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}

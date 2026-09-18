@@ -27,4 +27,10 @@ export const ENDPOINTS = {
     DELETE: (id) => `${API_BASE_URL}/stocks/record/${id}`,
     DELETE_BY_SYMBOL: (symbol) => `${API_BASE_URL}/stocks/symbol/${encodeURIComponent(symbol)}`,
   },
+  SCREENER: {
+    RUN: `${API_BASE_URL}/screener`,
+  },
+  STRATEGY: {
+    CALCULATE: `${API_BASE_URL}/strategy/calculate`,
+  },
 };
