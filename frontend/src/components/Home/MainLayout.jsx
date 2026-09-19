@@ -9,9 +9,18 @@ import StrategyAccessRequestsPage from "../Admin/StrategyAccessRequestsPage";
 
 export default function MainLayout() {
   const [activeTab, setActiveTab] = useState("reports"); // 'reports' | 'pointer' | 'strategy' | 'screener' | 'requests' | 'profile'
+  const [previousTab, setPreviousTab] = useState("screener");
   const [pointerData, setPointerData] = useState(null);
 
-  const handleOpenPointer = (row) => {
+  const handleTabChange = (newTab) => {
+    if (newTab !== activeTab) {
+      setPreviousTab(activeTab);
+      setActiveTab(newTab);
+    }
+  };
+
+  const handleOpenPointer = (row, fromTab = "reports") => {
+    setPreviousTab(fromTab || activeTab || "reports");
     if (row) {
       // Parse formatted numbers like "3,025.00" to float
       const parseVal = (str) => {
@@ -31,7 +40,8 @@ export default function MainLayout() {
     setActiveTab("pointer");
   };
 
-  const handleOpenStrategy = (row) => {
+  const handleOpenStrategy = (row, fromTab = "screener") => {
+    setPreviousTab(fromTab || activeTab || "screener");
     if (row) {
       const parseVal = (str) => {
         if (!str) return 0;
@@ -52,15 +62,41 @@ export default function MainLayout() {
     setActiveTab("strategy");
   };
 
+  const handleBack = () => {
+    setActiveTab(previousTab || "screener");
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} />
 
       <main style={{ paddingBottom: "40px" }}>
-        {activeTab === "reports" && <StockAnalytics onOpenPointer={handleOpenPointer} />}
-        {activeTab === "pointer" && <PointerPage initialData={pointerData} />}
-        {activeTab === "strategy" && <StrategyPage initialData={pointerData} />}
-        {activeTab === "screener" && <ScreenerPage onOpenStrategy={handleOpenStrategy} onOpenPointer={handleOpenStrategy} />}
+        <div style={{ display: activeTab === "reports" ? "block" : "none" }}>
+          <StockAnalytics
+            onOpenPointer={(row) => handleOpenPointer(row, "reports")}
+            onOpenStrategy={(row) => handleOpenStrategy(row, "reports")}
+          />
+        </div>
+        <div style={{ display: activeTab === "pointer" ? "block" : "none" }}>
+          <PointerPage
+            initialData={pointerData}
+            onBack={handleBack}
+            previousTab={previousTab}
+          />
+        </div>
+        <div style={{ display: activeTab === "strategy" ? "block" : "none" }}>
+          <StrategyPage
+            initialData={pointerData}
+            onBack={handleBack}
+            previousTab={previousTab}
+          />
+        </div>
+        <div style={{ display: activeTab === "screener" ? "block" : "none" }}>
+          <ScreenerPage
+            onOpenStrategy={(row) => handleOpenStrategy(row, "screener")}
+            onOpenPointer={(row) => handleOpenStrategy(row, "screener")}
+          />
+        </div>
         {activeTab === "requests" && <StrategyAccessRequestsPage />}
         {activeTab === "profile" && <ProfilePage />}
       </main>

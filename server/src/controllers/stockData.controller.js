@@ -80,10 +80,10 @@ export const getAllStocksByTimeframe = async (req, res, next) => {
  */
 export const getLatestStocksAll = async (req, res, next) => {
   try {
-    const { timeframe = "Daily" } = req.query;
+    const { timeframe = "Daily", date } = req.query;
     const matchedTf = parseTimeframe(timeframe);
 
-    const data = await StockDataModel.getLatestAllSymbols(matchedTf);
+    const data = await StockDataModel.getLatestAllSymbols(matchedTf, { date });
 
     return res.status(200).json({
       success: true,

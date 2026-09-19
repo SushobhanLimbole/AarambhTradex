@@ -62,6 +62,50 @@ export function evaluatePriceBand(price, channels) {
 }
 
 /**
+ * Determine institutional scenario / pointer type matching Excel rules
+ */
+export function determineScenario(highCond, lowCond, closeCond) {
+  if (!highCond || !lowCond || highCond === "FALSE" || lowCond === "FALSE" || closeCond === "FALSE") {
+    return "";
+  }
+
+  // 1. UPWARD ROTATION: High in central band (FC 14.6 - RC 14.6), Low in (FC 100 - FC 61.8)
+  if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
+    return "UPWARD ROTATION";
+  }
+
+  // 2. TABLE TOP: High in (RC 23.6 - RC 38.2), Low in (FC 100 - FC 61.8)
+  if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
+    return "TABLE TOP";
+  }
+
+  // 3. TABLE TENNIS: High in (RC 38.2 - RC 61.8), Low in (FC 61.8 - FC 38.2)
+  if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
+    return "TABLE TENNIS";
+  }
+
+  // 4. FALLING DUCK: High in (RC 61.8 - RC 100), Low in central band (FC 14.6 - RC 14.6)
+  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
+    return "FALLING DUCK";
+  }
+
+  // 5. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 23.6 - FC 14.6)
+  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
+    return "RISING JACK";
+  }
+
+  // Extension Breakouts / Breakdowns
+  if (highCond.includes("RC 100") || highCond.includes("RC 127") || highCond.includes("RC 161")) {
+    return "RISING - FALLING BREAKOUT";
+  }
+  if (lowCond.includes("FC 100") || lowCond.includes("FC 127") || lowCond.includes("FC 161")) {
+    return "FALLING BREAKDOWN";
+  }
+
+  return "";
+}
+
+/**
  * Calculate full institutional triggers & strategy scenarios from OHLC candle
  * Formula:
  *  - Average: (HIGH + LOW + CLOSE) / 3 (OPEN is strictly NOT considered) across DAILY/WEEKLY/MONTHLY/QUARTERLY/HALF YEARLY/YEARLY/5 YEARLY
@@ -211,20 +255,7 @@ export function calculateStrategyData(ohlc = {}) {
   const lowCloseCond = evaluatePriceBand(lowClose, channelContext);
 
   // Scenario determination (Matching Excel formula: if conditions are FALSE, Scenario is empty)
-  let scenarioName = "";
-  if (highCond !== "FALSE" && lowCond !== "FALSE" && closeCond !== "FALSE") {
-    if (c >= fallingMain[14.6] && c <= risingMain[14.6]) {
-      scenarioName = "UPWARD ROTATION";
-    } else if (c > risingMain[14.6] && c <= risingMain[61.8]) {
-      scenarioName = "TABLE TOP";
-    } else if (c > risingMain[61.8]) {
-      scenarioName = "RISING BREAKOUT";
-    } else if (c < fallingMain[14.6] && c >= fallingMain[61.8]) {
-      scenarioName = "DOWNWARD ROTATION";
-    } else if (c < fallingMain[61.8]) {
-      scenarioName = "FALLING BREAKDOWN";
-    }
-  }
+  const scenarioName = determineScenario(highCond, lowCond, closeCond);
 
   const conditions = {
     high: highCond,

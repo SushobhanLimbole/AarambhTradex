@@ -30,8 +30,10 @@ export const stockService = {
    * Get latest candle for every symbol in the database
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
    */
-  async getLatestAllStocks(timeframe = "Daily") {
-    return await apiClient(`${ENDPOINTS.STOCKS.GET_LATEST_ALL}?timeframe=${encodeURIComponent(timeframe)}`, {
+  async getLatestAllStocks(timeframe = "Daily", date) {
+    const params = new URLSearchParams({ timeframe });
+    if (date) params.append("date", date);
+    return await apiClient(`${ENDPOINTS.STOCKS.GET_LATEST_ALL}?${params.toString()}`, {
       method: "GET",
     });
   },

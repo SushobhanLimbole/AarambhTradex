@@ -77,7 +77,7 @@ const PRESETS = [
   },
 ];
 
-export default function StrategyPage({ initialData }) {
+export default function StrategyPage({ initialData, onBack, previousTab = "screener" }) {
   const { user } = useAuth();
 
   // Input states
@@ -363,18 +363,40 @@ export default function StrategyPage({ initialData }) {
   return (
     <div className="strategy-page-wrapper">
       {/* HEADER HERO BAR */}
-      {/* <div className="strategy-header-container">
-        <div className="strategy-title-area">
-          <div className="strategy-badge-pill">
-            <span className="strategy-pulsing-dot"></span>
-            <span>INSTITUTIONAL STRATEGY &amp; DECISION MATRIX</span>
-          </div>
-          <h1 className="strategy-heading">Strategy &amp; Fibonacci Decision Engine</h1>
-          <p className="strategy-subheading">
-            Live institutional trading strategies, breakout pointers, table tennis ranges, and confidential server-calculated Fibonacci targets.
-          </p>
+      {onBack && (
+        <div style={{ marginBottom: 14 }}>
+          <button
+            onClick={onBack}
+            type="button"
+            className="strategy-back-btn"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              borderRadius: "10px",
+              padding: "8px 16px",
+              fontSize: "13.5px",
+              fontWeight: "600",
+              color: "#1e293b",
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#f1f5f9";
+              e.currentTarget.style.borderColor = "#94a3b8";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#ffffff";
+              e.currentTarget.style.borderColor = "#cbd5e1";
+            }}
+          >
+            <span style={{ fontSize: 16 }}>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
+          </button>
         </div>
-      </div> */}
+      )}
 
       {/* COPIED TOAST */}
       {copiedText && (

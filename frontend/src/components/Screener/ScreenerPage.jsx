@@ -29,14 +29,11 @@ const ALL_TRIGGERS = TRIGGER_GROUPS.flatMap((g) => g.triggers);
 const TIMEFRAMES = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
 
 const PATTERNS = [
-  "TABLE TOP",
-  "TABLE TENNIS",
-  "BUYING POINTER",
-  "SELLING POINTER",
-  "RISING - FALLING BREAKOUT",
-  "UPWARD ROTATION",
-  "RISING JACK",
-  "FALLING DUCK",
+  "Table Tennis",
+  "Table Top",
+  "Rising Jack",
+  "Falling Duck",
+  "Upward Rotation",
 ];
 
 export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
@@ -55,8 +52,8 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
   const [cmp2EndDate, setCmp2EndDate] = useState(oneMonthAgo);
   const [cmp2Timeframe, setCmp2Timeframe] = useState("DAILY");
 
-  // Pattern & Multi-Trigger State
-  const [pattern, setPattern] = useState("TABLE TOP");
+  // Pattern & Multi-Trigger State (Strictly Table Tennis, Table Top, Rising Jack, Falling Duck, Upward Rotation)
+  const [pattern, setPattern] = useState("Table Top");
   const [selectedTriggers, setSelectedTriggers] = useState(["Y1"]);
 
   // Results & Execution State

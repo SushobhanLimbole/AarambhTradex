@@ -56,7 +56,7 @@ const PRESETS = [
   },
 ];
 
-export default function PointerPage({ initialData }) {
+export default function PointerPage({ initialData, onBack, previousTab = "reports" }) {
   // Input states
   const [open, setOpen] = useState(initialData?.open ?? 962.0);
   const [high, setHigh] = useState(initialData?.high ?? 1163.0);
@@ -217,16 +217,40 @@ export default function PointerPage({ initialData }) {
     <div className="pointer-page-wrapper">
       {/* HEADER HERO BAR */}
       <div className="pointer-header-container">
-        {/* <div className="pointer-title-area">
-          <div className="pointer-badge-pill">
-            <span className="pointer-pulsing-dot"></span>
-            <span>INSTITUTIONAL POINTER ENGINE</span>
+        {onBack && (
+          <div style={{ marginBottom: 14 }}>
+            <button
+              onClick={onBack}
+              type="button"
+              className="pointer-back-btn"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                border: "1px solid #cbd5e1",
+                borderRadius: "10px",
+                padding: "8px 16px",
+                fontSize: "13.5px",
+                fontWeight: "600",
+                color: "#1e293b",
+                cursor: "pointer",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#f1f5f9";
+                e.currentTarget.style.borderColor = "#94a3b8";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.borderColor = "#cbd5e1";
+              }}
+            >
+              <span style={{ fontSize: 16 }}>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
+            </button>
           </div>
-          <h1 className="pointer-heading">Pointer Fibonacci Channel Matrix</h1>
-          <p className="pointer-subheading">
-            Continuous staircase alignment across Fibonacci channels, volatility buffer bands, and breakout pivots.
-          </p>
-        </div> */}
+        )}
 
         {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
         <div className="pointer-timeframe-tab-bar">

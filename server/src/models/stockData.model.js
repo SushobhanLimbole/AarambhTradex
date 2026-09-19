@@ -428,20 +428,43 @@ export class StockDataModel {
   }
 
   /**
-   * Get the latest candle for EVERY stock symbol in the database for a given timeframe
+   * Get today's / latest trading session candles for all symbols (matching the latest date only)
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
+   * @param {Object} options - { date }
    */
-  static async getLatestAllSymbols(timeframe = "Daily", tableName = this.tableName) {
-    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC" }, tableName);
-    const latestMap = new Map();
+  static async getLatestAllSymbols(timeframe = "Daily", options = {}, tableName = this.tableName) {
+    const { date } = options;
 
-    for (const candle of allCandles) {
-      if (candle.symbol && !latestMap.has(candle.symbol)) {
-        latestMap.set(candle.symbol, candle);
+    if (String(timeframe).toLowerCase() === "daily") {
+      let targetDate = date;
+      if (!targetDate) {
+        // Find the latest trading date in the table
+        const query = `SELECT MAX(\`date\`) as maxDate FROM \`${tableName}\``;
+        const [res] = await pool.query(query);
+        targetDate = res[0]?.maxDate;
       }
+
+      if (!targetDate) return [];
+
+      const dateStr = typeof targetDate === "string"
+        ? targetDate.slice(0, 10)
+        : new Date(targetDate).toISOString().slice(0, 10);
+
+      const query = `
+        SELECT * FROM \`${tableName}\`
+        WHERE \`date\` = ?
+        ORDER BY \`symbol\` ASC
+      `;
+      const [rows] = await pool.query(query, [dateStr]);
+      return rows.map((r) => this._formatRow(r));
     }
 
-    return Array.from(latestMap.values());
+    // For higher timeframes, get candles for the latest time bucket only
+    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC" }, tableName);
+    if (!allCandles || allCandles.length === 0) return [];
+
+    const latestBucket = allCandles[0]?.bucket || allCandles[0]?.date;
+    return allCandles.filter((c) => (c.bucket || c.date) === latestBucket);
   }
 
   /**
