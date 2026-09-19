@@ -217,7 +217,7 @@ export default function PointerPage({ initialData }) {
     <div className="pointer-page-wrapper">
       {/* HEADER HERO BAR */}
       <div className="pointer-header-container">
-        <div className="pointer-title-area">
+        {/* <div className="pointer-title-area">
           <div className="pointer-badge-pill">
             <span className="pointer-pulsing-dot"></span>
             <span>INSTITUTIONAL POINTER ENGINE</span>
@@ -226,7 +226,7 @@ export default function PointerPage({ initialData }) {
           <p className="pointer-subheading">
             Continuous staircase alignment across Fibonacci channels, volatility buffer bands, and breakout pivots.
           </p>
-        </div>
+        </div> */}
 
         {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
         <div className="pointer-timeframe-tab-bar">

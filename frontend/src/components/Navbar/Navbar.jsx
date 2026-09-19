@@ -11,7 +11,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
     <header className="nav-header">
       <div className="nav-left" onClick={() => setActiveTab("reports")}>
         <img src={logoImg} alt="Aarambh TradeX Logo" className="nav-logo" />
-        <span className="nav-brand">Aarambh TradeX</span>
+        <span className="nav-brand">Aarambh Tradex</span>
       </div>
 
       <div className="nav-right">

@@ -1,6 +1,31 @@
 import React, { useState, useMemo } from "react";
 import "./StockAnalytics.css";
 
+// Pointer Descriptive Name Mapping (Aarambh TradeX Institutional Nomenclature)
+export const POINTER_DETAILS = {
+  "Y1": { code: "Y1", name: "RISING JACK", type: "orange", desc: "Selling Pointer / Rising Jack" },
+  "Y2": { code: "Y2", name: "TABLE TENNIS", type: "orange", desc: "Table Tennis Rebound" },
+  "Y3": { code: "Y3", name: "BUYING POINTER", type: "orange", desc: "Buying Pointer Expansion" },
+  "Y4": { code: "Y4", name: "TABLE TOP", type: "orange", desc: "Table Top Breakout" },
+  "Y5": { code: "Y5", name: "RISING BREAKOUT", type: "orange", desc: "Rising Breakout Extension" },
+  "Y6": { code: "Y6", name: "POWER JACK", type: "orange", desc: "Power Jack Momentum" },
+  "R1": { code: "R1", name: "FALLING JACK", type: "red", desc: "Falling Jack Reversal" },
+  "R2": { code: "R2", name: "TABLE TOP", type: "red", desc: "Table Top Breakdown" },
+  "R3": { code: "R3", name: "SELLING POINTER", type: "red", desc: "Selling Pointer Pressure" },
+  "R4": { code: "R4", name: "FALLING BREAKDOWN", type: "red", desc: "Falling Breakdown Channel" },
+  "R5": { code: "R5", name: "CRASH POINTER", type: "red", desc: "Crash Pointer Selloff" },
+  "R6": { code: "R6", name: "PANIC DROP", type: "red", desc: "Panic Drop Extension" },
+  "G-BUY": { code: "G-BUY", name: "GOLDEN BUY", type: "green", desc: "Golden Ratio Long Signal" },
+  "G-SELL": { code: "G-SELL", name: "GOLDEN SELL", type: "green", desc: "Golden Ratio Short Signal" },
+};
+
+export const getPointerInfo = (code) => {
+  if (!code) return { code: "—", name: "", type: "orange" };
+  const upper = String(code).trim().toUpperCase();
+  if (POINTER_DETAILS[upper]) return POINTER_DETAILS[upper];
+  return { code, name: code, type: "orange" };
+};
+
 const INITIAL_ROWS = [
   {
     no: "01",
@@ -322,6 +347,7 @@ export default function StockAnalytics({ onOpenPointer }) {
             <option value="NSE">NSE</option>
             <option value="BSE">BSE</option>
             <option value="MCX">MCX</option>
+            <option value="MCX">Crypto </option>
           </select>
         </div>
 
@@ -511,7 +537,7 @@ export default function StockAnalytics({ onOpenPointer }) {
 
       {/* MATRIX TABLE CARD */}
       <div className="matrix-card">
-        <div className="matrix-header-bar">
+        {/* <div className="matrix-header-bar">
           <span className="matrix-title">Institutional Analytical Matrix</span>
           <div className="matrix-legend">
             <span className="legend-item">
@@ -530,7 +556,7 @@ export default function StockAnalytics({ onOpenPointer }) {
               <span className="legend-pill zone-pill">ZONE GREEN</span> Bullish Momentum
             </span>
           </div>
-        </div>
+        </div> */}
 
         <div className="table-scroll">
           <table className="apple-table">
@@ -577,14 +603,21 @@ export default function StockAnalytics({ onOpenPointer }) {
                   )}
                   {visibleCols.pointer && (
                     <td>
-                      <span
-                        className={`pointer-tag ${row.pointerType}`}
-                        style={{ cursor: onOpenPointer ? "pointer" : "default" }}
-                        onClick={() => onOpenPointer && onOpenPointer(row)}
-                        title="Click to view full Pointer Fibonacci Matrix"
-                      >
-                        {row.pointer} ↗
-                      </span>
+                      {(() => {
+                        const pInfo = getPointerInfo(row.pointer);
+                        return (
+                          <span
+                            className={`pointer-tag ${pInfo.type || row.pointerType || "orange"}`}
+                            style={{ cursor: onOpenPointer ? "pointer" : "default" }}
+                            onClick={() => onOpenPointer && onOpenPointer(row)}
+                            title={`Click to view full Pointer Fibonacci Matrix (${pInfo.name || row.pointer})`}
+                          >
+                            <span className="pointer-code">{pInfo.code}</span>
+                            <span className="pointer-name">{pInfo.name}</span>
+                            <span className="pointer-arrow">↗</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                   )}
                   {visibleCols.virgin && (

@@ -341,6 +341,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState("register"); // 'register' | 'login'
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
 
   // Register form state
@@ -513,10 +514,27 @@ export default function AuthPage() {
                   type="checkbox"
                   className="amu-checkbox"
                   checked={agree}
-                  onChange={() => setAgree((a) => !a)}
+                  onChange={() => {
+                    const nextVal = !agree;
+                    setAgree(nextVal);
+                    if (nextVal && registerErrors.agree) {
+                      setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
+                    }
+                  }}
                 />
                 <span className="amu-terms-text">
-                  I agree to the <a className="amu-link" href="#">Terms &amp; Conditions</a>
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    className="amu-link amu-terms-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowTermsModal(true);
+                    }}
+                  >
+                    Terms &amp; Conditions
+                  </button>
                 </span>
               </label>
               {registerErrors.agree && <span className="amu-error">{registerErrors.agree}</span>}
@@ -614,6 +632,129 @@ export default function AuthPage() {
             </button>
           </div>
           */}
+        </div>
+      </div>
+
+      {showTermsModal && (
+        <TermsModal
+          onClose={() => setShowTermsModal(false)}
+          onAccept={() => {
+            setAgree(true);
+            setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
+            setShowTermsModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TermsModal({ onClose, onAccept }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="amu-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="amu-modal-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="amu-modal-header">
+          <div className="amu-modal-title-wrap">
+            <div className="amu-modal-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2f7de1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="amu-modal-title">Terms &amp; Conditions</h2>
+              <p className="amu-modal-subtitle">Aarambh TradeX • Terms of Service &amp; Risk Agreement</p>
+            </div>
+          </div>
+          <button className="amu-modal-close-btn" onClick={onClose} aria-label="Close dialog">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="amu-modal-body">
+          <div className="amu-modal-notice">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>Please review these terms carefully before creating an account on Aarambh TradeX.</span>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>1. Acceptance of Terms</h4>
+            <p>
+              By registering, accessing, or using Aarambh TradeX, you confirm that you are at least 18 years of age and agree to comply with and be bound by these Terms and Conditions along with our Privacy Policy.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>2. Account Registration &amp; Security</h4>
+            <p>
+              You agree to provide accurate, current, and complete registration details. You are solely responsible for maintaining the confidentiality of your credentials and all activities occurring under your account.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>3. Market Data &amp; Analytics</h4>
+            <p>
+              Real-time quotes, technical charts, indicators, and analytics available on Aarambh TradeX are provided for informational and educational purposes only. While we aim for high accuracy, we do not guarantee uninterrupted or error-free market feeds.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>4. Financial &amp; Investment Risk Disclaimer</h4>
+            <p>
+              Trading in equities, derivatives, commodities, foreign exchange, and cryptocurrencies carries substantial financial risk. Losses can exceed deposits. Aarambh TradeX does not provide personalized investment advice or guarantee any trading returns.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>5. User Conduct &amp; Platform Integrity</h4>
+            <p>
+              You agree not to engage in unauthorized data scraping, automated abuse, account sharing, or actions that compromise platform integrity, availability, or other users&apos; security.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>6. Privacy &amp; Data Protection</h4>
+            <p>
+              Your data is collected and processed in accordance with industry security standards and our Privacy Policy. We do not sell your personal trading information to unauthorized third parties.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>7. Amendments &amp; Termination</h4>
+            <p>
+              Aarambh TradeX reserves the right to update these terms or suspend/terminate accounts that violate our safety policies. If you have any questions, concerns, or need assistance regarding these terms or your account, please contact our support team at <a href="mailto:aarambhtradex@gmail.com">aarambhtradex@gmail.com</a>.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="amu-modal-footer">
+          <button type="button" className="amu-modal-btn amu-modal-btn-secondary" onClick={onClose}>
+            Decline
+          </button>
+          <button type="button" className="amu-modal-btn amu-modal-btn-primary" onClick={onAccept}>
+            I Agree &amp; Accept
+          </button>
         </div>
       </div>
     </div>

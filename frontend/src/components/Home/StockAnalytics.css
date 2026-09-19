@@ -11,14 +11,13 @@
 }
 
 /* TOP FILTER TOOLBAR (MATCHING SCREENSHOT 2) */
+/* TOP FILTER TOOLBAR - DARK BACKGROUND THEME */
 .filter-toolbar {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  padding: 16px 20px;
+  border: 1px solid #334155;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
+  padding: 18px 22px;
   margin-bottom: 24px;
   display: flex;
   flex-wrap: wrap;
@@ -42,8 +41,8 @@
 .filter-label {
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.2px;
+  color: #e2e8f0;
+  letter-spacing: 0.3px;
 }
 
 .filter-label span {
@@ -55,12 +54,12 @@
 .apple-input,
 .apple-select {
   height: 42px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: #0b1329;
+  border: 1px solid #334155;
   border-radius: 10px;
   padding: 0 12px;
   font-size: 13.5px;
-  color: #0f172a;
+  color: #f8fafc;
   outline: none;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -69,8 +68,14 @@
 
 .apple-input:focus,
 .apple-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  background: #111e38;
+}
+
+.apple-select option {
+  background: #0f172a;
+  color: #f8fafc;
 }
 
 .filter-actions {
@@ -82,7 +87,7 @@
 
 .btn-analyze {
   height: 42px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
@@ -94,23 +99,24 @@
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
   white-space: nowrap;
 }
 
 .btn-analyze:hover {
   opacity: 0.95;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
 }
 
 .btn-clear {
   height: 42px;
-  background: #ffffff;
-  color: #64748b;
+  background: #1e293b;
+  color: #cbd5e1;
   font-size: 13.5px;
   font-weight: 500;
   padding: 0 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #475569;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -118,18 +124,19 @@
 }
 
 .btn-clear:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #334155;
+  color: #ffffff;
+  border-color: #64748b;
 }
 
 .btn-columns {
   height: 42px;
-  background: #f0f9ff;
-  color: #0284c7;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
   font-size: 13.5px;
   font-weight: 600;
   padding: 0 14px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 10px;
   cursor: pointer;
   display: flex;
@@ -140,7 +147,8 @@
 }
 
 .btn-columns:hover {
-  background: #e0f2fe;
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
 }
 
 /* BANNER HEADER (MATCHING SCREENSHOT 1) */
@@ -175,15 +183,15 @@
   font-weight: 700;
 }
 
-/* COLUMN TOGGLE MENU */
+/* COLUMN TOGGLE MENU (DARK THEME) */
 .columns-menu {
   position: absolute;
   top: 50px;
   right: 0;
-  background: #ffffff;
+  background: #1e293b;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  border: 1px solid #334155;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
   padding: 14px;
   z-index: 100;
   width: 220px;
@@ -194,7 +202,7 @@
 
 .col-checkbox-label {
   font-size: 13px;
-  color: #334155;
+  color: #e2e8f0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -260,7 +268,7 @@
   background: #f59e0b;
 }
 
-/* TABLE STYLING */
+/* TABLE STYLING WITH HIGHLIGHTED HEADER */
 .table-scroll {
   overflow-x: auto;
 }
@@ -271,15 +279,25 @@
   text-align: left;
 }
 
+.apple-table thead tr {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+}
+
 .apple-table th {
-  background: #f8fafc;
+  background: transparent;
   padding: 14px 16px;
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e2e8f0;
+  color: #ffffff;
+  letter-spacing: 0.6px;
+  border-bottom: 2px solid #38bdf8;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.apple-table th:last-child {
+  border-right: none;
 }
 
 .apple-table td {
@@ -291,9 +309,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.apple-table tr:hover {
+/* .apple-table tr:hover {
   background: #f8fafc;
-}
+} */
 
 .serial-col {
   font-weight: 700;
@@ -328,27 +346,59 @@
   background: #dc2626;
 }
 
+/* POINTER BADGES WITH DESCRIPTIVE NAMES */
 .pointer-tag {
-  display: inline-block;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.pointer-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.pointer-code {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.pointer-name {
+  font-weight: 700;
+}
+
+.pointer-arrow {
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 .pointer-tag.orange {
   background: #fef3c7;
-  color: #d97706;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .pointer-tag.red {
   background: #fee2e2;
-  color: #dc2626;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .pointer-tag.green {
   background: #dcfce7;
   color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 /* ANALYTICS BADGES (VIRGIN, ZONE, CLOSURE) */

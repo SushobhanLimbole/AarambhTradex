@@ -363,7 +363,7 @@ export default function StrategyPage({ initialData }) {
   return (
     <div className="strategy-page-wrapper">
       {/* HEADER HERO BAR */}
-      <div className="strategy-header-container">
+      {/* <div className="strategy-header-container">
         <div className="strategy-title-area">
           <div className="strategy-badge-pill">
             <span className="strategy-pulsing-dot"></span>
@@ -374,7 +374,7 @@ export default function StrategyPage({ initialData }) {
             Live institutional trading strategies, breakout pointers, table tennis ranges, and confidential server-calculated Fibonacci targets.
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* COPIED TOAST */}
       {copiedText && (
@@ -388,9 +388,9 @@ export default function StrategyPage({ initialData }) {
       {/* SECTION 1: FULL POINTER MATRIX CARD                       */}
       {/* ========================================================= */}
       <div className="strategy-card pointer-matrix-block">
-        <div className="card-section-label">
+        {/* <div className="card-section-label">
           <span>PART 1: INSTITUTIONAL POINTER MATRIX</span>
-        </div>
+        </div> */}
 
         <div className="pointer-compact-layout">
           {/* LEFT SIDEBAR */}
@@ -724,11 +724,11 @@ export default function StrategyPage({ initialData }) {
       {/* SECTION 2: INSTITUTIONAL STRATEGY & DECISION MATRIX ENGINE */}
       {/* ========================================================= */}
       <div className="strategy-card strategy-engine-block">
-        <div className="card-section-label">
+        {/* <div className="card-section-label">
           <span>PART 2: STRATEGY DECISION MATRIX &amp; POINTER SCENARIOS (API CALCULATED)</span>
           {strategyLoading && <span className="strategy-api-badge loading">Syncing with Server API...</span>}
           {strategyApiData && !strategyLoading && <span className="strategy-api-badge live">✓ Live API Synced</span>}
-        </div>
+        </div> */}
 
         {/* ACCESS RESTRICTION BARRIER */}
         {accessDenied ? (
@@ -754,126 +754,7 @@ export default function StrategyPage({ initialData }) {
           </div>
         ) : (
           <>
-            {/* TOP SPLIT: CONDITIONS & SIGNAL MATRIX */}
-            <div className="strategy-top-split-grid">
-              
-              {/* LEFT: SCRIPT CONDITIONS & TABLE TOP SCENARIOS */}
-              <div className="strategy-condition-panel">
-                {/* SCRIPT SELECTOR */}
-                <div className="script-header-row">
-                  <div className="script-title-cell">Script</div>
-                  <div className="script-value-cell">{scriptName}</div>
-                </div>
-
-                {/* CONDITIONS TABLE (DYNAMICALLY FROM API) */}
-                <div className="conditions-table">
-                  <div className="condition-row">
-                    <div className="cond-tag purple">High</div>
-                    <div className="cond-desc">{strategyApiData?.conditions?.high || "Above FC 14.6 & Below RC 14.6."}</div>
-                  </div>
-                  <div className="condition-row">
-                    <div className="cond-tag sage">Low</div>
-                    <div className="cond-desc">{strategyApiData?.conditions?.low || "Above FC 100 & Below FC 61.8."}</div>
-                  </div>
-                  <div className="condition-row">
-                    <div className="cond-tag sage">Low</div>
-                    <div className="cond-desc status-false">{strategyApiData?.conditions?.lowCheck2 || "FALSE"}</div>
-                  </div>
-                  <div className="condition-row">
-                    <div className="cond-tag coral">Close</div>
-                    <div className="cond-desc">{strategyApiData?.conditions?.close || "Above FC 14.6 & Below RC 14.6."}</div>
-                  </div>
-
-                  {/* SCENARIO BANNER */}
-                  <div className="scenario-banner-row">
-                    <div className="scenario-label">Scenario</div>
-                    <div className="scenario-value">{strategyApiData?.conditions?.scenario || "UPWARD ROTATION"}</div>
-                  </div>
-
-                  {/* SECONDARY CHECKS */}
-                  <div className="condition-row">
-                    <div className="cond-tag deep-purple">High &amp; Low</div>
-                    <div className="cond-desc">{strategyApiData?.conditions?.highLow || "Above FC 38.2 & Below FC 23.6."}</div>
-                  </div>
-                  <div className="condition-row">
-                    <div className="cond-tag teal">Low &amp; Close</div>
-                    <div className="cond-desc">{strategyApiData?.conditions?.lowClose || "Above FC 14.6 & Below RC 14.6."}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT: YELLOW / GREEN / RED SIGNAL MATRIX (FROM API TRIGGERS MATCHING EXCEL) */}
-              <div className="strategy-signal-matrix-panel">
-                <div className="signal-matrix-header">
-                  <div className="sig-col-head yellow">YELLOW</div>
-                  <div className="sig-col-head green">GREEN</div>
-                  <div className="sig-col-head red">RED</div>
-                </div>
-
-                <div className="signal-matrix-grid">
-                  {/* Row 1: Y1 (893.16), G1 (889.22), R5 (880.80) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y1 ?? 893.16, "Y1 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y1 ?? 893.16)}
-                  </div>
-                  <div className="sig-cell green-val" onClick={() => handleCopy(apiTriggers?.green?.G1 ?? 889.22, "G1 Trigger")}>
-                    {fmt(apiTriggers?.green?.G1 ?? 889.22)}
-                  </div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[0] ?? apiTriggers?.red?.R5 ?? 880.80, "R5 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[0] ?? apiTriggers?.red?.R5 ?? 880.80)}
-                  </div>
-
-                  {/* Row 2: Y2 (894.62), G2 (890.80 - Boxed Close), R4 (883.78) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y2 ?? 894.62, "Y2 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y2 ?? 894.62)}
-                  </div>
-                  <div className="sig-cell green-val highlight-box" onClick={() => handleCopy(apiTriggers?.green?.G2 ?? close ?? 890.80, "G2 Close Reference")} title="Current Close Price Level (G2)">
-                    {fmt(apiTriggers?.green?.G2 ?? close ?? 890.80)}
-                  </div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[1] ?? apiTriggers?.red?.R4 ?? 883.78, "R4 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[1] ?? apiTriggers?.red?.R4 ?? 883.78)}
-                  </div>
-
-                  {/* Row 3: Y3 (896.32), G3 (892.38), R1 (885.28) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y3 ?? 896.32, "Y3 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y3 ?? 896.32)}
-                  </div>
-                  <div className="sig-cell green-val" onClick={() => handleCopy(apiTriggers?.green?.G3 ?? 892.38, "G3 Trigger")}>
-                    {fmt(apiTriggers?.green?.G3 ?? 892.38)}
-                  </div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[2] ?? apiTriggers?.red?.R1 ?? 885.28, "R1 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[2] ?? apiTriggers?.red?.R1 ?? 885.28)}
-                  </div>
-
-                  {/* Row 4: Y4 (897.82), G4 (empty), R2 (886.98) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y4 ?? 897.82, "Y4 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y4 ?? 897.82)}
-                  </div>
-                  <div className="sig-cell empty-val"></div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[3] ?? apiTriggers?.red?.R2 ?? 886.98, "R2 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[3] ?? apiTriggers?.red?.R2 ?? 886.98)}
-                  </div>
-
-                  {/* Row 5: Y5 (900.80), G5 (empty), R3 (888.44) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y5 ?? 900.80, "Y5 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y5 ?? 900.80)}
-                  </div>
-                  <div className="sig-cell empty-val"></div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[4] ?? apiTriggers?.red?.R3 ?? 888.44, "R3 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[4] ?? apiTriggers?.red?.R3 ?? 888.44)}
-                  </div>
-
-                  {/* Row 6: Y6 (906.98), G6 (empty), R6 (874.62) */}
-                  <div className="sig-cell yellow-val" onClick={() => handleCopy(apiTriggers?.yellow?.Y6 ?? 906.98, "Y6 Trigger")}>
-                    {fmt(apiTriggers?.yellow?.Y6 ?? 906.98)}
-                  </div>
-                  <div className="sig-cell empty-val"></div>
-                  <div className="sig-cell red-val" onClick={() => handleCopy(apiTriggers?.displayTable?.red?.[5] ?? apiTriggers?.red?.R6 ?? 874.62, "R6 Trigger")}>
-                    {fmt(apiTriggers?.displayTable?.red?.[5] ?? apiTriggers?.red?.R6 ?? 874.62)}
-                  </div>
-                </div>
-              </div>
-
-            </div>
+           
 
             {/* ========================================================= */}
             {/* BOTTOM: 5 INSTITUTIONAL STRATEGY DECISION CARDS           */}
