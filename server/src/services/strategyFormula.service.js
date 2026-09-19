@@ -63,46 +63,40 @@ export function evaluatePriceBand(price, channels) {
 
 /**
  * Determine institutional scenario / pointer type matching Excel rules
+ * Strictly maps to: Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck
+ * If no match, returns "FALSE"
  */
 export function determineScenario(highCond, lowCond, closeCond) {
-  if (!highCond || !lowCond || highCond === "FALSE" || lowCond === "FALSE" || closeCond === "FALSE") {
-    return "";
+  if (!highCond || !lowCond || highCond === "FALSE" || lowCond === "FALSE") {
+    return "FALSE";
   }
 
   // 1. UPWARD ROTATION: High in central band (FC 14.6 - RC 14.6), Low in (FC 100 - FC 61.8)
   if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
-    return "UPWARD ROTATION";
+    return "Upward Rotation";
   }
 
   // 2. TABLE TOP: High in (RC 23.6 - RC 38.2), Low in (FC 100 - FC 61.8)
   if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
-    return "TABLE TOP";
+    return "Table Top";
   }
 
   // 3. TABLE TENNIS: High in (RC 38.2 - RC 61.8), Low in (FC 61.8 - FC 38.2)
   if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
-    return "TABLE TENNIS";
+    return "Table Tennis";
   }
 
-  // 4. FALLING DUCK: High in (RC 61.8 - RC 100), Low in central band (FC 14.6 - RC 14.6)
-  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
-    return "FALLING DUCK";
-  }
-
-  // 5. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 23.6 - FC 14.6)
+  // 4. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 23.6 - FC 14.6)
   if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
-    return "RISING JACK";
+    return "Rising Jack";
   }
 
-  // Extension Breakouts / Breakdowns
-  if (highCond.includes("RC 100") || highCond.includes("RC 127") || highCond.includes("RC 161")) {
-    return "RISING - FALLING BREAKOUT";
-  }
-  if (lowCond.includes("FC 100") || lowCond.includes("FC 127") || lowCond.includes("FC 161")) {
-    return "FALLING BREAKDOWN";
+  // 5. FALLING DUCK: High in (RC 61.8 - RC 100), Low in central band (FC 14.6 - RC 14.6)
+  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
+    return "Falling Duck";
   }
 
-  return "";
+  return "FALSE";
 }
 
 /**

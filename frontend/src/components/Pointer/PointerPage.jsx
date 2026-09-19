@@ -56,25 +56,133 @@ const PRESETS = [
   },
 ];
 
+const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"];
+
+const normalizeTimeframe = (tf) => {
+  if (!tf) return "Daily";
+  const str = String(tf).trim().toLowerCase();
+  if (str === "daily") return "Daily";
+  if (str === "weekly") return "Weekly";
+  if (str === "monthly") return "Monthly";
+  if (str === "quarterly") return "Quarterly";
+  if (str === "half-yearly" || str === "halfyearly") return "Half-Yearly";
+  if (str === "yearly") return "Yearly";
+  if (str === "5-yearly" || str === "5yearly") return "5-Yearly";
+  return tf.charAt(0).toUpperCase() + tf.slice(1).toLowerCase();
+};
+
+const createDefaultPointerPages = (
+  baseOpen = 962.0,
+  baseHigh = 1163.0,
+  baseLow = 962.0,
+  baseClose = 1130.6,
+  baseTimeframe = "Daily"
+) => {
+  const normBaseTf = normalizeTimeframe(baseTimeframe);
+  const multipliers = {
+    "Daily": 1.0,
+    "Weekly": 1.4,
+    "Monthly": 2.2,
+    "Quarterly": 3.5,
+    "Half-Yearly": 4.8,
+    "Yearly": 6.5,
+    "5-Yearly": 10.0,
+  };
+
+  const baseMult = multipliers[normBaseTf] || 1.0;
+  const pages = {};
+  TIMEFRAMES.forEach((tf) => {
+    if (tf === normBaseTf) {
+      pages[tf] = {
+        open: Number(baseOpen),
+        high: Number(baseHigh),
+        low: Number(baseLow),
+        close: Number(baseClose),
+      };
+    } else {
+      const mult = (multipliers[tf] || 1.0) / baseMult;
+      const mid = (baseHigh + baseLow) / 2;
+      const halfR = ((baseHigh - baseLow) * mult) / 2;
+      pages[tf] = {
+        open: Number(baseOpen.toFixed(2)),
+        high: Number((mid + halfR).toFixed(2)),
+        low: Number(Math.max(1, mid - halfR).toFixed(2)),
+        close: Number(baseClose.toFixed(2)),
+      };
+    }
+  });
+  return pages;
+};
+
 export default function PointerPage({ initialData, onBack, previousTab = "reports" }) {
-  // Input states
-  const [open, setOpen] = useState(initialData?.open ?? 962.0);
-  const [high, setHigh] = useState(initialData?.high ?? 1163.0);
-  const [low, setLow] = useState(initialData?.low ?? 962.0);
-  const [close, setClose] = useState(initialData?.close ?? 1130.6);
-  const [timeframe, setTimeframe] = useState(initialData?.timeframe ?? "Daily");
+  const [timeframe, setTimeframe] = useState(normalizeTimeframe(initialData?.timeframe ?? "Daily"));
   const [copiedText, setCopiedText] = useState(null);
   const [selectedPresetName, setSelectedPresetName] = useState(
     initialData?.title ? "Custom / Selected Stock" : "Master Reference (Screenshot)"
   );
 
+  // 7-Page Independent State System
+  const [timeframePages, setTimeframePages] = useState(() => {
+    const initTf = normalizeTimeframe(initialData?.timeframe ?? "Daily");
+    return createDefaultPointerPages(
+      initialData?.open ?? 962.0,
+      initialData?.high ?? 1163.0,
+      initialData?.low ?? 962.0,
+      initialData?.close ?? 1130.6,
+      initTf
+    );
+  });
+
+  // Active timeframe values
+  const currentData = timeframePages[timeframe] || { open: 962.0, high: 1163.0, low: 962.0, close: 1130.6 };
+  const open = currentData.open;
+  const high = currentData.high;
+  const low = currentData.low;
+  const close = currentData.close;
+
+  const setOpen = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], open: val },
+    }));
+  };
+
+  const setHigh = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], high: val },
+    }));
+  };
+
+  const setLow = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], low: val },
+    }));
+  };
+
+  const setClose = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], close: val },
+    }));
+  };
+
   React.useEffect(() => {
     if (initialData) {
-      if (initialData.open !== undefined) setOpen(initialData.open);
-      if (initialData.high !== undefined) setHigh(initialData.high);
-      if (initialData.low !== undefined) setLow(initialData.low);
-      if (initialData.close !== undefined) setClose(initialData.close);
-      if (initialData.timeframe) setTimeframe(initialData.timeframe);
+      const tf = normalizeTimeframe(initialData.timeframe);
+      setTimeframe(tf);
+      if (initialData.open !== undefined || initialData.high !== undefined) {
+        setTimeframePages(
+          createDefaultPointerPages(
+            initialData.open !== undefined ? initialData.open : 962.0,
+            initialData.high !== undefined ? initialData.high : 1163.0,
+            initialData.low !== undefined ? initialData.low : 962.0,
+            initialData.close !== undefined ? initialData.close : 1130.6,
+            tf
+          )
+        );
+      }
       if (initialData.title) setSelectedPresetName(initialData.title);
     }
   }, [initialData]);
@@ -198,11 +306,8 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
 
   const loadPreset = (preset) => {
     setSelectedPresetName(preset.name);
-    setOpen(preset.open);
-    setHigh(preset.high);
-    setLow(preset.low);
-    setClose(preset.close);
     setTimeframe(preset.timeframe);
+    setTimeframePages(createDefaultPointerPages(preset.open, preset.high, preset.low, preset.close));
   };
 
   const handleCopy = (val, label) => {

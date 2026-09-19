@@ -72,6 +72,50 @@ export const strategyCalculationService = {
       const G2 = Number(((Y2 + R2) / 2).toFixed(2));
       const G3 = Number(((Y3 + R3) / 2).toFixed(2));
 
+      const risingMain = {
+        14.6: c + range * 0.146,
+        23.6: c + range * 0.236,
+        38.2: c + range * 0.382,
+        61.8: c + range * 0.618,
+        100: c + range * 1.0,
+      };
+
+      const fallingMain = {
+        14.6: c - range * 0.146,
+        23.6: c - range * 0.236,
+        38.2: c - range * 0.382,
+        61.8: c - range * 0.618,
+        100: c - range * 1.0,
+      };
+
+      const evalBand = (price) => {
+        if (price >= fallingMain[14.6] && price <= risingMain[14.6]) return "Above FC 14.6 & Below RC 14.6.";
+        if (price > risingMain[14.6] && price <= risingMain[23.6]) return "Above RC 14.6 & Below RC 23.6.";
+        if (price > risingMain[23.6] && price <= risingMain[38.2]) return "Above RC 23.6 & Below RC 38.2.";
+        if (price > risingMain[38.2] && price <= risingMain[61.8]) return "Above RC 38.2 & Below RC 61.8.";
+        if (price > risingMain[61.8] && price <= risingMain[100]) return "Above RC 61.8 & Below RC 100.";
+        if (price >= fallingMain[23.6] && price < fallingMain[14.6]) return "Above FC 23.6 & Below FC 14.6.";
+        if (price >= fallingMain[38.2] && price < fallingMain[23.6]) return "Above FC 38.2 & Below FC 23.6.";
+        if (price >= fallingMain[61.8] && price < fallingMain[38.2]) return "Above FC 61.8 & Below FC 38.2.";
+        if (price >= fallingMain[100] && price < fallingMain[61.8]) return "Above FC 100 & Below FC 61.8.";
+        return "FALSE";
+      };
+
+      const highCond = evalBand(h);
+      const lowCond = evalBand(l);
+      let detectedScenario = "FALSE";
+      if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
+        detectedScenario = "Upward Rotation";
+      } else if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
+        detectedScenario = "Table Top";
+      } else if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
+        detectedScenario = "Table Tennis";
+      } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
+        detectedScenario = "Rising Jack";
+      } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
+        detectedScenario = "Falling Duck";
+      }
+
       return {
         success: true,
         hasAccess: true,
@@ -87,13 +131,13 @@ export const strategyCalculationService = {
           },
         },
         conditions: {
-          high: "Above FC 14.6 & Below RC 14.6.",
-          low: "Above FC 100 & Below FC 61.8.",
+          high: highCond,
+          low: lowCond,
           lowCheck2: "FALSE",
-          close: "Above FC 14.6 & Below RC 14.6.",
-          scenario: "UPWARD ROTATION",
-          highLow: "Above FC 38.2 & Below FC 23.6.",
-          lowClose: "Above FC 14.6 & Below RC 14.6.",
+          close: evalBand(c),
+          scenario: detectedScenario,
+          highLow: evalBand((h + l) / 2),
+          lowClose: evalBand((l + c) / 2),
         },
         scenarios: [
           {

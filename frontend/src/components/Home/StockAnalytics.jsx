@@ -2,28 +2,15 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import "./StockAnalytics.css";
 import stockService from "../../services/stockService.js";
 
-// Pointer Descriptive Name Mapping (Aarambh TradeX Institutional Nomenclature)
-export const POINTER_DETAILS = {
-  "Y1": { code: "Y1", name: "RISING JACK", type: "orange", desc: "Selling Pointer / Rising Jack" },
-  "Y2": { code: "Y2", name: "TABLE TENNIS", type: "orange", desc: "Table Tennis Rebound" },
-  "Y3": { code: "Y3", name: "BUYING POINTER", type: "orange", desc: "Buying Pointer Expansion" },
-  "Y4": { code: "Y4", name: "TABLE TOP", type: "orange", desc: "Table Top Breakout" },
-  "Y5": { code: "Y5", name: "RISING BREAKOUT", type: "orange", desc: "Rising Breakout Extension" },
-  "Y6": { code: "Y6", name: "POWER JACK", type: "orange", desc: "Power Jack Momentum" },
-  "R1": { code: "R1", name: "FALLING JACK", type: "red", desc: "Falling Jack Reversal" },
-  "R2": { code: "R2", name: "TABLE TOP", type: "red", desc: "Table Top Breakdown" },
-  "R3": { code: "R3", name: "SELLING POINTER", type: "red", desc: "Selling Pointer Pressure" },
-  "R4": { code: "R4", name: "FALLING BREAKDOWN", type: "red", desc: "Falling Breakdown Channel" },
-  "R5": { code: "R5", name: "CRASH POINTER", type: "red", desc: "Crash Pointer Selloff" },
-  "R6": { code: "R6", name: "PANIC DROP", type: "red", desc: "Panic Drop Extension" },
-  "G-BUY": { code: "G-BUY", name: "GOLDEN BUY", type: "green", desc: "Golden Ratio Long Signal" },
-  "G-SELL": { code: "G-SELL", name: "GOLDEN SELL", type: "green", desc: "Golden Ratio Short Signal" },
-};
-
 export const getPointerInfo = (code) => {
-  if (!code) return { code: "—", name: "", type: "orange" };
+  if (!code || code === "—") return { code: "—", name: "", type: "neutral" };
   const upper = String(code).trim().toUpperCase();
-  if (POINTER_DETAILS[upper]) return POINTER_DETAILS[upper];
+  if (upper === "FALSE") return { code: "FALSE", name: "", type: "neutral" };
+  if (upper === "TABLE TENNIS") return { code: "Table Tennis", name: "", type: "blue" };
+  if (upper === "TABLE TOP") return { code: "Table Top", name: "", type: "purple" };
+  if (upper === "UPWARD ROTATION") return { code: "Upward Rotation", name: "", type: "cyan" };
+  if (upper === "RISING JACK") return { code: "Rising Jack", name: "", type: "orange" };
+  if (upper === "FALLING DUCK") return { code: "Falling Duck", name: "", type: "amber" };
   return { code, name: code, type: "orange" };
 };
 
@@ -237,22 +224,29 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           const prevClose = parseNum(prevRow.close);
           const prevAvg = (prevHigh + prevLow + prevClose) / 3;
 
-          // Status: HLC HIGHER / HLC LOWER
-          if (closeVal >= prevClose && highVal >= prevHigh) {
+          // Status: HLC HIGHER / HLC LOWER (Exact 4-point institutional criteria)
+          if (
+            highVal > prevHigh &&
+            lowVal > prevLow &&
+            closeVal > prevClose &&
+            closeVal > prevHigh
+          ) {
             status = "HLC HIGHER";
             statusType = "bullish";
-          } else if (closeVal <= prevClose && lowVal <= prevLow) {
+          } else if (
+            highVal < prevHigh &&
+            lowVal < prevLow &&
+            closeVal < prevClose &&
+            closeVal < prevLow
+          ) {
             status = "HLC LOWER";
             statusType = "bearish";
-          } else if (closeVal > prevClose) {
-            status = "HLC HIGHER";
-            statusType = "bullish";
           } else {
-            status = "HLC LOWER";
-            statusType = "bearish";
+            status = "BASELINE";
+            statusType = "neutral";
           }
 
-          // 1. VIRGIN: (HIGHER = LOW > PREV.AVG) | (LOWER = HIGH < PREV.AVG) | INSIDE
+          // 1. VIRGIN: (HIGHER = LOW > PREV.DAY AVG) | (LOWER = HIGH < PREV.DAY AVG)
           if (lowVal > prevAvg) {
             virgin = "HIGHER";
             virginType = "higher";
@@ -264,7 +258,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             virginType = "neutral";
           }
 
-          // 2. ZONE: (GREEN = CLOSE > PREV.CLOSE & PREV.AVG) | (RED = CLOSE < PREV.CLOSE & PREV.AVG) | NEUTRAL
+          // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG)
           if (closeVal > prevClose && closeVal > prevAvg) {
             zone = "GREEN";
             zoneType = "green";
@@ -276,7 +270,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             zoneType = "neutral";
           }
 
-          // 3. CLOSURE: (HIGH = CLOSE > PREV.HIGH) | (LOW = CLOSE < PREV.LOW) | INSIDE
+          // 3. CLOSURE: (HIGH = CLOSE > PREV.DAY HIGH) | (LOW = CLOSE < PREV.DAY LOW)
           if (closeVal > prevHigh) {
             closure = "HIGH";
             closureType = "high";
@@ -288,36 +282,79 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             closureType = "neutral";
           }
 
-          // 4. POINTER TAG
-          if (virgin === "HIGHER" && zone === "GREEN") {
-            pointer = "G-BUY";
-            pointerType = "green";
-          } else if (virgin === "LOWER" && zone === "RED") {
-            pointer = "R-SELL";
-            pointerType = "red";
-          } else if (zone === "GREEN") {
-            pointer = "Y3";
+          // 4. INSTITUTIONAL POINTER TYPE (Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck, or FALSE)
+          const rVal = Math.max(0, highVal - lowVal);
+          const rm14 = closeVal + rVal * 0.146;
+          const rm23 = closeVal + rVal * 0.236;
+          const rm38 = closeVal + rVal * 0.382;
+          const rm61 = closeVal + rVal * 0.618;
+          const rm100 = closeVal + rVal * 1.0;
+          const fm14 = closeVal - rVal * 0.146;
+          const fm23 = closeVal - rVal * 0.236;
+          const fm38 = closeVal - rVal * 0.382;
+          const fm61 = closeVal - rVal * 0.618;
+          const fm100 = closeVal - rVal * 1.0;
+
+          let highCond = "FALSE";
+          if (highVal >= fm14 && highVal <= rm14) highCond = "Above FC 14.6 & Below RC 14.6.";
+          else if (highVal > rm14 && highVal <= rm23) highCond = "Above RC 14.6 & Below RC 23.6.";
+          else if (highVal > rm23 && highVal <= rm38) highCond = "Above RC 23.6 & Below RC 38.2.";
+          else if (highVal > rm38 && highVal <= rm61) highCond = "Above RC 38.2 & Below RC 61.8.";
+          else if (highVal > rm61 && highVal <= rm100) highCond = "Above RC 61.8 & Below RC 100.";
+
+          let lowCond = "FALSE";
+          if (lowVal >= fm14 && lowVal <= rm14) lowCond = "Above FC 14.6 & Below RC 14.6.";
+          else if (lowVal >= fm23 && lowVal < fm14) lowCond = "Above FC 23.6 & Below FC 14.6.";
+          else if (lowVal >= fm38 && lowVal < fm23) lowCond = "Above FC 38.2 & Below FC 23.6.";
+          else if (lowVal >= fm61 && lowVal < fm38) lowCond = "Above FC 61.8 & Below FC 38.2.";
+          else if (lowVal >= fm100 && lowVal < fm61) lowCond = "Above FC 100 & Below FC 61.8.";
+
+          if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
+            pointer = "Upward Rotation";
+            pointerType = "cyan";
+          } else if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
+            pointer = "Table Top";
+            pointerType = "purple";
+          } else if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
+            pointer = "Table Tennis";
+            pointerType = "blue";
+          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
+            pointer = "Rising Jack";
             pointerType = "orange";
-          } else if (zone === "RED") {
-            pointer = "R2";
-            pointerType = "red";
+          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
+            pointer = "Falling Duck";
+            pointerType = "amber";
           } else {
-            pointer = "Y1";
-            pointerType = "orange";
+            pointer = "FALSE";
+            pointerType = "neutral";
           }
         } else {
           status = "BASELINE";
           statusType = "neutral";
-          pointer = "Y1";
-          pointerType = "orange";
+          pointer = "FALSE";
+          pointerType = "neutral";
         }
 
         // Floor & Ceiling Price based on timeframe
-        let floorPrice = lowVal * 0.96;
-        let ceilingPrice = highVal * 1.04;
+        let floorPrice = lowVal;
+        let ceilingPrice = highVal;
         if (prevRow) {
-          floorPrice = parseNum(prevRow.low);
-          ceilingPrice = parseNum(prevRow.high);
+          const tf = (timeframe || "Daily").toLowerCase();
+          let windowSize = 5; // Daily: approx 1 week
+          if (tf === "weekly") windowSize = 4; // Weekly: approx 1 month
+          else if (tf === "monthly") windowSize = 12; // Monthly: approx 1 year
+          else if (tf === "quarterly") windowSize = 4;
+          else if (tf === "half-yearly" || tf === "halfyearly") windowSize = 2;
+          else if (tf === "yearly") windowSize = 5;
+
+          const prevCandles = arr.slice(idx + 1, idx + 1 + windowSize);
+          if (prevCandles.length > 0) {
+            floorPrice = Math.min(...prevCandles.map((r) => parseNum(r.low)));
+            ceilingPrice = Math.max(...prevCandles.map((r) => parseNum(r.high)));
+          } else {
+            floorPrice = parseNum(prevRow.low);
+            ceilingPrice = parseNum(prevRow.high);
+          }
         }
 
         resultRows.push({
@@ -633,7 +670,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
 
       {/* MATRIX TABLE CARD */}
       <div className="matrix-card">
-        <div className="matrix-header-bar">
+        {/* <div className="matrix-header-bar">
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span className="matrix-title">
               {isAllSymbols && !fromDate && !toDate
@@ -674,7 +711,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
               <span className="legend-pill zone-pill">ZONE GREEN</span> Bullish Momentum
             </span>
           </div>
-        </div>
+        </div> */}
 
         <div className="table-scroll">
           <table className="apple-table">

@@ -77,34 +77,199 @@ const PRESETS = [
   },
 ];
 
+const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"];
+
+const normalizeTimeframe = (tf) => {
+  if (!tf) return "Daily";
+  const str = String(tf).trim().toLowerCase();
+  if (str === "daily") return "Daily";
+  if (str === "weekly") return "Weekly";
+  if (str === "monthly") return "Monthly";
+  if (str === "quarterly") return "Quarterly";
+  if (str === "half-yearly" || str === "halfyearly") return "Half-Yearly";
+  if (str === "yearly") return "Yearly";
+  if (str === "5-yearly" || str === "5yearly") return "5-Yearly";
+  return tf.charAt(0).toUpperCase() + tf.slice(1).toLowerCase();
+};
+
+const createDefaultStrategyPages = (
+  baseOpen = 886.75,
+  baseHigh = 892.20,
+  baseLow = 882.60,
+  baseClose = 890.80,
+  customRange,
+  customAverage,
+  baseTimeframe = "Daily"
+) => {
+  const normBaseTf = normalizeTimeframe(baseTimeframe);
+  const multipliers = {
+    "Daily": 1.0,
+    "Weekly": 1.4,
+    "Monthly": 2.2,
+    "Quarterly": 3.5,
+    "Half-Yearly": 4.8,
+    "Yearly": 6.5,
+    "5-Yearly": 10.0,
+  };
+
+  const baseMult = multipliers[normBaseTf] || 1.0;
+  const pages = {};
+  TIMEFRAMES.forEach((tf) => {
+    if (tf === normBaseTf) {
+      const h = Number(baseHigh);
+      const l = Number(baseLow);
+      const o = Number(baseOpen);
+      const c = Number(baseClose);
+      const r = customRange !== undefined ? Number(customRange) : Number((h - l).toFixed(2));
+      const avg = customAverage !== undefined ? Number(customAverage) : Number(((h + l + c) / 3).toFixed(2));
+      pages[tf] = {
+        open: o,
+        high: h,
+        low: l,
+        close: c,
+        range: r,
+        isCustomRange: customRange !== undefined,
+        average: avg,
+        isCustomAverage: customAverage !== undefined,
+      };
+    } else {
+      const mult = (multipliers[tf] || 1.0) / baseMult;
+      const mid = (baseHigh + baseLow) / 2;
+      const halfR = ((baseHigh - baseLow) * mult) / 2;
+      const h = Number((mid + halfR).toFixed(2));
+      const l = Number(Math.max(1, mid - halfR).toFixed(2));
+      const o = Number(baseOpen.toFixed(2));
+      const c = Number(baseClose.toFixed(2));
+      const r = Number((h - l).toFixed(2));
+      const avg = Number(((h + l + c) / 3).toFixed(2));
+      pages[tf] = {
+        open: o,
+        high: h,
+        low: l,
+        close: c,
+        range: r,
+        isCustomRange: false,
+        average: avg,
+        isCustomAverage: false,
+      };
+    }
+  });
+  return pages;
+};
+
 export default function StrategyPage({ initialData, onBack, previousTab = "screener" }) {
   const { user } = useAuth();
 
-  // Input states
-  const initHigh = initialData?.high ?? 892.20;
-  const initLow = initialData?.low ?? 882.60;
-  const initClose = initialData?.close ?? 890.80;
-
-  const [open, setOpen] = useState(initialData?.open ?? 886.75);
-  const [high, setHigh] = useState(initHigh);
-  const [low, setLow] = useState(initLow);
-  const [close, setClose] = useState(initClose);
-  const [range, setRange] = useState(
-    initialData?.range !== undefined ? initialData.range : (initHigh - initLow)
-  );
-  const [isCustomRange, setIsCustomRange] = useState(initialData?.range !== undefined);
-  const [average, setAverage] = useState(
-    initialData?.average !== undefined
-      ? initialData.average
-      : Number(((parseFloat(initHigh) + parseFloat(initLow) + parseFloat(initClose)) / 3).toFixed(2))
-  );
-  const [isCustomAverage, setIsCustomAverage] = useState(initialData?.average !== undefined);
   const [scriptName, setScriptName] = useState(initialData?.script ?? "Nifty-50");
-  const [timeframe, setTimeframe] = useState(initialData?.timeframe ?? "Daily");
+  const [timeframe, setTimeframe] = useState(normalizeTimeframe(initialData?.timeframe ?? "Daily"));
   const [copiedText, setCopiedText] = useState(null);
   const [selectedPresetName, setSelectedPresetName] = useState(
     initialData?.title ? "Custom / Selected Stock" : "Master Reference (Nifty-50)"
   );
+
+  // 7-Page Independent State System
+  const [timeframePages, setTimeframePages] = useState(() => {
+    const initTf = normalizeTimeframe(initialData?.timeframe ?? "Daily");
+    return createDefaultStrategyPages(
+      initialData?.open ?? 886.75,
+      initialData?.high ?? 892.20,
+      initialData?.low ?? 882.60,
+      initialData?.close ?? 890.80,
+      initialData?.range,
+      initialData?.average,
+      initTf
+    );
+  });
+
+  // Current active timeframe values
+  const currentData = timeframePages[timeframe] || {
+    open: 886.75,
+    high: 892.20,
+    low: 882.60,
+    close: 890.80,
+    range: 9.60,
+    average: 888.53,
+    isCustomRange: false,
+    isCustomAverage: false,
+  };
+
+  const open = currentData.open;
+  const high = currentData.high;
+  const low = currentData.low;
+  const close = currentData.close;
+  const range = currentData.range;
+  const average = currentData.average;
+  const isCustomRange = currentData.isCustomRange;
+  const isCustomAverage = currentData.isCustomAverage;
+
+  const setOpen = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], open: val },
+    }));
+  };
+
+  const setHigh = (val) => {
+    setTimeframePages((prev) => {
+      const current = prev[timeframe] || {};
+      const l = parseFloat(current.low) || 0;
+      const c = parseFloat(current.close) || 0;
+      const h = parseFloat(val) || 0;
+      const next = { ...current, high: val };
+      if (!current.isCustomRange) {
+        next.range = Number(Math.max(0, h - l).toFixed(2));
+      }
+      if (!current.isCustomAverage) {
+        next.average = Number(((h + l + c) / 3).toFixed(2));
+      }
+      return { ...prev, [timeframe]: next };
+    });
+  };
+
+  const setLow = (val) => {
+    setTimeframePages((prev) => {
+      const current = prev[timeframe] || {};
+      const h = parseFloat(current.high) || 0;
+      const c = parseFloat(current.close) || 0;
+      const l = parseFloat(val) || 0;
+      const next = { ...current, low: val };
+      if (!current.isCustomRange) {
+        next.range = Number(Math.max(0, h - l).toFixed(2));
+      }
+      if (!current.isCustomAverage) {
+        next.average = Number(((h + l + c) / 3).toFixed(2));
+      }
+      return { ...prev, [timeframe]: next };
+    });
+  };
+
+  const setClose = (val) => {
+    setTimeframePages((prev) => {
+      const current = prev[timeframe] || {};
+      const h = parseFloat(current.high) || 0;
+      const l = parseFloat(current.low) || 0;
+      const c = parseFloat(val) || 0;
+      const next = { ...current, close: val };
+      if (!current.isCustomAverage) {
+        next.average = Number(((h + l + c) / 3).toFixed(2));
+      }
+      return { ...prev, [timeframe]: next };
+    });
+  };
+
+  const setRange = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], range: val, isCustomRange: true },
+    }));
+  };
+
+  const setAverage = (val) => {
+    setTimeframePages((prev) => ({
+      ...prev,
+      [timeframe]: { ...prev[timeframe], average: val, isCustomAverage: true },
+    }));
+  };
 
   // Strategy API data & access state
   const [strategyApiData, setStrategyApiData] = useState(null);
@@ -115,33 +280,29 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
 
   useEffect(() => {
     if (initialData) {
-      const hVal = initialData.high !== undefined ? initialData.high : 892.20;
-      const lVal = initialData.low !== undefined ? initialData.low : 882.60;
-      const cVal = initialData.close !== undefined ? initialData.close : 890.80;
+      const tf = normalizeTimeframe(initialData.timeframe);
+      setTimeframe(tf);
+      if (initialData.open !== undefined || initialData.high !== undefined) {
+        const hVal = initialData.high !== undefined ? initialData.high : 892.20;
+        const lVal = initialData.low !== undefined ? initialData.low : 882.60;
+        const cVal = initialData.close !== undefined ? initialData.close : 890.80;
+        const oVal = initialData.open !== undefined ? initialData.open : 886.75;
+        const rVal = initialData.range !== undefined ? initialData.range : Number((parseFloat(hVal) - parseFloat(lVal)).toFixed(2));
+        const aVal = initialData.average !== undefined ? initialData.average : Number(((parseFloat(hVal) + parseFloat(lVal) + parseFloat(cVal)) / 3).toFixed(2));
 
-      if (initialData.open !== undefined) setOpen(initialData.open);
-      if (initialData.high !== undefined) setHigh(hVal);
-      if (initialData.low !== undefined) setLow(lVal);
-      if (initialData.close !== undefined) setClose(cVal);
-
-      if (initialData.range !== undefined) {
-        setRange(initialData.range);
-        setIsCustomRange(true);
-      } else {
-        setRange(Number((parseFloat(hVal) - parseFloat(lVal)).toFixed(2)));
-        setIsCustomRange(false);
+        setTimeframePages(
+          createDefaultStrategyPages(
+            oVal,
+            hVal,
+            lVal,
+            cVal,
+            initialData.range !== undefined ? rVal : undefined,
+            initialData.average !== undefined ? aVal : undefined,
+            tf
+          )
+        );
       }
 
-      if (initialData.average !== undefined) {
-        setAverage(initialData.average);
-        setIsCustomAverage(true);
-      } else {
-        const computedAvg = Number(((parseFloat(hVal) + parseFloat(lVal) + parseFloat(cVal)) / 3).toFixed(2));
-        setAverage(computedAvg);
-        setIsCustomAverage(false);
-      }
-
-      if (initialData.timeframe) setTimeframe(initialData.timeframe);
       if (initialData.script) setScriptName(initialData.script);
       if (initialData.title) setSelectedPresetName(initialData.title);
     }
@@ -324,28 +485,18 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
 
   const loadPreset = (preset) => {
     setSelectedPresetName(preset.name);
-    setOpen(preset.open);
-    setHigh(preset.high);
-    setLow(preset.low);
-    setClose(preset.close);
-    if (preset.range !== undefined) {
-      setRange(preset.range);
-      setIsCustomRange(true);
-    } else {
-      const calcR = Math.max(0, preset.high - preset.low);
-      setRange(calcR);
-      setIsCustomRange(false);
-    }
-    if (preset.average !== undefined) {
-      setAverage(preset.average);
-      setIsCustomAverage(true);
-    } else {
-      const calcAvg = ((preset.high + preset.low + preset.close) / 3).toFixed(2);
-      setAverage(calcAvg);
-      setIsCustomAverage(false);
-    }
     setTimeframe(preset.timeframe);
     if (preset.script) setScriptName(preset.script);
+    setTimeframePages(
+      createDefaultStrategyPages(
+        preset.open,
+        preset.high,
+        preset.low,
+        preset.close,
+        preset.range,
+        preset.average
+      )
+    );
   };
 
   const handleCopy = (val, label) => {
@@ -397,6 +548,36 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
           </button>
         </div>
       )}
+
+      {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
+      <div className="pointer-timeframe-tab-bar" style={{ marginBottom: 14 }}>
+        {TIMEFRAMES.map((tf) => (
+          <button
+            key={tf}
+            type="button"
+            className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
+            onClick={() => setTimeframe(tf)}
+          >
+            {tf}
+          </button>
+        ))}
+      </div>
+
+      {/* IDENTIFIED POINTER TYPE BANNER ABOVE MATRIX CARD */}
+      <div className="strategy-pointer-type-banner">
+        <div className="pointer-type-title-group">
+          <span className="pointer-type-dot"></span>
+          <span className="pointer-type-label">Identified Pointer Type:</span>
+          <span className={`pointer-type-badge ${strategyApiData?.conditions?.scenario === "FALSE" ? "false-badge" : ""}`}>
+            {strategyApiData?.conditions?.scenario || "FALSE"}
+          </span>
+        </div>
+        <div className="pointer-type-meta">
+          <span className="meta-item">Symbol: <strong className="highlight-val">{scriptName}</strong></span>
+          <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
+          <span className="meta-item">Channel: <strong className="highlight-val">{strategyApiData?.conditions?.channel || "RISING"}</strong></span>
+        </div>
+      </div>
 
       {/* COPIED TOAST */}
       {copiedText && (
@@ -644,12 +825,12 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
         <div className="strategy-ohlc-inputs-wrapper">
           <div className="pointer-summary-section">
             <div className="summary-header-card">
-              <div className="summary-col-header">OPEN</div>
-              <div className="summary-col-header">HIGH</div>
-              <div className="summary-col-header">LOW</div>
-              <div className="summary-col-header">CLOSE</div>
-              <div className="summary-col-header">AVERAGE</div>
-              <div className="summary-col-header">RANGE</div>
+              <div className="summary-col-header blue-head">OPEN</div>
+              <div className="summary-col-header yellow-head">HIGH</div>
+              <div className="summary-col-header yellow-head">LOW</div>
+              <div className="summary-col-header yellow-head">CLOSE</div>
+              <div className="summary-col-header yellow-head">AVERAGE</div>
+              <div className="summary-col-header yellow-head">RANGE</div>
 
               <div className="summary-col-val">
                 <input
