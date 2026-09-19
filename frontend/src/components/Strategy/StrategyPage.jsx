@@ -3,6 +3,7 @@ import "./StrategyPage.css";
 import strategyCalculationService from "../../services/strategyCalculationService.js";
 import strategyAccessService from "../../services/strategyAccessService.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
 // 9 Fibonacci Ratio Columns
 const FIB_COLUMNS = [14.6, 23.6, 38.2, 61.8, 100, 127.2, 161.8, 261.8, 423.6];
@@ -573,7 +574,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
           </span>
         </div>
         <div className="pointer-type-meta">
-          <span className="meta-item">Symbol: <strong className="highlight-val">{scriptName}</strong></span>
+          <span className="meta-item">Symbol: <strong className="highlight-val">{stripSymbolSuffix(scriptName)}</strong></span>
           <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
           <span className="meta-item">Channel: <strong className="highlight-val">{strategyApiData?.conditions?.channel || "RISING"}</strong></span>
         </div>

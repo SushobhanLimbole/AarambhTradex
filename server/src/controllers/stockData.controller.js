@@ -45,6 +45,8 @@ export const getAllStocksByTimeframe = async (req, res, next) => {
     const {
       timeframe = "Daily",
       symbols,
+      exchange,
+      indice,
       startDate,
       endDate,
       limit = 1000,
@@ -55,6 +57,8 @@ export const getAllStocksByTimeframe = async (req, res, next) => {
 
     const data = await StockDataModel.findAllByTimeframe(matchedTf, {
       symbols,
+      exchange,
+      indice,
       startDate,
       endDate,
       limit: limit === "all" || limit === "ALL" ? "all" : limit,

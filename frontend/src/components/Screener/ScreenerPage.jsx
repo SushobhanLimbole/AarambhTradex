@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import "./ScreenerPage.css";
 import screenerService from "../../services/screenerService.js";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
 // Trigger options grouped by category
 const TRIGGER_GROUPS = [
@@ -144,12 +145,12 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
     return map;
   }, [results]);
 
-  // Filter results by search query (matches symbol or matched trigger)
+  // Filter results by search query (matches raw/clean symbol or matched trigger)
   const filteredSymbols = results?.results
     ? results.results.filter((sym) => {
         const q = searchQuery.trim().toLowerCase();
         if (!q) return true;
-        if (sym.toLowerCase().includes(q)) return true;
+        if (sym.toLowerCase().includes(q) || stripSymbolSuffix(sym).toLowerCase().includes(q)) return true;
         const detail = detailsMap[sym];
         if (detail?.matchedTriggers?.some((m) => m.trigger.toLowerCase().includes(q))) return true;
         return false;
@@ -157,14 +158,16 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
     : [];
 
   const handleCopySymbol = (sym) => {
-    navigator.clipboard?.writeText(sym);
-    setCopiedSymbol(sym);
+    const textToCopy = stripSymbolSuffix(sym);
+    navigator.clipboard?.writeText(textToCopy);
+    setCopiedSymbol(textToCopy);
     setTimeout(() => setCopiedSymbol(null), 2000);
   };
 
   const handleCopyAll = () => {
     if (!results?.results || results.results.length === 0) return;
-    navigator.clipboard?.writeText(results.results.join(", "));
+    const cleanList = results.results.map((s) => stripSymbolSuffix(s));
+    navigator.clipboard?.writeText(cleanList.join(", "));
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
   };
@@ -526,7 +529,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
                         <td className="col-idx">{index + 1}</td>
                         <td className="col-stock-name">
                           <div className="stock-name-cell">
-                            <span className="stock-symbol-badge">{symbol}</span>
+                            <span className="stock-symbol-badge">{stripSymbolSuffix(symbol)}</span>
                           </div>
                         </td>
                         <td className="col-breakout-triggers">
@@ -562,10 +565,10 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
                             <button
                               type="button"
                               className="mini-action-btn copy-btn"
-                              onClick={() => handleCopySymbol(symbol)}
+                              onClick={() => handleCopySymbol(stripSymbolSuffix(symbol))}
                               title="Copy symbol to clipboard"
                             >
-                              {copiedSymbol === symbol ? "✓ Copied" : "Copy"}
+                              {copiedSymbol === stripSymbolSuffix(symbol) || copiedSymbol === symbol ? "✓ Copied" : "Copy"}
                             </button>
 
                             {(onOpenStrategy || onOpenPointer) && (
@@ -576,7 +579,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
                                   const handler = onOpenStrategy || onOpenPointer;
                                   handler({
                                     symbol,
-                                    script: symbol,
+                                    script: stripSymbolSuffix(symbol),
                                     open: detail?.open,
                                     high: detail?.high,
                                     low: detail?.low,
@@ -585,7 +588,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
                                     range: detail?.range,
                                     average: detail?.average,
                                     timeframe: cmp2Timeframe || "Daily",
-                                    title: `${symbol} - Strategy Decision Matrix`,
+                                    title: `${stripSymbolSuffix(symbol)} - Strategy Decision Matrix`,
                                   });
                                 }}
                                 title="Open in Strategy Decision Matrix"

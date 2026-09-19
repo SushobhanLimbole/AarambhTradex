@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import "./StockAnalytics.css";
 import stockService from "../../services/stockService.js";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+
+export { stripSymbolSuffix };
 
 export const getPointerInfo = (code) => {
   if (!code || code === "—") return { code: "—", name: "", type: "neutral" };
@@ -60,14 +63,18 @@ const getDayOfWeek = (dateStr) => {
 
 export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
   // Filter States
-  const [exchange, setExchange] = useState("NSE");
-  const [indexVal, setIndexVal] = useState("All Indices");
+  const [exchange, setExchange] = useState("ALL");
+  const [indexVal, setIndexVal] = useState("ALL");
   const [ticker, setTicker] = useState("ALL");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [timeframe, setTimeframe] = useState("Daily");
 
-  // Symbols list loaded from backend
+  // Metadata loaded from /api/symbols/meta
+  const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
+  const [availableIndices, setAvailableIndices] = useState([]);
+
+  // Symbols list loaded dynamically based on exchange & index filter
   const [availableSymbols, setAvailableSymbols] = useState([]);
   const [symbolsLoading, setSymbolsLoading] = useState(false);
 
@@ -96,53 +103,94 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // 1. Fetch available stock symbols on mount
+  // 1. Fetch metadata (exchanges and indices) on mount
   useEffect(() => {
     let isCancelled = false;
-    async function loadSymbols() {
-      setSymbolsLoading(true);
+    async function loadMeta() {
       try {
-        const res = await stockService.getSymbols();
-        if (!isCancelled && res?.data && Array.isArray(res.data)) {
-          setAvailableSymbols(res.data);
+        const res = await stockService.getSymbolsMeta();
+        if (!isCancelled && res?.data) {
+          if (Array.isArray(res.data.exchanges) && res.data.exchanges.length > 0) {
+            setAvailableExchanges(res.data.exchanges);
+          }
+          if (Array.isArray(res.data.indices) && res.data.indices.length > 0) {
+            setAvailableIndices(res.data.indices);
+          }
         }
       } catch (err) {
-        console.warn("Failed to load symbols from API:", err);
-      } finally {
-        if (!isCancelled) setSymbolsLoading(false);
+        console.warn("Failed to load symbols meta from API:", err);
       }
     }
-    loadSymbols();
+    loadMeta();
     return () => {
       isCancelled = true;
     };
   }, []);
 
-  // 2. Fetch stock data from backend API (All Symbols or Specific Symbol)
+  // 2. Fetch symbols dynamically whenever Exchange or Index filter changes
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadSymbolsForFilter() {
+      setSymbolsLoading(true);
+      try {
+        const res = await stockService.getSymbolsList({
+          exchange: exchange !== "ALL" ? exchange : undefined,
+          indice: indexVal !== "ALL" ? indexVal : undefined,
+          limit: "all",
+        });
+        if (!isCancelled && res?.data && Array.isArray(res.data)) {
+          setAvailableSymbols(res.data);
+          // If current selected ticker is not in newly filtered list, reset to ALL
+          const exists = res.data.some((item) => item.symbol === ticker);
+          if (!exists && ticker !== "ALL") {
+            setTicker("ALL");
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load symbols list:", err);
+      } finally {
+        if (!isCancelled) setSymbolsLoading(false);
+      }
+    }
+    loadSymbolsForFilter();
+    return () => {
+      isCancelled = true;
+    };
+  }, [exchange, indexVal]);
+
+  // 3. Fetch stock candle data from backend API based on user input
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       let response;
       const options = {
+        exchange: exchange !== "ALL" ? exchange : undefined,
+        indice: indexVal !== "ALL" ? indexVal : undefined,
         startDate: fromDate || undefined,
         endDate: toDate || undefined,
-        limit: "all", // No pagination: fetch all records
+        limit: "all", // Fetch all matching records
         order: "DESC",
       };
 
       if (!ticker || ticker === "ALL" || ticker === "ALL_SYMBOLS") {
-        // At the beginning when no date filters are set, only fetch today's/latest stocks of all symbols
-        if (!fromDate && !toDate) {
+        // If ALL ticker is selected:
+        if (!fromDate && !toDate && exchange === "ALL" && indexVal === "ALL") {
+          // Default initial overview: get latest candle across all symbols
           response = await stockService.getLatestAllStocks(timeframe);
         } else {
-          // Fetch data across ALL symbols for the specified date range
+          // Fetch candles matching exchange / index / date criteria
           response = await stockService.getAllStocks(timeframe, options);
         }
       } else {
-        // Clean symbol string (e.g., "20MICRONS.NS" from "20MICRONS.NS - 20 Microns")
-        const cleanSymbol = ticker.split(" - ")[0].trim();
-        response = await stockService.getStockData(cleanSymbol, timeframe, options);
+        // Fetch for specific symbol
+        const cleanSymbol = ticker.split(" ")[0].trim();
+        response = await stockService.getStockData(cleanSymbol, timeframe, {
+          startDate: fromDate || undefined,
+          endDate: toDate || undefined,
+          limit: "all",
+          order: "DESC",
+        });
       }
 
       if (response?.data && Array.isArray(response.data)) {
@@ -157,17 +205,17 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     } finally {
       setLoading(false);
     }
-  }, [ticker, timeframe, fromDate, toDate]);
+  }, [ticker, exchange, indexVal, timeframe, fromDate, toDate]);
 
-  // Initial load on mount only (custom dates/inputs will be fetched when user clicks Analyze)
+  // Initial load on mount only
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClear = () => {
-    setExchange("NSE");
-    setIndexVal("All Indices");
+    setExchange("ALL");
+    setIndexVal("ALL");
     setTicker("ALL");
     setFromDate("");
     setToDate("");
@@ -406,9 +454,9 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
       average: row.rawAvg,
       timeframe,
       symbol: row.symbol,
-      script: row.symbol,
+      script: stripSymbolSuffix(row.symbol),
       date: row.date,
-      title: `${row.symbol} (${row.date}) - Strategy Decision Matrix`,
+      title: `${stripSymbolSuffix(row.symbol)} (${row.date}) - Strategy Decision Matrix`,
     };
 
     if (onOpenStrategy) {
@@ -432,10 +480,12 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
           >
-            <option value="NSE">NSE</option>
-            <option value="BSE">BSE</option>
-            <option value="MCX">MCX</option>
-            <option value="Crypto">Crypto</option>
+            <option value="ALL">ALL (All Exchanges)</option>
+            {availableExchanges.map((ex) => (
+              <option key={ex} value={ex}>
+                {ex}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -447,17 +497,19 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             value={indexVal}
             onChange={(e) => setIndexVal(e.target.value)}
           >
-            <option value="All Indices">All Indices...</option>
-            <option value="NIFTY 50">NIFTY 50</option>
-            <option value="NIFTY BANK">NIFTY BANK</option>
-            <option value="SENSEX">SENSEX</option>
+            <option value="ALL">ALL (All Indices)</option>
+            {availableIndices.map((idx) => (
+              <option key={idx} value={idx}>
+                {idx}
+              </option>
+            ))}
           </select>
         </div>
 
         {/* TICKER SYMBOL */}
         <div className="filter-group wide">
           <label className="filter-label">
-            Ticker Symbol <span>({availableSymbols.length > 0 ? `${availableSymbols.length} Available` : "All Stocks"})</span>
+            Ticker Symbol <span>({symbolsLoading ? "Loading..." : `${availableSymbols.length} Available`})</span>
           </label>
           <select
             className="apple-select"
@@ -465,12 +517,23 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             onChange={(e) => setTicker(e.target.value)}
             disabled={symbolsLoading}
           >
-            <option value="ALL">ALL - All Symbols (Whole Database)</option>
-            {availableSymbols.map((sym) => (
-              <option key={sym} value={sym}>
-                {sym}
-              </option>
-            ))}
+            <option value="ALL">
+              {symbolsLoading ? "Loading symbols..." : `ALL - All Symbols (${availableSymbols.length} available)`}
+            </option>
+            {availableSymbols.map((item) => {
+              const sym = typeof item === "string" ? item : item.symbol;
+              const cleanSym = stripSymbolSuffix(sym);
+              const metaLabel = typeof item === "object" && item.indice
+                ? `${cleanSym} — [${item.exchange}] ${item.indice}`
+                : typeof item === "object" && item.exchange
+                ? `${cleanSym} — [${item.exchange}]`
+                : cleanSym;
+              return (
+                <option key={sym} value={sym}>
+                  {metaLabel}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -764,7 +827,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
                       <td className="serial-col">{row.no}</td>
                       {visibleCols.symbol && (
                         <td style={{ fontWeight: 700, color: "#1e293b" }}>
-                          {row.symbol}
+                          {stripSymbolSuffix(row.symbol)}
                         </td>
                       )}
                       {visibleCols.day && <td>{row.day}</td>}

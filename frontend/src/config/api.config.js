@@ -33,4 +33,12 @@ export const ENDPOINTS = {
   STRATEGY: {
     CALCULATE: `${API_BASE_URL}/strategy/calculate`,
   },
+  SYMBOLS: {
+    GET_META: `${API_BASE_URL}/symbols/meta`,
+    GET_ALL: `${API_BASE_URL}/symbols`,
+    GET_BY_ID: (id) => `${API_BASE_URL}/symbols/${encodeURIComponent(id)}`,
+    CREATE: `${API_BASE_URL}/symbols`,
+    UPDATE: (id) => `${API_BASE_URL}/symbols/${encodeURIComponent(id)}`,
+    DELETE: (id) => `${API_BASE_URL}/symbols/${encodeURIComponent(id)}`,
+  },
 };

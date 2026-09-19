@@ -6,6 +6,7 @@ import StrategyPage from "../Strategy/StrategyPage";
 import ScreenerPage from "../Screener/ScreenerPage";
 import ProfilePage from "../Profile/ProfilePage";
 import StrategyAccessRequestsPage from "../Admin/StrategyAccessRequestsPage";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
 export default function MainLayout() {
   const [activeTab, setActiveTab] = useState("reports"); // 'reports' | 'pointer' | 'strategy' | 'screener' | 'requests' | 'profile'
@@ -19,22 +20,24 @@ export default function MainLayout() {
     }
   };
 
-  const handleOpenPointer = (row, fromTab = "reports") => {
-    setPreviousTab(fromTab || activeTab || "reports");
+  const handleOpenPointer = (row) => {
+    setPreviousTab(activeTab || "screener");
     if (row) {
       // Parse formatted numbers like "3,025.00" to float
       const parseVal = (str) => {
         if (!str) return 0;
         return parseFloat(String(str).replace(/,/g, "")) || 0;
       };
+      const cleanScript = stripSymbolSuffix(row.symbol || row.script || "Selected Stock");
       setPointerData({
         open: parseVal(row.open) || 962.0,
         high: parseVal(row.high) || 1163.0,
         low: parseVal(row.low) || 962.0,
         close: parseVal(row.close) || 1130.6,
         timeframe: "Daily",
-        script: row.symbol || row.script || "Selected Stock",
-        title: `${row.symbol || row.date || "Selected"} - Pointer Matrix`,
+        symbol: row.symbol,
+        script: cleanScript,
+        title: `${cleanScript} - Pointer Matrix`,
       });
     }
     setActiveTab("pointer");
@@ -47,6 +50,7 @@ export default function MainLayout() {
         if (!str) return 0;
         return parseFloat(String(str).replace(/,/g, "")) || 0;
       };
+      const cleanScript = stripSymbolSuffix(row.symbol || row.script || "Selected Stock");
       setPointerData({
         open: parseVal(row.open) || (row.cmp1Close ? row.cmp1Close * 0.99 : 886.75),
         high: parseVal(row.high) || (row.cmp1Close ? row.cmp1Close * 1.01 : 892.20),
@@ -55,8 +59,9 @@ export default function MainLayout() {
         range: parseVal(row.range) || undefined,
         average: parseVal(row.average) || undefined,
         timeframe: row.timeframe || "Daily",
-        script: row.symbol || row.script || "Selected Stock",
-        title: `${row.symbol || row.script || "Selected"} - Strategy Decision Matrix`,
+        symbol: row.symbol,
+        script: cleanScript,
+        title: `${cleanScript} - Strategy Decision Matrix`,
       });
     }
     setActiveTab("strategy");

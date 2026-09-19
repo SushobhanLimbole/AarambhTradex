@@ -7,6 +7,7 @@ import strategyAccessRoutes from "./routes/strategyAccess.routes.js";
 import stockDataRoutes from "./routes/stockData.routes.js";
 import screenerRoutes from "./routes/screener.routes.js";
 import strategyCalculationRoutes from "./routes/strategyCalculation.routes.js";
+import symbolMetadataRoutes from "./routes/symbolMetadata.routes.js";
 import { notFoundHandler, errorHandler } from "./middlewares/error.middleware.js";
 
 dotenv.config();
@@ -32,6 +33,7 @@ app.use("/api/strategy-access", strategyAccessRoutes);
 app.use("/api/strategy", strategyCalculationRoutes);
 app.use("/api/stocks", stockDataRoutes);
 app.use("/api/screener", screenerRoutes);
+app.use("/api/symbols", symbolMetadataRoutes);
 
 // Global Error Handling Middlewares
 app.use(notFoundHandler);

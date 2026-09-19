@@ -9,12 +9,14 @@ export const stockService = {
   /**
    * Get stock data across ALL stocks resampled by timeframe
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
-   * @param {Object} options - { symbols, startDate, endDate, limit = 'all', order }
+   * @param {Object} options - { symbols, exchange, indice, startDate, endDate, limit = 'all', order }
    */
   async getAllStocks(timeframe = "Daily", options = {}) {
     const params = new URLSearchParams({
       timeframe,
       ...(options.symbols && { symbols: Array.isArray(options.symbols) ? options.symbols.join(",") : options.symbols }),
+      ...(options.exchange && options.exchange !== "ALL" && { exchange: options.exchange }),
+      ...(options.indice && options.indice !== "ALL" && { indice: options.indice }),
       ...(options.startDate && { startDate: options.startDate }),
       ...(options.endDate && { endDate: options.endDate }),
       ...(options.limit !== undefined && { limit: options.limit }),
@@ -144,6 +146,76 @@ export const stockService = {
     });
     const qs = params.toString() ? `?${params.toString()}` : "";
     return await apiClient(`${ENDPOINTS.STOCKS.DELETE_ALL}${qs}`, {
+      method: "DELETE",
+    });
+  },
+
+  /* =========================================================================
+     SYMBOLS METADATA & FILTER CRUD APIS
+     ========================================================================= */
+
+  /**
+   * High-speed metadata retrieval (Distinct exchanges, distinct indices, total counts)
+   */
+  async getSymbolsMeta() {
+    return await apiClient(ENDPOINTS.SYMBOLS.GET_META, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Fetch symbols list with filtering options
+   * @param {Object} options - { exchange, indice, search, limit = 'all', offset, order }
+   */
+  async getSymbolsList(options = {}) {
+    const params = new URLSearchParams({
+      ...(options.exchange && options.exchange !== "ALL" && { exchange: options.exchange }),
+      ...(options.indice && options.indice !== "ALL" && { indice: options.indice }),
+      ...(options.search && { search: options.search }),
+      ...(options.limit !== undefined && { limit: options.limit }),
+      ...(options.offset !== undefined && { offset: options.offset }),
+      ...(options.order && { order: options.order }),
+    });
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return await apiClient(`${ENDPOINTS.SYMBOLS.GET_ALL}${qs}`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Get single symbol metadata by ID or symbol string
+   */
+  async getSymbolById(id) {
+    return await apiClient(ENDPOINTS.SYMBOLS.GET_BY_ID(id), {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Create a new symbol metadata record
+   */
+  async createSymbol(symbolData) {
+    return await apiClient(ENDPOINTS.SYMBOLS.CREATE, {
+      method: "POST",
+      body: symbolData,
+    });
+  },
+
+  /**
+   * Update an existing symbol metadata record
+   */
+  async updateSymbol(id, symbolData) {
+    return await apiClient(ENDPOINTS.SYMBOLS.UPDATE(id), {
+      method: "PUT",
+      body: symbolData,
+    });
+  },
+
+  /**
+   * Delete a symbol metadata record
+   */
+  async deleteSymbol(id) {
+    return await apiClient(ENDPOINTS.SYMBOLS.DELETE(id), {
       method: "DELETE",
     });
   },

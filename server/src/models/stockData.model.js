@@ -14,7 +14,7 @@ import pool from "../config/mysql.js";
  * volume   BIGINT
  */
 
-const DEFAULT_TABLE_NAME = process.env.MYSQL_STOCK_TABLE || "stock_data";
+const DEFAULT_TABLE_NAME = process.env.MYSQL_STOCK_TABLE || "historical_candles";
 
 export class StockDataModel {
   static tableName = DEFAULT_TABLE_NAME;
@@ -207,6 +207,8 @@ export class StockDataModel {
   static async findAll(options = {}, tableName = this.tableName) {
     const {
       symbols,
+      exchange,
+      indice,
       startDate,
       endDate,
       limit = 1000,
@@ -216,6 +218,16 @@ export class StockDataModel {
 
     const conditions = [];
     const params = [];
+
+    if (exchange && String(exchange).toUpperCase() !== "ALL") {
+      conditions.push("`exchange` = ?");
+      params.push(exchange);
+    }
+
+    if (indice && String(indice).toUpperCase() !== "ALL") {
+      conditions.push("`indice` = ?");
+      params.push(indice);
+    }
 
     if (symbols) {
       const symList = Array.isArray(symbols)
@@ -350,14 +362,14 @@ export class StockDataModel {
    * @returns {Promise<Array<Object>>} Aggregated OHLCV candle records across stocks
    */
   static async findAllByTimeframe(timeframe = "Daily", options = {}, tableName = this.tableName) {
-    const { symbols, startDate, endDate, limit = 1000, order = "DESC" } = options;
+    const { symbols, exchange, indice, startDate, endDate, limit = 1000, order = "DESC" } = options;
     const tf = String(timeframe).trim();
     const isAll = this.isLimitAll(limit);
 
     // If Daily, fetch directly
     if (tf.toLowerCase() === "daily") {
       return await this.findAll(
-        { symbols, startDate, endDate, limit, offset: 0, order },
+        { symbols, exchange, indice, startDate, endDate, limit, offset: 0, order },
         tableName
       );
     }
@@ -365,6 +377,16 @@ export class StockDataModel {
     // For higher timeframes, fetch all underlying daily records in ASC order
     const conditions = [];
     const params = [];
+
+    if (exchange && String(exchange).toUpperCase() !== "ALL") {
+      conditions.push("`exchange` = ?");
+      params.push(exchange);
+    }
+
+    if (indice && String(indice).toUpperCase() !== "ALL") {
+      conditions.push("`indice` = ?");
+      params.push(indice);
+    }
 
     if (symbols) {
       const symList = Array.isArray(symbols)
@@ -387,7 +409,7 @@ export class StockDataModel {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const query = `
-      SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
+      SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\`
       FROM \`${tableName}\`
       ${whereClause}
       ORDER BY \`symbol\` ASC, \`date\` ASC
