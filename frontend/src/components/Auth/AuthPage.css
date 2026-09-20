@@ -6,7 +6,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
 }
@@ -83,12 +84,10 @@ html, body {
   overflow: hidden;
 
   background:
-    linear-gradient(
-      160deg,
+    linear-gradient(160deg,
       #eaf4ff 0%,
       #dcecfd 55%,
-      #cfe4fa 100%
-    );
+      #cfe4fa 100%);
 
   display: flex;
   flex-direction: column;
@@ -104,7 +103,7 @@ html, body {
 .amu-logo {
   color: #123a66;
 
-  font-weight: 700;
+  font-weight: 800;
   font-size: 22px;
 
   letter-spacing: 1px;
@@ -234,22 +233,18 @@ html, body {
   border-radius: 12px;
 
   -webkit-mask-image:
-    linear-gradient(
-      to bottom,
+    linear-gradient(to bottom,
       transparent 0,
       #000 18px,
       #000 calc(100% - 18px),
-      transparent 100%
-    );
+      transparent 100%);
 
   mask-image:
-    linear-gradient(
-      to bottom,
+    linear-gradient(to bottom,
       transparent 0,
       #000 18px,
       #000 calc(100% - 18px),
-      transparent 100%
-    );
+      transparent 100%);
 }
 
 
@@ -300,9 +295,7 @@ html, body {
   display: grid;
 
   grid-template-columns:
-    minmax(90px, 1.1fr)
-    minmax(45px, 1fr)
-    minmax(90px, auto);
+    minmax(90px, 1.1fr) minmax(45px, 1fr) minmax(90px, auto);
 
   align-items: center;
 
@@ -452,7 +445,7 @@ html, body {
   min-width: 0;
   min-height: 0;
 
-  padding: 48px;
+  padding: 0px 24px 0px 24px;
 
   display: flex;
 
@@ -733,8 +726,7 @@ html, body {
   border-width: 0 2px 2px 0;
 
   transform:
-    rotate(45deg)
-    translate(-1px, -1px);
+    rotate(45deg) translate(-1px, -1px);
 }
 
 .amu-terms-text {
@@ -762,11 +754,9 @@ html, body {
   border: none;
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #4fa3f7 0%,
-      #2f7de1 100%
-    );
+      #2f7de1 100%);
 
   color: #fff;
 
@@ -895,9 +885,7 @@ html, body {
 
   .amu-tick-card {
     grid-template-columns:
-      minmax(80px, 1fr)
-      minmax(40px, 0.8fr)
-      minmax(85px, auto);
+      minmax(80px, 1fr) minmax(40px, 0.8fr) minmax(85px, auto);
 
     gap: 8px;
   }
@@ -965,9 +953,7 @@ html, body {
 
   .amu-tick-card {
     grid-template-columns:
-      minmax(70px, 1fr)
-      minmax(35px, 0.7fr)
-      minmax(75px, auto);
+      minmax(70px, 1fr) minmax(35px, 0.7fr) minmax(75px, auto);
 
     gap: 7px;
 
@@ -1211,6 +1197,7 @@ html, body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -1221,6 +1208,7 @@ html, body {
     opacity: 0;
     transform: scale(0.94) translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);

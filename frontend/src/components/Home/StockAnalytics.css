@@ -10,13 +10,12 @@
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
 }
 
-/* TOP FILTER TOOLBAR (MATCHING SCREENSHOT 2) */
-/* TOP FILTER TOOLBAR - DARK BACKGROUND THEME */
+/* TOP FILTER TOOLBAR - LIGHT WHITE THEME */
 .filter-toolbar {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: #ffffff;
   border-radius: 16px;
-  border: 1px solid #334155;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25), 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   padding: 18px 22px;
   margin-bottom: 24px;
   display: flex;
@@ -41,25 +40,25 @@
 .filter-label {
   font-size: 12px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #334155;
   letter-spacing: 0.3px;
 }
 
 .filter-label span {
   font-size: 11px;
-  font-weight: 400;
-  color: #94a3b8;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .apple-input,
 .apple-select {
   height: 42px;
-  background: #0b1329;
-  border: 1px solid #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 0 12px;
   font-size: 13.5px;
-  color: #f8fafc;
+  color: #0f172a;
   outline: none;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -68,14 +67,14 @@
 
 .apple-input:focus,
 .apple-select:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
-  background: #111e38;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #ffffff;
 }
 
 .apple-select option {
-  background: #0f172a;
-  color: #f8fafc;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .filter-actions {
@@ -87,7 +86,7 @@
 
 .btn-analyze {
   height: 42px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
@@ -99,24 +98,24 @@
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
   white-space: nowrap;
 }
 
 .btn-analyze:hover {
   opacity: 0.95;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.38);
 }
 
 .btn-clear {
   height: 42px;
-  background: #1e293b;
-  color: #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 0 14px;
-  border: 1px solid #475569;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -124,19 +123,19 @@
 }
 
 .btn-clear:hover {
-  background: #334155;
-  color: #ffffff;
-  border-color: #64748b;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .btn-columns {
   height: 42px;
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
+  background: #eff6ff;
+  color: #2563eb;
   font-size: 13.5px;
   font-weight: 600;
   padding: 0 14px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: 1px solid #bfdbfe;
   border-radius: 10px;
   cursor: pointer;
   display: flex;
@@ -147,8 +146,8 @@
 }
 
 .btn-columns:hover {
-  background: rgba(56, 189, 248, 0.22);
-  border-color: #38bdf8;
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
 /* BANNER HEADER (MATCHING SCREENSHOT 1) */
@@ -183,15 +182,15 @@
   font-weight: 700;
 }
 
-/* COLUMN TOGGLE MENU (DARK THEME) */
+/* COLUMN TOGGLE MENU (LIGHT THEME) */
 .columns-menu {
   position: absolute;
   top: 50px;
   right: 0;
-  background: #1e293b;
+  background: #ffffff;
   border-radius: 12px;
-  border: 1px solid #334155;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
   padding: 14px;
   z-index: 100;
   width: 220px;
@@ -202,7 +201,7 @@
 
 .col-checkbox-label {
   font-size: 13px;
-  color: #e2e8f0;
+  color: #334155;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -280,20 +279,19 @@
 }
 
 .apple-table thead tr {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  background: #f8fafc;
 }
 
 .apple-table th {
-  background: transparent;
+  background: #f8fafc;
   padding: 14px 16px;
   font-size: 12px;
   font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 0.6px;
-  border-bottom: 2px solid #38bdf8;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: #475569;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+  border-right: 1px solid #f1f5f9;
   white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .apple-table th:last-child {

@@ -24,6 +24,14 @@ export default function Navbar({ activeTab, setActiveTab }) {
         </button>
 
         <button
+          className={`nav-btn ${activeTab === "reporthub" || activeTab === "trend-report" || activeTab === "ab-top-bottom" || activeTab === "trend-reversal" ? "active" : ""}`}
+          onClick={() => setActiveTab("reporthub")}
+        >
+          <span>📑</span>
+          <span>Report Cards</span>
+        </button>
+
+        <button
           className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
           onClick={() => setActiveTab("pointer")}
         >

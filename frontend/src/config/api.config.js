@@ -41,4 +41,22 @@ export const ENDPOINTS = {
     UPDATE: (id) => `${API_BASE_URL}/symbols/${encodeURIComponent(id)}`,
     DELETE: (id) => `${API_BASE_URL}/symbols/${encodeURIComponent(id)}`,
   },
+  TREND_REPORT: {
+    SCAN: `${API_BASE_URL}/trend-report`,
+  },
+  AB_TOP_BOTTOM: {
+    SCAN: `${API_BASE_URL}/ab-top-bottom`,
+  },
+  TREND_REVERSAL: {
+    SCAN: `${API_BASE_URL}/trend-reversal`,
+  },
+  CB_REPORT: {
+    SCAN: `${API_BASE_URL}/cb-report`,
+  },
+  HIGHEST_CLOSING: {
+    SCAN: `${API_BASE_URL}/highest-closing`,
+  },
+  DD_REPORT: {
+    SCAN: `${API_BASE_URL}/dd-report`,
+  },
 };

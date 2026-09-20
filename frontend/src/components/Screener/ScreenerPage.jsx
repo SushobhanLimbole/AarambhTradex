@@ -37,7 +37,7 @@ const PATTERNS = [
   "Upward Rotation",
 ];
 
-export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
+export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) {
   // Default helper dates
   const today = new Date().toISOString().slice(0, 10);
   const oneMonthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
@@ -183,7 +183,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
   return (
     <div className="screener-page-wrapper">
       {/* HEADER HERO */}
-      <div className="screener-header-container">
+      {/* <div className="screener-header-container">
         <div className="screener-title-area">
           <div className="screener-badge-pill">
             <span className="screener-pulsing-dot"></span>
@@ -194,7 +194,30 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer }) {
             Compare Current Market Period (CMP1) against Historical Reference (CMP2) to screen for institutional mathematical breakout triggers.
           </p>
         </div>
-      </div>
+      </div> */}
+
+      {onBack && (
+        <div style={{ marginBottom: "14px", display: "flex", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              color: "#334155",
+              padding: "7px 14px",
+              borderRadius: "8px",
+              fontSize: "12.5px",
+              fontWeight: "700",
+              cursor: "pointer",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            ← Back to Report Cards
+          </button>
+        </div>
+      )}
 
       {/* CONTROLS FORM */}
       <form className="screener-form" onSubmit={handleGenerateReport}>

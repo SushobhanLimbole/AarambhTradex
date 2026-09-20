@@ -380,7 +380,7 @@ export default function AuthPage() {
     try {
       const name = `${firstName} ${lastName}`.trim();
       await signup({ name, email, password });
-      setToast({ message: "Registration successful! Welcome to Aarambh TradeX.", type: "success" });
+      setToast({ message: "Registration successful! Welcome to Aarambh Tradex.", type: "success" });
     } catch (err) {
       setServerRegisterError(err.message || "Registration failed. Please try again.");
     } finally {
@@ -417,7 +417,7 @@ export default function AuthPage() {
       <div className="amu-card">
         <div className="amu-left">
           <div className="amu-topbar">
-            <div className="amu-logo">Aarambh TradeX</div>
+            <div className="amu-logo">Aarambh Tradex</div>
             <button className="amu-back-btn">
               Back to website
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -431,7 +431,7 @@ export default function AuthPage() {
 
         <div className="amu-right">
           <div className="amu-right-header">
-            <img src={logoImg} alt="Aarambh TradeX Logo" className="amu-brand-logo" />
+            <img src={logoImg} alt="Aarambh Tradex Logo" className="amu-brand-logo" />
           </div>
 
           {isRegister ? (
@@ -676,7 +676,7 @@ function TermsModal({ onClose, onAccept }) {
             </div>
             <div>
               <h2 className="amu-modal-title">Terms &amp; Conditions</h2>
-              <p className="amu-modal-subtitle">Aarambh TradeX • Terms of Service &amp; Risk Agreement</p>
+              <p className="amu-modal-subtitle">Aarambh Tradex • Terms of Service &amp; Risk Agreement</p>
             </div>
           </div>
           <button className="amu-modal-close-btn" onClick={onClose} aria-label="Close dialog">
@@ -694,13 +694,13 @@ function TermsModal({ onClose, onAccept }) {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>Please review these terms carefully before creating an account on Aarambh TradeX.</span>
+            <span>Please review these terms carefully before creating an account on Aarambh Tradex.</span>
           </div>
 
           <div className="amu-modal-section">
             <h4>1. Acceptance of Terms</h4>
             <p>
-              By registering, accessing, or using Aarambh TradeX, you confirm that you are at least 18 years of age and agree to comply with and be bound by these Terms and Conditions along with our Privacy Policy.
+              By registering, accessing, or using Aarambh Tradex, you confirm that you are at least 18 years of age and agree to comply with and be bound by these Terms and Conditions along with our Privacy Policy.
             </p>
           </div>
 
@@ -714,14 +714,14 @@ function TermsModal({ onClose, onAccept }) {
           <div className="amu-modal-section">
             <h4>3. Market Data &amp; Analytics</h4>
             <p>
-              Real-time quotes, technical charts, indicators, and analytics available on Aarambh TradeX are provided for informational and educational purposes only. While we aim for high accuracy, we do not guarantee uninterrupted or error-free market feeds.
+              Real-time quotes, technical charts, indicators, and analytics available on Aarambh Tradex are provided for informational and educational purposes only. While we aim for high accuracy, we do not guarantee uninterrupted or error-free market feeds.
             </p>
           </div>
 
           <div className="amu-modal-section">
             <h4>4. Financial &amp; Investment Risk Disclaimer</h4>
             <p>
-              Trading in equities, derivatives, commodities, foreign exchange, and cryptocurrencies carries substantial financial risk. Losses can exceed deposits. Aarambh TradeX does not provide personalized investment advice or guarantee any trading returns.
+              Trading in equities, derivatives, commodities, foreign exchange, and cryptocurrencies carries substantial financial risk. Losses can exceed deposits. Aarambh Tradex does not provide personalized investment advice or guarantee any trading returns.
             </p>
           </div>
 
@@ -742,7 +742,7 @@ function TermsModal({ onClose, onAccept }) {
           <div className="amu-modal-section">
             <h4>7. Amendments &amp; Termination</h4>
             <p>
-              Aarambh TradeX reserves the right to update these terms or suspend/terminate accounts that violate our safety policies. If you have any questions, concerns, or need assistance regarding these terms or your account, please contact our support team at <a href="mailto:aarambhtradex@gmail.com">aarambhtradex@gmail.com</a>.
+              Aarambh Tradex reserves the right to update these terms or suspend/terminate accounts that violate our safety policies. If you have any questions, concerns, or need assistance regarding these terms or your account, please contact our support team at <a href="mailto:aarambhTradex@gmail.com">aarambhTradex@gmail.com</a>.
             </p>
           </div>
 

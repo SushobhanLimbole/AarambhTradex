@@ -234,17 +234,17 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
       symbolMap[sym].push(row);
     });
 
-    // Ensure records per symbol are sorted chronologically DESC (latest first)
+    // Ensure records per symbol are sorted chronologically ASC (earliest first, latest at bottom)
     const resultRows = [];
     let globalIndex = 1;
 
     Object.keys(symbolMap).forEach((sym) => {
       const rowsForSym = symbolMap[sym];
-      // Sort DESC by date
-      rowsForSym.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // Sort ASC by date (oldest to newest)
+      rowsForSym.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       rowsForSym.forEach((row, idx, arr) => {
-        const prevRow = arr[idx + 1]; // Previous candle chronologically
+        const prevRow = idx > 0 ? arr[idx - 1] : null; // Previous candle chronologically
 
         const openVal = parseNum(row.open);
         const highVal = parseNum(row.high);
@@ -395,7 +395,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           else if (tf === "half-yearly" || tf === "halfyearly") windowSize = 2;
           else if (tf === "yearly") windowSize = 5;
 
-          const prevCandles = arr.slice(idx + 1, idx + 1 + windowSize);
+          const prevCandles = arr.slice(Math.max(0, idx - windowSize), idx);
           if (prevCandles.length > 0) {
             floorPrice = Math.min(...prevCandles.map((r) => parseNum(r.low)));
             ceilingPrice = Math.max(...prevCandles.map((r) => parseNum(r.high)));
@@ -526,8 +526,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
               const metaLabel = typeof item === "object" && item.indice
                 ? `${cleanSym} — [${item.exchange}] ${item.indice}`
                 : typeof item === "object" && item.exchange
-                ? `${cleanSym} — [${item.exchange}]`
-                : cleanSym;
+                  ? `${cleanSym} — [${item.exchange}]`
+                  : cleanSym;
               return (
                 <option key={sym} value={sym}>
                   {metaLabel}
