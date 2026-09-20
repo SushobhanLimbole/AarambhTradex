@@ -12,9 +12,9 @@ export class SymbolMetadataModel {
       `SELECT DISTINCT exchange FROM ${TABLE_NAME} WHERE exchange IS NOT NULL AND exchange != '' ORDER BY exchange ASC`
     );
 
-    // 2. Get distinct indices
+    // 2. Get distinct indices with counts
     const [indicesRows] = await pool.query(
-      `SELECT DISTINCT indice FROM ${TABLE_NAME} WHERE indice IS NOT NULL AND indice != '' ORDER BY indice ASC`
+      `SELECT indice, COUNT(*) as count FROM ${TABLE_NAME} WHERE indice IS NOT NULL AND indice != '' GROUP BY indice ORDER BY indice ASC`
     );
 
     // 3. Get total count
@@ -23,6 +23,11 @@ export class SymbolMetadataModel {
     return {
       exchanges: exchangesRows.map((r) => r.exchange),
       indices: indicesRows.map((r) => r.indice),
+      indicesWithCounts: indicesRows.map((r) => ({
+        name: r.indice,
+        count: r.count,
+        label: `${r.indice.toUpperCase()} (${r.count} stocks)`,
+      })),
       totalSymbols: countRow[0]?.total || 0,
     };
   }
