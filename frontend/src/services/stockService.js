@@ -5,6 +5,9 @@ import { ENDPOINTS } from "../config/api.config.js";
  * Frontend Stock Service for fetching timeframe-aggregated stock data and performing CRUD
  * Supports both Symbol-Specific and Non-Symbol-Specific (All Stocks) operations, with limit='all'
  */
+let symbolsMetaCache = null;
+let symbolsMetaPromise = null;
+
 export const stockService = {
   /**
    * Get stock data across ALL stocks resampled by timeframe
@@ -156,11 +159,28 @@ export const stockService = {
 
   /**
    * High-speed metadata retrieval (Distinct exchanges, distinct indices, total counts)
+   * Cached in-memory to prevent repeated redundant network requests
    */
-  async getSymbolsMeta() {
-    return await apiClient(ENDPOINTS.SYMBOLS.GET_META, {
+  async getSymbolsMeta(forceRefresh = false) {
+    if (symbolsMetaCache && !forceRefresh) {
+      return symbolsMetaCache;
+    }
+    if (symbolsMetaPromise && !forceRefresh) {
+      return symbolsMetaPromise;
+    }
+    symbolsMetaPromise = apiClient(ENDPOINTS.SYMBOLS.GET_META, {
       method: "GET",
-    });
+    })
+      .then((res) => {
+        symbolsMetaCache = res;
+        symbolsMetaPromise = null;
+        return res;
+      })
+      .catch((err) => {
+        symbolsMetaPromise = null;
+        throw err;
+      });
+    return symbolsMetaPromise;
   },
 
   /**

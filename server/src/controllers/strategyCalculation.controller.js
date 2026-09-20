@@ -33,10 +33,17 @@ export const calculateStrategy = async (req, res, next) => {
     // If OHLC not directly provided or 0, but symbol and date are passed, query from MySQL
     if ((!candle.open && !candle.high && !candle.close) && symbol) {
       try {
-        const [rows] = await pool.query(
+        const sym = String(symbol).trim();
+        let [rows] = await pool.query(
           "SELECT open, high, low, close FROM historical_candles WHERE symbol = ? ORDER BY date DESC LIMIT 1",
-          [symbol]
+          [sym]
         );
+        if (!rows || rows.length === 0) {
+          [rows] = await pool.query(
+            "SELECT open, high, low, close FROM global_assets WHERE symbol = ? ORDER BY date DESC LIMIT 1",
+            [sym]
+          );
+        }
         if (rows && rows.length > 0) {
           candle = {
             open: parseFloat(rows[0].open) || 0,

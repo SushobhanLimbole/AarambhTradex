@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./ScreenerPage.css";
 import screenerService from "../../services/screenerService.js";
+import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
 // Trigger options grouped by category
@@ -43,6 +44,12 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
   const oneMonthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
+  // Market Filters State (Exchange & Index)
+  const [selectedExchange, setSelectedExchange] = useState("ALL");
+  const [selectedIndice, setSelectedIndice] = useState("ALL");
+  const [availableExchanges, setAvailableExchanges] = useState(["ALL", "NSE", "BSE", "CRYPTO", "METALS"]);
+  const [availableIndices, setAvailableIndices] = useState([]);
+
   // CMP1 (Current Market Period) State
   const [cmp1StartDate, setCmp1StartDate] = useState(oneMonthAgo);
   const [cmp1EndDate, setCmp1EndDate] = useState(today);
@@ -64,6 +71,30 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedSymbol, setCopiedSymbol] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
+
+  // Fetch metadata filters on mount
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadFilters() {
+      try {
+        const metaRes = await stockService.getSymbolsMeta();
+        if (!isCancelled && metaRes?.data) {
+          if (Array.isArray(metaRes.data.exchanges) && metaRes.data.exchanges.length > 0) {
+            setAvailableExchanges(["ALL", ...metaRes.data.exchanges]);
+          }
+          if (Array.isArray(metaRes.data.indices) && metaRes.data.indices.length > 0) {
+            setAvailableIndices(metaRes.data.indices);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load metadata in screener:", err);
+      }
+    }
+    loadFilters();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   // Toggle individual trigger in/out of selection
   const handleToggleTrigger = (trig) => {
@@ -105,6 +136,8 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
     setError("");
 
     const payload = {
+      exchange: selectedExchange,
+      indice: selectedIndice,
       cmp1: {
         startDate: cmp1StartDate,
         endDate: cmp1EndDate,
@@ -317,26 +350,59 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
         </div>
 
-        {/* PATTERN SETUP CARD */}
+        {/* MARKET & PATTERN SETUP CARD */}
         <div className="screener-card pattern-card">
           <div className="card-header-badge pattern-badge">
-            <span className="badge-icon">📐</span>
-            <span>Pattern Setup</span>
+            <span className="badge-icon">🌐</span>
+            <span>Market & Pattern Setup</span>
           </div>
 
-          <div className="screener-input-group full-width">
-            <label className="input-label">Dropdown Pointer Type</label>
-            <select
-              className="apple-select-input pattern-select"
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-            >
-              {PATTERNS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", width: "100%" }}>
+            <div className="screener-input-group">
+              <label className="input-label">Exchange</label>
+              <select
+                className="apple-select-input"
+                value={selectedExchange}
+                onChange={(e) => setSelectedExchange(e.target.value)}
+              >
+                {availableExchanges.map((ex) => (
+                  <option key={`ex-${ex}`} value={ex}>
+                    {ex === "ALL" ? "All Exchanges (NSE, BSE, Crypto, Metals)" : ex}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">Index / Sector</label>
+              <select
+                className="apple-select-input"
+                value={selectedIndice}
+                onChange={(e) => setSelectedIndice(e.target.value)}
+              >
+                <option value="ALL">All Indices</option>
+                {availableIndices.map((idx) => (
+                  <option key={`idx-${idx}`} value={idx}>
+                    {idx}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">Pointer Pattern Type</label>
+              <select
+                className="apple-select-input pattern-select"
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+              >
+                {PATTERNS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -553,6 +619,21 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
                         <td className="col-stock-name">
                           <div className="stock-name-cell">
                             <span className="stock-symbol-badge">{stripSymbolSuffix(symbol)}</span>
+                            {detail?.exchange && (
+                              <span style={{
+                                fontSize: "10px",
+                                fontWeight: "700",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                marginLeft: "6px",
+                                background: detail.exchange === "CRYPTO" ? "#ede9fe" : detail.exchange === "METALS" ? "#fef3c7" : "#e0f2fe",
+                                color: detail.exchange === "CRYPTO" ? "#6d28d9" : detail.exchange === "METALS" ? "#92400e" : "#0369a1",
+                                border: "1px solid currentColor",
+                                opacity: 0.9,
+                              }}>
+                                {detail.exchange}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="col-breakout-triggers">

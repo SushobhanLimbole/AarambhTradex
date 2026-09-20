@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "./StockAnalytics.css";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
@@ -61,13 +61,23 @@ const getDayOfWeek = (dateStr) => {
   }
 };
 
+const getTodayDateStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+
   // Filter States
   const [exchange, setExchange] = useState("ALL");
   const [indexVal, setIndexVal] = useState("ALL");
   const [ticker, setTicker] = useState("ALL");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
   const [timeframe, setTimeframe] = useState("Daily");
 
   // Metadata loaded from /api/symbols/meta
@@ -103,7 +113,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // 1. Fetch metadata (exchanges and indices) on mount
+  // 1. Fetch metadata (exchanges and indices) once on mount (cached in stockService)
   useEffect(() => {
     let isCancelled = false;
     async function loadMeta() {
@@ -127,10 +137,14 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     };
   }, []);
 
-  // 2. Fetch symbols dynamically whenever Exchange or Index filter changes
+  // 2. Fetch symbols dynamically only when Exchange or Index filter changes
   useEffect(() => {
     let isCancelled = false;
     async function loadSymbolsForFilter() {
+      if (exchange === "ALL" && indexVal === "ALL") {
+        setAvailableSymbols([]);
+        return;
+      }
       setSymbolsLoading(true);
       try {
         const res = await stockService.getSymbolsList({
@@ -140,7 +154,6 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         });
         if (!isCancelled && res?.data && Array.isArray(res.data)) {
           setAvailableSymbols(res.data);
-          // If current selected ticker is not in newly filtered list, reset to ALL
           const exists = res.data.some((item) => item.symbol === ticker);
           if (!exists && ticker !== "ALL") {
             setTicker("ALL");
@@ -158,7 +171,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     };
   }, [exchange, indexVal]);
 
-  // 3. Fetch stock candle data from backend API based on user input
+  // 3. Fetch stock candle data on demand based on user input
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -169,21 +182,21 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         indice: indexVal !== "ALL" ? indexVal : undefined,
         startDate: fromDate || undefined,
         endDate: toDate || undefined,
-        limit: "all", // Fetch all matching records
+        limit: "all",
         order: "DESC",
       };
 
       if (!ticker || ticker === "ALL" || ticker === "ALL_SYMBOLS") {
-        // If ALL ticker is selected:
-        if (!fromDate && !toDate && exchange === "ALL" && indexVal === "ALL") {
-          // Default initial overview: get latest candle across all symbols
-          response = await stockService.getLatestAllStocks(timeframe);
+        // Initial/Today's load when default today date is selected
+        if (fromDate === todayStr && toDate === todayStr && exchange === "ALL" && indexVal === "ALL") {
+          response = await stockService.getLatestAllStocks(timeframe, fromDate);
+          if (!response?.data || response.data.length === 0) {
+            response = await stockService.getLatestAllStocks(timeframe);
+          }
         } else {
-          // Fetch candles matching exchange / index / date criteria
           response = await stockService.getAllStocks(timeframe, options);
         }
       } else {
-        // Fetch for specific symbol
         const cleanSymbol = ticker.split(" ")[0].trim();
         response = await stockService.getStockData(cleanSymbol, timeframe, {
           startDate: fromDate || undefined,
@@ -205,7 +218,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     } finally {
       setLoading(false);
     }
-  }, [ticker, exchange, indexVal, timeframe, fromDate, toDate]);
+  }, [ticker, exchange, indexVal, timeframe, fromDate, toDate, todayStr]);
 
   // Initial load on mount only
   useEffect(() => {
@@ -214,11 +227,12 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
   }, []);
 
   const handleClear = () => {
+    const today = getTodayDateStr();
     setExchange("ALL");
     setIndexVal("ALL");
     setTicker("ALL");
-    setFromDate("");
-    setToDate("");
+    setFromDate(today);
+    setToDate(today);
     setTimeframe("Daily");
   };
 
@@ -443,6 +457,21 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     return resultRows;
   }, [rawRecords]);
 
+  // Table scroll container ref for scrolling to the last row
+  const tableScrollRef = useRef(null);
+
+  // Auto-scroll table to the very last row when records load/update
+  useEffect(() => {
+    if (!loading && processedRows.length > 0 && tableScrollRef.current) {
+      const container = tableScrollRef.current;
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    }
+  }, [loading, processedRows]);
+
   // Handle row click / pointer navigation
   const handleOpenRowDetails = (row) => {
     const payload = {
@@ -518,7 +547,11 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             disabled={symbolsLoading}
           >
             <option value="ALL">
-              {symbolsLoading ? "Loading symbols..." : `ALL - All Symbols (${availableSymbols.length} available)`}
+              {symbolsLoading
+                ? "Loading symbols..."
+                : exchange === "ALL" && indexVal === "ALL"
+                ? "ALL - All Symbols (Whole Database)"
+                : `ALL - All Symbols in Filter (${availableSymbols.length} available)`}
             </option>
             {availableSymbols.map((item) => {
               const sym = typeof item === "string" ? item : item.symbol;
@@ -776,7 +809,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           </div>
         </div> */}
 
-        <div className="table-scroll">
+        <div className="table-scroll" ref={tableScrollRef}>
           <table className="apple-table">
             <thead>
               <tr>

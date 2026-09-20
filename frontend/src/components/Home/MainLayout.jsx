@@ -78,60 +78,80 @@ export default function MainLayout() {
     setActiveTab(previousTab || "screener");
   };
 
+  const isReportsTab = activeTab === "reports";
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        height: isReportsTab ? "100vh" : "auto",
+        minHeight: "100vh",
+        background: "#f8fafc",
+        display: "flex",
+        flexDirection: "column",
+        overflow: isReportsTab ? "hidden" : "visible",
+      }}
+    >
       <Navbar activeTab={activeTab} setActiveTab={handleTabChange} />
 
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", paddingBottom: "32px" }}>
-        <div style={{ display: activeTab === "reports" ? "block" : "none" }}>
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          paddingBottom: isReportsTab ? "12px" : "32px",
+          overflow: isReportsTab ? "hidden" : "visible",
+        }}
+      >
+        {activeTab === "reports" && (
           <StockAnalytics
             onOpenPointer={(row) => handleOpenPointer(row, "reports")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "reports")}
           />
-        </div>
-        <div style={{ display: activeTab === "trend-report" ? "block" : "none" }}>
+        )}
+        {activeTab === "trend-report" && (
           <NewTrendReportPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "trend-report")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "trend-report")}
           />
-        </div>
-        <div style={{ display: activeTab === "ab-top-bottom" ? "block" : "none" }}>
+        )}
+        {activeTab === "ab-top-bottom" && (
           <AbTopBottomPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "ab-top-bottom")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "ab-top-bottom")}
           />
-        </div>
-        <div style={{ display: activeTab === "trend-reversal" ? "block" : "none" }}>
+        )}
+        {activeTab === "trend-reversal" && (
           <TrendReversalPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "trend-reversal")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "trend-reversal")}
           />
-        </div>
-        <div style={{ display: activeTab === "cb-report" ? "block" : "none" }}>
+        )}
+        {activeTab === "cb-report" && (
           <CbReportPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "cb-report")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "cb-report")}
           />
-        </div>
-        <div style={{ display: activeTab === "highest-closing" ? "block" : "none" }}>
+        )}
+        {activeTab === "highest-closing" && (
           <HighestClosingPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "highest-closing")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "highest-closing")}
           />
-        </div>
-        <div style={{ display: activeTab === "dd-report" ? "block" : "none" }}>
+        )}
+        {activeTab === "dd-report" && (
           <DdReportPage
             onBack={() => setActiveTab("reporthub")}
             onOpenPointer={(row) => handleOpenPointer(row, "dd-report")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "dd-report")}
           />
-        </div>
-        <div style={{ display: activeTab === "reporthub" ? "block" : "none" }}>
+        )}
+        {activeTab === "reporthub" && (
           <ReportHubPage
             onSelectReportCard={(card) => {
               if (!card) return;
@@ -172,41 +192,33 @@ export default function MainLayout() {
                   setActiveTab("screener");
                   break;
 
-                /* -------------------------------------------------------------
-                   ROUTES FOR REMAINING REPORT CARDS (NOT YET CREATED)
-                   Left commented as requested:
-                   ------------------------------------------------------------- */
-                // case "y1_y6_formulas":
-                //   setActiveTab("y1-y6-formulas-report");
-                //   break;
-
                 default:
                   break;
               }
             }}
           />
-        </div>
-        <div style={{ display: activeTab === "pointer" ? "block" : "none" }}>
+        )}
+        {activeTab === "pointer" && (
           <PointerPage
             initialData={pointerData}
             onBack={handleBack}
             previousTab={previousTab}
           />
-        </div>
-        <div style={{ display: activeTab === "strategy" ? "block" : "none" }}>
+        )}
+        {activeTab === "strategy" && (
           <StrategyPage
             initialData={pointerData}
             onBack={handleBack}
             previousTab={previousTab}
           />
-        </div>
-        <div style={{ display: activeTab === "screener" ? "block" : "none" }}>
+        )}
+        {activeTab === "screener" && (
           <ScreenerPage
             onBack={() => setActiveTab("reporthub")}
             onOpenStrategy={(row) => handleOpenStrategy(row, "screener")}
             onOpenPointer={(row) => handleOpenStrategy(row, "screener")}
           />
-        </div>
+        )}
         {activeTab === "requests" && <StrategyAccessRequestsPage />}
         {activeTab === "profile" && <ProfilePage />}
       </main>

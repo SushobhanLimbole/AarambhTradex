@@ -5,8 +5,14 @@
 .analytics-container {
   width: 100%;
   max-width: 100%;
-  padding: 24px 32px;
+  padding: 16px 24px;
   margin: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
 }
 
@@ -16,12 +22,13 @@
   border-radius: 16px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  padding: 18px 22px;
-  margin-bottom: 24px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 14px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .filter-group {
@@ -211,19 +218,24 @@
 /* APPLE MATRIX TABLE CARD */
 .matrix-card {
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
   overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .matrix-header-bar {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: #fafafa;
+  flex-shrink: 0;
 }
 
 .matrix-title {
@@ -269,7 +281,31 @@
 
 /* TABLE STYLING WITH HIGHLIGHTED HEADER */
 .table-scroll {
+  flex: 1;
+  overflow-y: auto;
   overflow-x: auto;
+  min-height: 0;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .apple-table {
@@ -278,13 +314,25 @@
   text-align: left;
 }
 
+.apple-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .apple-table thead tr {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: #f8fafc;
 }
 
 .apple-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: #f8fafc;
-  padding: 14px 16px;
+  padding: 13px 16px;
   font-size: 12px;
   font-weight: 700;
   color: #475569;
@@ -292,6 +340,7 @@
   border-bottom: 2px solid #e2e8f0;
   border-right: 1px solid #f1f5f9;
   white-space: nowrap;
+  box-shadow: 0 1px 0 #e2e8f0;
 }
 
 .apple-table th:last-child {

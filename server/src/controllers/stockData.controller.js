@@ -50,7 +50,7 @@ export const getAllStocksByTimeframe = async (req, res, next) => {
       startDate,
       endDate,
       limit = 1000,
-      order = "DESC",
+      order = "ASC",
     } = req.query;
 
     const matchedTf = parseTimeframe(timeframe);
@@ -62,7 +62,7 @@ export const getAllStocksByTimeframe = async (req, res, next) => {
       startDate,
       endDate,
       limit: limit === "all" || limit === "ALL" ? "all" : limit,
-      order: String(order).toUpperCase() === "ASC" ? "ASC" : "DESC",
+      order: String(order).toUpperCase() === "DESC" ? "DESC" : "ASC",
     });
 
     return res.status(200).json({
@@ -137,19 +137,21 @@ export const getStockDataByTimeframe = async (req, res, next) => {
     const { symbol } = req.params;
     const {
       timeframe = "Daily",
+      exchange,
       startDate,
       endDate,
       limit = 500,
-      order = "DESC",
+      order = "ASC",
     } = req.query;
 
     const matchedTf = parseTimeframe(timeframe);
 
     const data = await StockDataModel.findByTimeframe(symbol, matchedTf, {
+      exchange,
       startDate,
       endDate,
       limit: limit === "all" || limit === "ALL" ? "all" : limit,
-      order: String(order).toUpperCase() === "ASC" ? "ASC" : "DESC",
+      order: String(order).toUpperCase() === "DESC" ? "DESC" : "ASC",
     });
 
     return res.status(200).json({

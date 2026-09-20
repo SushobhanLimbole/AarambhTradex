@@ -38,8 +38,8 @@ export async function createAndPopulateSymbolsMetadata() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  console.log("2. Aggregating distinct symbols from 'historical_candles'...");
-  const [rows] = await pool.query(`
+  console.log("2. Aggregating distinct symbols from 'historical_candles' and 'global_assets'...");
+  const [candlesRows] = await pool.query(`
     SELECT 
       symbol,
       CASE 
@@ -48,15 +48,43 @@ export async function createAndPopulateSymbolsMetadata() {
         ELSE COALESCE(MAX(exchange), 'NSE')
       END AS exchange,
       MAX(indice) AS indice,
+      NULL AS company_name,
       COUNT(*) AS total_candles,
       MIN(date) AS first_date,
       MAX(date) AS last_date
     FROM historical_candles
     GROUP BY symbol
-    ORDER BY symbol ASC
   `);
 
-  console.log(`Found ${rows.length} distinct symbols in historical_candles. Populating symbols_metadata...`);
+  const [globalRows] = await pool.query(`
+    SELECT 
+      symbol,
+      UPPER(exchange) AS exchange,
+      CASE 
+        WHEN UPPER(exchange) = 'CRYPTO' THEN 'Crypto'
+        WHEN UPPER(exchange) = 'METALS' THEN 'Metals'
+        ELSE COALESCE(MAX(indice), 'Global Assets')
+      END AS indice,
+      CASE 
+        WHEN symbol = 'BTC-USD' THEN 'Bitcoin USD'
+        WHEN symbol = 'ETH-USD' THEN 'Ethereum USD'
+        WHEN symbol = 'SOL-USD' THEN 'Solana USD'
+        WHEN symbol = 'XRP-USD' THEN 'XRP USD'
+        WHEN symbol = 'XAUUSD=X' THEN 'Gold Spot (USD)'
+        WHEN symbol = 'XAGUSD=X' THEN 'Silver Spot (USD)'
+        ELSE NULL
+      END AS company_name,
+      COUNT(*) AS total_candles,
+      MIN(date) AS first_date,
+      MAX(date) AS last_date
+    FROM global_assets
+    GROUP BY symbol, exchange
+  `);
+
+  const rows = [...candlesRows, ...globalRows];
+  rows.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+  console.log(`Found ${rows.length} distinct symbols across all markets. Populating symbols_metadata...`);
 
   // Insert or update in chunks of 500
   const chunkSize = 500;
@@ -68,6 +96,7 @@ export async function createAndPopulateSymbolsMetadata() {
       r.symbol,
       r.exchange,
       r.indice,
+      r.company_name,
       r.total_candles,
       r.first_date,
       r.last_date,
@@ -75,11 +104,12 @@ export async function createAndPopulateSymbolsMetadata() {
 
     await pool.query(
       `
-      INSERT INTO symbols_metadata (symbol, exchange, indice, total_candles, first_date, last_date)
+      INSERT INTO symbols_metadata (symbol, exchange, indice, company_name, total_candles, first_date, last_date)
       VALUES ?
       ON DUPLICATE KEY UPDATE
         exchange = VALUES(exchange),
         indice = VALUES(indice),
+        company_name = VALUES(company_name),
         total_candles = VALUES(total_candles),
         first_date = VALUES(first_date),
         last_date = VALUES(last_date)
@@ -91,17 +121,18 @@ export async function createAndPopulateSymbolsMetadata() {
     console.log(`✓ Synchronized ${insertedOrUpdated} / ${rows.length} symbols.`);
   }
 
-  // Also ensure index on historical_candles for symbol & date for high-speed queries
-  console.log("3. Ensuring performance indexes on 'historical_candles'...");
+  // Also ensure index on historical_candles and global_assets for symbol & date for high-speed queries
+  console.log("3. Ensuring performance indexes on 'historical_candles' and 'global_assets'...");
   try {
     await pool.query("ALTER TABLE historical_candles ADD INDEX idx_candle_sym_date (symbol, date)");
-    console.log("✓ Added composite index idx_candle_sym_date on historical_candles.");
   } catch (err) {
-    if (err.code === "ER_DUP_KEYNAME") {
-      console.log("Index on historical_candles already exists.");
-    } else {
-      console.warn("Index note:", err.message);
-    }
+    // ignore if exists
+  }
+  try {
+    await pool.query("ALTER TABLE global_assets ADD INDEX idx_global_sym_date (symbol, date)");
+    console.log("✓ Added composite index idx_global_sym_date on global_assets.");
+  } catch (err) {
+    // ignore if exists
   }
 
   console.log("\nFinished successfully! symbols_metadata is initialized and populated.");

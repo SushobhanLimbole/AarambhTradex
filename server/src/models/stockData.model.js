@@ -16,6 +16,39 @@ import pool from "../config/mysql.js";
 
 const DEFAULT_TABLE_NAME = process.env.MYSQL_STOCK_TABLE || "historical_candles";
 
+export const GLOBAL_SYMBOLS = new Set([
+  "BTC-USD",
+  "ETH-USD",
+  "SOL-USD",
+  "XRP-USD",
+  "XAUUSD=X",
+  "XAGUSD=X",
+]);
+
+export function isGlobalAsset(symbol, exchange) {
+  if (exchange) {
+    const ex = String(exchange).toUpperCase();
+    if (ex === "CRYPTO" || ex === "METALS") return true;
+  }
+  if (symbol && GLOBAL_SYMBOLS.has(String(symbol).trim().toUpperCase())) {
+    return true;
+  }
+  return false;
+}
+
+export function resolveTableName(exchange, symbol, defaultTable = DEFAULT_TABLE_NAME) {
+  if (exchange) {
+    const ex = String(exchange).toUpperCase();
+    if (ex === "CRYPTO" || ex === "METALS") return "global_assets";
+    if (ex === "NSE" || ex === "BSE") return "historical_candles";
+  }
+  if (symbol) {
+    const sym = String(symbol).trim().toUpperCase();
+    if (GLOBAL_SYMBOLS.has(sym)) return "global_assets";
+  }
+  return defaultTable;
+}
+
 export class StockDataModel {
   static tableName = DEFAULT_TABLE_NAME;
 
@@ -161,6 +194,7 @@ export class StockDataModel {
    * @param {Object} options - { startDate, endDate, limit, offset, order }
    */
   static async findBySymbol(symbol, options = {}, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, symbol, tableName) : tableName;
     const {
       startDate,
       endDate,
@@ -185,7 +219,7 @@ export class StockDataModel {
     const isAll = this.isLimitAll(limit);
 
     let query = `
-      SELECT * FROM \`${tableName}\`
+      SELECT * FROM \`${effectiveTable}\`
       WHERE ${conditions.join(" AND ")}
       ORDER BY \`date\` ${sortOrder}
     `;
@@ -205,6 +239,7 @@ export class StockDataModel {
    * @param {Object} options - { symbols, startDate, endDate, limit, offset, order }
    */
   static async findAll(options = {}, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, null, tableName) : tableName;
     const {
       symbols,
       exchange,
@@ -253,7 +288,7 @@ export class StockDataModel {
     const isAll = this.isLimitAll(limit);
 
     let query = `
-      SELECT * FROM \`${tableName}\`
+      SELECT * FROM \`${effectiveTable}\`
       ${whereClause}
       ORDER BY \`date\` ${sortOrder}, \`symbol\` ASC
     `;
@@ -280,8 +315,9 @@ export class StockDataModel {
    * Get the latest record for a symbol
    */
   static async getLatestBySymbol(symbol, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(null, symbol, tableName) : tableName;
     const query = `
-      SELECT * FROM \`${tableName}\`
+      SELECT * FROM \`${effectiveTable}\`
       WHERE \`symbol\` = ?
       ORDER BY \`date\` DESC
       LIMIT 1
@@ -304,6 +340,7 @@ export class StockDataModel {
    * @returns {Promise<Array<Object>>} Aggregated OHLCV candle records
    */
   static async findByTimeframe(symbol, timeframe = "Daily", options = {}, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, symbol, tableName) : tableName;
     const { startDate, endDate, limit = 500, order = "DESC" } = options;
     const tf = String(timeframe).trim();
     const isAll = this.isLimitAll(limit);
@@ -312,8 +349,8 @@ export class StockDataModel {
     if (tf.toLowerCase() === "daily") {
       return await this.findBySymbol(
         symbol,
-        { startDate, endDate, limit, offset: 0, order },
-        tableName
+        { startDate, endDate, limit, offset: 0, order, exchange: options.exchange },
+        effectiveTable
       );
     }
 
@@ -332,7 +369,7 @@ export class StockDataModel {
 
     const dailyQuery = `
       SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-      FROM \`${tableName}\`
+      FROM \`${effectiveTable}\`
       WHERE ${conditions.join(" AND ")}
       ORDER BY \`date\` ASC
     `;
@@ -362,6 +399,7 @@ export class StockDataModel {
    * @returns {Promise<Array<Object>>} Aggregated OHLCV candle records across stocks
    */
   static async findAllByTimeframe(timeframe = "Daily", options = {}, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, null, tableName) : tableName;
     const { symbols, exchange, indice, startDate, endDate, limit = 1000, order = "DESC" } = options;
     const tf = String(timeframe).trim();
     const isAll = this.isLimitAll(limit);
@@ -370,7 +408,7 @@ export class StockDataModel {
     if (tf.toLowerCase() === "daily") {
       return await this.findAll(
         { symbols, exchange, indice, startDate, endDate, limit, offset: 0, order },
-        tableName
+        effectiveTable
       );
     }
 
@@ -410,7 +448,7 @@ export class StockDataModel {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const query = `
       SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\`
-      FROM \`${tableName}\`
+      FROM \`${effectiveTable}\`
       ${whereClause}
       ORDER BY \`symbol\` ASC, \`date\` ASC
     `;
@@ -455,13 +493,14 @@ export class StockDataModel {
    * @param {Object} options - { date }
    */
   static async getLatestAllSymbols(timeframe = "Daily", options = {}, tableName = this.tableName) {
+    const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, null, tableName) : tableName;
     const { date } = options;
 
     if (String(timeframe).toLowerCase() === "daily") {
       let targetDate = date;
       if (!targetDate) {
         // Find the latest trading date in the table
-        const query = `SELECT MAX(\`date\`) as maxDate FROM \`${tableName}\``;
+        const query = `SELECT MAX(\`date\`) as maxDate FROM \`${effectiveTable}\``;
         const [res] = await pool.query(query);
         targetDate = res[0]?.maxDate;
       }
@@ -473,7 +512,7 @@ export class StockDataModel {
         : new Date(targetDate).toISOString().slice(0, 10);
 
       const query = `
-        SELECT * FROM \`${tableName}\`
+        SELECT * FROM \`${effectiveTable}\`
         WHERE \`date\` = ?
         ORDER BY \`symbol\` ASC
       `;
@@ -482,7 +521,7 @@ export class StockDataModel {
     }
 
     // For higher timeframes, get candles for the latest time bucket only
-    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC" }, tableName);
+    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC", exchange: options.exchange }, effectiveTable);
     if (!allCandles || allCandles.length === 0) return [];
 
     const latestBucket = allCandles[0]?.bucket || allCandles[0]?.date;

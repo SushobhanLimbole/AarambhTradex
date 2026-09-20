@@ -52,12 +52,69 @@ function aggregatePeriodCandle(rows) {
 }
 
 /**
+ * Helper to build SQL queries for screener based on exchange & indice filters
+ */
+function buildScreenerQuery(startDate, endDate, exchange, indice) {
+  const normExch = exchange ? String(exchange).trim().toUpperCase() : "ALL";
+  const normInd = indice ? String(indice).trim() : "ALL";
+
+  if (normExch === "CRYPTO" || normExch === "METALS") {
+    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `global_assets` WHERE `date` >= ? AND `date` <= ?";
+    const p = [startDate, endDate];
+    if (normExch !== "ALL") {
+      q += " AND `exchange` = ?";
+      p.push(normExch);
+    }
+    if (normInd !== "ALL" && normInd !== "") {
+      q += " AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?))";
+      p.push(normInd, `%${normInd}%`);
+    }
+    q += " ORDER BY `symbol` ASC, `date` ASC";
+    return { query: q, params: p };
+  }
+
+  if (normExch === "NSE" || normExch === "BSE") {
+    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `historical_candles` WHERE `date` >= ? AND `date` <= ?";
+    const p = [startDate, endDate];
+    q += " AND `exchange` = ?";
+    p.push(normExch);
+    if (normInd !== "ALL" && normInd !== "") {
+      q += " AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?))";
+      p.push(normInd, `%${normInd}%`);
+    }
+    q += " ORDER BY `symbol` ASC, `date` ASC";
+    return { query: q, params: p };
+  }
+
+  // If ALL exchanges, but specific indice
+  if (normInd.toLowerCase() === "crypto" || normInd.toLowerCase() === "metals") {
+    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `global_assets` WHERE `date` >= ? AND `date` <= ? AND LOWER(`indice`) = LOWER(?) ORDER BY `symbol` ASC, `date` ASC";
+    return { query: q, params: [startDate, endDate, normInd] };
+  }
+
+  if (normInd !== "ALL" && normInd !== "") {
+    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `historical_candles` WHERE `date` >= ? AND `date` <= ? AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?)) ORDER BY `symbol` ASC, `date` ASC";
+    return { query: q, params: [startDate, endDate, normInd, `%${normInd}%`] };
+  }
+
+  // ALL exchanges & ALL indices: Union historical_candles and global_assets
+  let q = `
+    SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\` FROM \`historical_candles\` WHERE \`date\` >= ? AND \`date\` <= ?
+    UNION ALL
+    SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\` FROM \`global_assets\` WHERE \`date\` >= ? AND \`date\` <= ?
+    ORDER BY \`symbol\` ASC, \`date\` ASC
+  `;
+  const p = [startDate, endDate, startDate, endDate];
+  return { query: q, params: p };
+}
+
+/**
  * POST /api/screener
  * Main Screener Endpoint
  */
 export const runBreakoutScreener = async (req, res, next) => {
   try {
-    const { cmp1, cmp2, pattern = "TABLE TOP", trigger, triggers } = req.body || {};
+    const { cmp1, cmp2, pattern = "TABLE TOP", trigger, triggers, exchange = "ALL", indice = "ALL" } = req.body || {};
 
     if (!cmp1 || !cmp2) {
       return res.status(400).json({
@@ -89,21 +146,14 @@ export const runBreakoutScreener = async (req, res, next) => {
     }
     if (triggerList.length === 0) triggerList = ["Y1"];
 
-    const tableName = await resolveTable();
-
     // =======================================================================
     // 1. QUERY CMP2 (Historical Reference Period) - Grouped by Symbol
     // =======================================================================
-    const cmp2Query = `
-      SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-      FROM \`${tableName}\`
-      WHERE \`date\` >= ? AND \`date\` <= ?
-      ORDER BY \`symbol\` ASC, \`date\` ASC
-    `;
+    const { query: cmp2Query, params: cmp2Params } = buildScreenerQuery(cmp2Start, cmp2End, exchange, indice);
 
     let cmp2Rows = [];
     try {
-      const [rows] = await pool.query(cmp2Query, [cmp2Start, cmp2End]);
+      const [rows] = await pool.query(cmp2Query, cmp2Params);
       cmp2Rows = rows;
     } catch (dbErr) {
       console.warn("MySQL query warning on CMP2, using demo dataset fallback:", dbErr.message);
@@ -112,16 +162,11 @@ export const runBreakoutScreener = async (req, res, next) => {
     // =======================================================================
     // 2. QUERY CMP1 (Current Market Period) - Grouped by Symbol
     // =======================================================================
-    const cmp1Query = `
-      SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-      FROM \`${tableName}\`
-      WHERE \`date\` >= ? AND \`date\` <= ?
-      ORDER BY \`symbol\` ASC, \`date\` ASC
-    `;
+    const { query: cmp1Query, params: cmp1Params } = buildScreenerQuery(cmp1Start, cmp1End, exchange, indice);
 
     let cmp1Rows = [];
     try {
-      const [rows] = await pool.query(cmp1Query, [cmp1Start, cmp1End]);
+      const [rows] = await pool.query(cmp1Query, cmp1Params);
       cmp1Rows = rows;
     } catch (dbErr) {
       console.warn("MySQL query warning on CMP1:", dbErr.message);
@@ -201,8 +246,11 @@ export const runBreakoutScreener = async (req, res, next) => {
 
         if (matchedTriggers.length > 0) {
           qualifyingSymbols.push(symbol);
+          const symMeta = cmp2BySymbol[symbol]?.[0] || cmp1BySymbol[symbol]?.[0];
           detailedResults.push({
             symbol,
+            exchange: symMeta?.exchange || exchange || "NSE",
+            indice: symMeta?.indice || indice || "",
             cmp1Close: cmp1Candle.close,
             open: cmp2Candle.open,
             high: cmp2Candle.high,

@@ -184,7 +184,11 @@ export const getNewTrendReport = async (req, res, next) => {
       limit = "all",
     } = req.query;
 
-    const tableName = process.env.MYSQL_HISTORICAL_TABLE || process.env.MYSQL_STOCK_TABLE || "historical_candles";
+    const normExch = String(exchange || "").toUpperCase();
+    const normInd = String(indice || "").toLowerCase();
+    const tableName = (normExch === "CRYPTO" || normExch === "METALS" || normInd === "crypto" || normInd === "metals")
+      ? "global_assets"
+      : (process.env.MYSQL_HISTORICAL_TABLE || process.env.MYSQL_STOCK_TABLE || "historical_candles");
 
     // 1. Resolve date ceiling
     let targetDate = actionDate;

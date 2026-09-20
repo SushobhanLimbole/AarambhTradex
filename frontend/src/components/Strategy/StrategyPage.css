@@ -3,9 +3,10 @@
    ============================================================ */
 
 .strategy-page-wrapper {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 24px 28px 60px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 18px 24px 60px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
   box-sizing: border-box;
@@ -774,14 +775,30 @@
 }
 
 .pointer-summary-section {
-  max-width: 860px;
-  margin: 0 auto;
+  width: 60%;
+  max-width: 60%;
+  margin: 0 auto 20px;
   background: #ffffff;
   border: 1px solid rgba(226, 232, 240, 0.8);
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.04);
   padding: 6px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .pointer-summary-section {
+    width: 90%;
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 640px) {
+  .pointer-summary-section {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 .summary-header-card {

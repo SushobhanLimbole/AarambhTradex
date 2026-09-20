@@ -54,6 +54,22 @@ const PRESETS = [
     close: 1658.0,
     timeframe: "Daily",
   },
+  {
+    name: "BTC-USD (Bitcoin)",
+    open: 62800.0,
+    high: 64200.0,
+    low: 62100.0,
+    close: 63850.0,
+    timeframe: "Daily",
+  },
+  {
+    name: "XAUUSD=X (Gold Spot)",
+    open: 2570.0,
+    high: 2615.0,
+    low: 2565.0,
+    close: 2608.5,
+    timeframe: "Daily",
+  },
 ];
 
 const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"];
