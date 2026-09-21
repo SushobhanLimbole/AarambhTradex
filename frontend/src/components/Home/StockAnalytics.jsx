@@ -73,7 +73,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
   const todayStr = useMemo(() => getTodayDateStr(), []);
 
   // Filter States
-  const [exchange, setExchange] = useState("ALL");
+  const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
   const [ticker, setTicker] = useState("ALL");
   const [fromDate, setFromDate] = useState(todayStr);
@@ -304,7 +304,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             status = "HLC LOWER";
             statusType = "bearish";
           } else {
-            status = "—";
+            status = "";
             statusType = "neutral";
           }
 
@@ -391,7 +391,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             pointerType = "neutral";
           }
         } else {
-          status = "BASELINE";
+          status = "";
           statusType = "neutral";
           pointer = "FALSE";
           pointerType = "neutral";
@@ -875,9 +875,14 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
                       {visibleCols.range && <td>{row.range}</td>}
                       {visibleCols.status && (
                         <td>
-                          <span className={`hlc-badge ${row.statusType}`}>
-                            {row.status}
-                          </span>
+                          {row.status &&
+                          row.status !== "BASELINE" &&
+                          row.status !== "—" &&
+                          row.status !== "-" ? (
+                            <span className={`hlc-badge ${row.statusType}`}>
+                              {row.status}
+                            </span>
+                          ) : null}
                         </td>
                       )}
                       {visibleCols.pointer && (

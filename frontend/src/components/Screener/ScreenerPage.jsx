@@ -45,7 +45,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
   const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
   // Market Filters State (Exchange & Index)
-  const [selectedExchange, setSelectedExchange] = useState("ALL");
+  const [selectedExchange, setSelectedExchange] = useState("NSE");
   const [selectedIndice, setSelectedIndice] = useState("ALL");
   const [availableExchanges, setAvailableExchanges] = useState(["ALL", "NSE", "BSE", "CRYPTO", "METALS"]);
   const [availableIndices, setAvailableIndices] = useState([]);

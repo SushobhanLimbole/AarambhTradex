@@ -23,13 +23,15 @@ export default function Navbar({ activeTab, setActiveTab }) {
           <span>Data Summary</span>
         </button>
 
-        <button
-          className={`nav-btn ${activeTab === "reporthub" || activeTab === "trend-report" || activeTab === "ab-top-bottom" || activeTab === "trend-reversal" ? "active" : ""}`}
-          onClick={() => setActiveTab("reporthub")}
-        >
-          <span>📑</span>
-          <span>Report Hub</span>
-        </button>
+        {(user?.isAdmin || user?.hasAccess) && (
+          <button
+            className={`nav-btn ${activeTab === "reporthub" || activeTab === "trend-report" || activeTab === "ab-top-bottom" || activeTab === "trend-reversal" ? "active" : ""}`}
+            onClick={() => setActiveTab("reporthub")}
+          >
+            <span>📑</span>
+            <span>Report Hub</span>
+          </button>
+        )}
 
         {/* <button
           className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}

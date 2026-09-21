@@ -42,7 +42,32 @@ export default function MainLayout() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  const REPORT_TABS = [
+    "reporthub",
+    "trend-report",
+    "ab-top-bottom",
+    "trend-reversal",
+    "cb-report",
+    "highest-closing",
+    "dd-report",
+    "screener",
+  ];
+
+  // Restrict Report Hub and all reports to users with strategy access
+  useEffect(() => {
+    if (!canAccessStrategy && REPORT_TABS.includes(activeTab)) {
+      setActiveTab("reports");
+      setTabHistory(["reports"]);
+      try {
+        window.history.replaceState({ tab: "reports" }, "", "#reports");
+      } catch (_) {}
+    }
+  }, [canAccessStrategy, activeTab]);
+
   const handleTabChange = (newTab) => {
+    if (!canAccessStrategy && REPORT_TABS.includes(newTab)) {
+      return;
+    }
     if (newTab !== activeTab) {
       setTabHistory((prev) => [...prev, newTab]);
       setActiveTab(newTab);
