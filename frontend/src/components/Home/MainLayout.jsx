@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../Navbar/Navbar";
 import StockAnalytics from "./StockAnalytics";
 import ReportHubPage from "../Reports/ReportHubPage";
@@ -13,45 +13,49 @@ import StrategyPage from "../Strategy/StrategyPage";
 import ScreenerPage from "../Screener/ScreenerPage";
 import ProfilePage from "../Profile/ProfilePage";
 import StrategyAccessRequestsPage from "../Admin/StrategyAccessRequestsPage";
+import DataSyncPage from "../Admin/DataSyncPage";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function MainLayout() {
-  const [activeTab, setActiveTab] = useState("reports"); // 'reports' | 'trend-report' | 'ab-top-bottom' | 'trend-reversal' | 'cb-report' | 'reporthub' | 'pointer' | 'strategy' | 'screener' | 'requests' | 'profile'
-  const [previousTab, setPreviousTab] = useState("screener");
+  const { user } = useAuth();
+  const canAccessStrategy = Boolean(user?.isAdmin || user?.hasAccess);
+
+  const [activeTab, setActiveTab] = useState("reports");
+  const [tabHistory, setTabHistory] = useState(["reports"]);
   const [pointerData, setPointerData] = useState(null);
+
+  // Browser back/forward button synchronization
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (e.state && e.state.tab) {
+        setActiveTab(e.state.tab);
+        setTabHistory((prev) => {
+          if (prev.length > 1 && prev[prev.length - 2] === e.state.tab) {
+            return prev.slice(0, -1);
+          }
+          return [...prev, e.state.tab];
+        });
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const handleTabChange = (newTab) => {
     if (newTab !== activeTab) {
-      setPreviousTab(activeTab);
+      setTabHistory((prev) => [...prev, newTab]);
       setActiveTab(newTab);
+      try {
+        window.history.pushState({ tab: newTab }, "", `#${newTab}`);
+      } catch (_) {}
     }
   };
 
-  const handleOpenPointer = (row, fromTab = "screener") => {
-    setPreviousTab(fromTab || activeTab || "screener");
-    if (row) {
-      // Parse formatted numbers like "3,025.00" to float
-      const parseVal = (str) => {
-        if (!str) return 0;
-        return parseFloat(String(str).replace(/,/g, "")) || 0;
-      };
-      const cleanScript = stripSymbolSuffix(row.symbol || row.script || "Selected Stock");
-      setPointerData({
-        open: parseVal(row.open) || 962.0,
-        high: parseVal(row.high) || 1163.0,
-        low: parseVal(row.low) || 962.0,
-        close: parseVal(row.close) || 1130.6,
-        timeframe: "Daily",
-        symbol: row.symbol,
-        script: cleanScript,
-        title: `${cleanScript} - Pointer Matrix`,
-      });
-    }
-    setActiveTab("pointer");
-  };
+  const handleOpenPointerOrStrategy = (row, fromTab = activeTab) => {
+    const targetTab = canAccessStrategy ? "strategy" : "pointer";
+    setTabHistory((prev) => [...prev, targetTab]);
 
-  const handleOpenStrategy = (row, fromTab = "screener") => {
-    setPreviousTab(fromTab || activeTab || "screener");
     if (row) {
       const parseVal = (str) => {
         if (!str) return 0;
@@ -59,23 +63,40 @@ export default function MainLayout() {
       };
       const cleanScript = stripSymbolSuffix(row.symbol || row.script || "Selected Stock");
       setPointerData({
-        open: parseVal(row.open) || (row.cmp1Close ? row.cmp1Close * 0.99 : 886.75),
-        high: parseVal(row.high) || (row.cmp1Close ? row.cmp1Close * 1.01 : 892.20),
-        low: parseVal(row.low) || (row.cmp1Close ? row.cmp1Close * 0.98 : 882.60),
-        close: parseVal(row.close) || parseVal(row.cmp1Close) || 890.80,
+        open: parseVal(row.open) || (row.cmp1Close ? row.cmp1Close * 0.99 : 962.0),
+        high: parseVal(row.high) || (row.cmp1Close ? row.cmp1Close * 1.01 : 1163.0),
+        low: parseVal(row.low) || (row.cmp1Close ? row.cmp1Close * 0.98 : 962.0),
+        close: parseVal(row.close) || parseVal(row.cmp1Close) || 1130.6,
         range: parseVal(row.range) || undefined,
         average: parseVal(row.average) || undefined,
         timeframe: row.timeframe || "Daily",
         symbol: row.symbol,
         script: cleanScript,
-        title: `${cleanScript} - Strategy Decision Matrix`,
+        title: canAccessStrategy
+          ? `${cleanScript} - Strategy Decision Matrix`
+          : `${cleanScript} - Pointer Matrix`,
       });
     }
-    setActiveTab("strategy");
+
+    setActiveTab(targetTab);
+    try {
+      window.history.pushState({ tab: targetTab }, "", `#${targetTab}`);
+    } catch (_) {}
   };
 
   const handleBack = () => {
-    setActiveTab(previousTab || "screener");
+    if (tabHistory.length > 1) {
+      const nextHistory = [...tabHistory];
+      nextHistory.pop(); // Remove current tab
+      const previous = nextHistory[nextHistory.length - 1] || "reports";
+      setTabHistory(nextHistory);
+      setActiveTab(previous);
+      try {
+        window.history.pushState({ tab: previous }, "", `#${previous}`);
+      } catch (_) {}
+    } else {
+      setActiveTab("reports");
+    }
   };
 
   const isReportsTab = activeTab === "reports";
@@ -105,50 +126,50 @@ export default function MainLayout() {
       >
         {activeTab === "reports" && (
           <StockAnalytics
-            onOpenPointer={(row) => handleOpenPointer(row, "reports")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "reports")}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "reports")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "reports")}
           />
         )}
         {activeTab === "trend-report" && (
           <NewTrendReportPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "trend-report")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "trend-report")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
           />
         )}
         {activeTab === "ab-top-bottom" && (
           <AbTopBottomPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "ab-top-bottom")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "ab-top-bottom")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "ab-top-bottom")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "ab-top-bottom")}
           />
         )}
         {activeTab === "trend-reversal" && (
           <TrendReversalPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "trend-reversal")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "trend-reversal")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "trend-reversal")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "trend-reversal")}
           />
         )}
         {activeTab === "cb-report" && (
           <CbReportPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "cb-report")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "cb-report")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "cb-report")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "cb-report")}
           />
         )}
         {activeTab === "highest-closing" && (
           <HighestClosingPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "highest-closing")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "highest-closing")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "highest-closing")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "highest-closing")}
           />
         )}
         {activeTab === "dd-report" && (
           <DdReportPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenPointer={(row) => handleOpenPointer(row, "dd-report")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "dd-report")}
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "dd-report")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "dd-report")}
           />
         )}
         {activeTab === "reporthub" && (
@@ -156,42 +177,28 @@ export default function MainLayout() {
             onSelectReportCard={(card) => {
               if (!card) return;
               switch (card.id) {
-                // 1. STATUS REPORT & NEW TREND SCANNER -> Trend Scanner Report
                 case "status_report":
                 case "new_trend_report":
-                  setActiveTab("trend-report");
+                  handleTabChange("trend-report");
                   break;
-
-                // 2. AB TOP BLW BOTTOM -> Above Top & Below Bottom Report
                 case "ab_top_blw_bottom":
-                  setActiveTab("ab-top-bottom");
+                  handleTabChange("ab-top-bottom");
                   break;
-
-                // 3. TREND REVERSAL BULLISH-BEARISH -> Trend Reversal Report
                 case "trend_reversal_bullish_bearish":
-                  setActiveTab("trend-reversal");
+                  handleTabChange("trend-reversal");
                   break;
-
-                // 4. CB (ORDINARY CB & CB WITH STATUS) -> CB Report
                 case "cb":
-                  setActiveTab("cb-report");
+                  handleTabChange("cb-report");
                   break;
-
-                // 5. HIGHEST CLOSING (TYPE 1 & TYPE 2) -> Highest Closing Report
                 case "highest_closing":
-                  setActiveTab("highest-closing");
+                  handleTabChange("highest-closing");
                   break;
-
-                // 6. BULLISH DD - BEARISH DD -> DD Report
                 case "dd":
-                  setActiveTab("dd-report");
+                  handleTabChange("dd-report");
                   break;
-
-                // 7. POINTER BREAKOUT REPORT_1 -> Screener
                 case "pointer_breakout_report_1":
-                  setActiveTab("screener");
+                  handleTabChange("screener");
                   break;
-
                 default:
                   break;
               }
@@ -202,25 +209,31 @@ export default function MainLayout() {
           <PointerPage
             initialData={pointerData}
             onBack={handleBack}
-            previousTab={previousTab}
           />
         )}
         {activeTab === "strategy" && (
-          <StrategyPage
-            initialData={pointerData}
-            onBack={handleBack}
-            previousTab={previousTab}
-          />
+          canAccessStrategy ? (
+            <StrategyPage
+              initialData={pointerData}
+              onBack={handleBack}
+            />
+          ) : (
+            <PointerPage
+              initialData={pointerData}
+              onBack={handleBack}
+            />
+          )
         )}
         {activeTab === "screener" && (
           <ScreenerPage
-            onBack={() => setActiveTab("reporthub")}
-            onOpenStrategy={(row) => handleOpenStrategy(row, "screener")}
-            onOpenPointer={(row) => handleOpenStrategy(row, "screener")}
+            onBack={handleBack}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "screener")}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "screener")}
           />
         )}
-        {activeTab === "requests" && <StrategyAccessRequestsPage />}
-        {activeTab === "profile" && <ProfilePage />}
+        {activeTab === "requests" && <StrategyAccessRequestsPage onBack={handleBack} />}
+        {activeTab === "datasync" && <DataSyncPage onBack={handleBack} />}
+        {activeTab === "profile" && <ProfilePage onBack={handleBack} />}
       </main>
     </div>
   );

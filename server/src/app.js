@@ -14,6 +14,7 @@ import trendReversalRoutes from "./routes/trendReversal.routes.js";
 import cbReportRoutes from "./routes/cbReport.routes.js";
 import highestClosingRoutes from "./routes/highestClosing.routes.js";
 import ddReportRoutes from "./routes/ddReport.routes.js";
+import eodSyncRoutes from "./routes/eodSync.routes.js";
 import { notFoundHandler, errorHandler } from "./middlewares/error.middleware.js";
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use("/api/trend-reversal", trendReversalRoutes);
 app.use("/api/cb-report", cbReportRoutes);
 app.use("/api/highest-closing", highestClosingRoutes);
 app.use("/api/dd-report", ddReportRoutes);
+app.use("/api/sync", eodSyncRoutes);
 
 // Global Error Handling Middlewares
 app.use(notFoundHandler);

@@ -20,7 +20,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
           onClick={() => setActiveTab("reports")}
         >
           <span>📊</span>
-          <span>Reports</span>
+          <span>Data Summary</span>
         </button>
 
         <button
@@ -28,10 +28,10 @@ export default function Navbar({ activeTab, setActiveTab }) {
           onClick={() => setActiveTab("reporthub")}
         >
           <span>📑</span>
-          <span>Report Cards</span>
+          <span>Report Hub</span>
         </button>
 
-        <button
+        {/* <button
           className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
           onClick={() => setActiveTab("pointer")}
         >
@@ -45,24 +45,33 @@ export default function Navbar({ activeTab, setActiveTab }) {
         >
           <span>💡</span>
           <span>Strategy Page</span>
-        </button>
+        </button> */}
 
-        <button
+        {/* <button
           className={`nav-btn ${activeTab === "screener" ? "active" : ""}`}
           onClick={() => setActiveTab("screener")}
         >
           <span>🚀</span>
           <span>Screener</span>
-        </button>
+        </button> */}
 
         {user?.isAdmin && (
-          <button
-            className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
-            onClick={() => setActiveTab("requests")}
-          >
-            <span>📋</span>
-            <span>Requests</span>
-          </button>
+          <>
+            <button
+              className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
+              onClick={() => setActiveTab("requests")}
+            >
+              <span>📋</span>
+              <span>Requests</span>
+            </button>
+            <button
+              className={`nav-btn ${activeTab === "datasync" ? "active" : ""}`}
+              onClick={() => setActiveTab("datasync")}
+            >
+              <span>⚡</span>
+              <span>Data Sync</span>
+            </button>
+          </>
         )}
 
         <button

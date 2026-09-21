@@ -304,7 +304,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             status = "HLC LOWER";
             statusType = "bearish";
           } else {
-            status = "BASELINE";
+            status = "—";
             statusType = "neutral";
           }
 
