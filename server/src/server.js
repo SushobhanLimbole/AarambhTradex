@@ -1,12 +1,14 @@
 import app from "./app.js";
-import connectDB from "./config/db.js";
+import User from "./models/user.model.js";
+import StrategyAccess from "./models/strategyAccess.model.js";
 import { testMySQLConnection } from "./config/mysql.js";
 import { startCronJobs } from "./services/cronScheduler.service.js";
 
 const startServer = async () => {
     try {
-        await connectDB();
         await testMySQLConnection();
+        await User.initTable();
+        await StrategyAccess.initTable();
 
         // Start Automated EOD & Reconciliation Cron Jobs
         startCronJobs();

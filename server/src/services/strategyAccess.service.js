@@ -95,8 +95,13 @@ export const reviewAccessRequest = async ({ requestId, action, adminNote = "" })
 
     // Update target user's hasAccess property
     const hasAccessValue = newStatus === "approved";
+    const targetUserId =
+        typeof accessRequest.user === "object" && accessRequest.user !== null
+            ? (accessRequest.user.id || accessRequest.user._id)
+            : accessRequest.user;
+
     const updatedUser = await User.findByIdAndUpdate(
-        accessRequest.user,
+        targetUserId,
         { hasAccess: hasAccessValue },
         { returnDocument: "after" }
     );

@@ -22,11 +22,16 @@ export const errorHandler = (err, req, res, next) => {
         message = `Invalid ${err.path}: ${err.value}`;
     }
 
-    // Handle Mongoose Duplicate Key Error
+    // Handle Mongoose & MySQL Duplicate Key Error
     if (err.code === 11000) {
         statusCode = 400;
         const field = Object.keys(err.keyValue || {})[0] || "field";
         message = `Duplicate value entered for '${field}'. Please use another value.`;
+    }
+
+    if (err.code === "ER_DUP_ENTRY" || err.errno === 1062) {
+        statusCode = 400;
+        message = "User with this email already exists";
     }
 
     // Handle Mongoose Validation Error
