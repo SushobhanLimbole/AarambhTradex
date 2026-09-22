@@ -49,6 +49,39 @@ let reconcileTask = null;
 export function startCronJobs() {
   console.log(`[CronScheduler] [${new Date().toISOString()}] Initializing EOD Cron Scheduler (Timezone: ${TIMEZONE})...`);
 
+  // Helper to schedule delayed follow-up recovery (5 mins) if rate-limited
+  function scheduleDelayedFollowUp(marketKey, syncFn, delayMs = 300000) {
+    console.log(
+      `[CronScheduler] [${new Date().toISOString()}] Scheduling follow-up recovery for ${marketKey} in ${(delayMs / 60000).toFixed(0)} minutes...`
+    );
+    setTimeout(async () => {
+      if (jobState[marketKey].status === "RUNNING") return;
+      console.log(
+        `[CronScheduler] [${new Date().toISOString()}] Executing scheduled follow-up recovery for ${marketKey}...`
+      );
+      jobState[marketKey].status = "RUNNING";
+      try {
+        const res = await syncFn();
+        jobState[marketKey].status = "COMPLETED";
+        jobState[marketKey].recordsUpdated =
+          (jobState[marketKey].recordsUpdated || 0) + (res.syncedCount || res.recordsInserted || 0);
+        jobState[marketKey].durationMs = res.durationMs || 0;
+        jobState[marketKey].lastError =
+          res.failedCount > 0 ? `${res.failedCount} items still unrecovered` : null;
+        console.log(
+          `[CronScheduler] [${new Date().toISOString()}] Follow-up recovery for ${marketKey} completed.`
+        );
+      } catch (err) {
+        jobState[marketKey].status = "FAILED";
+        jobState[marketKey].lastError = err.message || String(err);
+        console.error(
+          `[CronScheduler] [${new Date().toISOString()}] Follow-up recovery for ${marketKey} failed:`,
+          err
+        );
+      }
+    }, delayMs);
+  }
+
   // 1. Indian EOD: 5:30 PM IST Mon-Fri
   if (!indianTask) {
     indianTask = cron.schedule(
@@ -65,10 +98,16 @@ export function startCronJobs() {
           jobState.indian.recordsUpdated = res.syncedCount || 0;
           jobState.indian.durationMs = res.durationMs || 0;
           console.log(`[CronScheduler] [${new Date().toISOString()}] Scheduled Indian EOD Sync Completed successfully.`);
+
+          // If there were any unrecovered failed symbols due to rate limits, schedule a 5-min follow-up
+          if (res.failedCount > 0) {
+            scheduleDelayedFollowUp("indian", () => syncIndianEOD());
+          }
         } catch (err) {
           jobState.indian.status = "FAILED";
           jobState.indian.lastError = err.message || String(err);
           console.error(`[CronScheduler] [${new Date().toISOString()}] Scheduled Indian EOD Sync Failed:`, err);
+          scheduleDelayedFollowUp("indian", () => syncIndianEOD());
         }
       },
       { timezone: TIMEZONE }
@@ -92,10 +131,15 @@ export function startCronJobs() {
           jobState.global.recordsUpdated = res.recordsInserted || res.syncedCount || 0;
           jobState.global.durationMs = res.durationMs || 0;
           console.log(`[CronScheduler] [${new Date().toISOString()}] Scheduled Global EOD Sync Completed successfully.`);
+
+          if (res.failedCount > 0) {
+            scheduleDelayedFollowUp("global", () => syncGlobalEOD());
+          }
         } catch (err) {
           jobState.global.status = "FAILED";
           jobState.global.lastError = err.message || String(err);
           console.error(`[CronScheduler] [${new Date().toISOString()}] Scheduled Global EOD Sync Failed:`, err);
+          scheduleDelayedFollowUp("global", () => syncGlobalEOD());
         }
       },
       { timezone: TIMEZONE }
@@ -119,10 +163,15 @@ export function startCronJobs() {
           jobState.reconcile.recordsUpdated = res.reconciledCount || 0;
           jobState.reconcile.durationMs = res.durationMs || 0;
           console.log(`[CronScheduler] [${new Date().toISOString()}] Scheduled Weekly Reconciliation Completed successfully.`);
+
+          if (res.failedCount > 0) {
+            scheduleDelayedFollowUp("reconcile", () => reconcileHistoricalData({ days: 30 }));
+          }
         } catch (err) {
           jobState.reconcile.status = "FAILED";
           jobState.reconcile.lastError = err.message || String(err);
           console.error(`[CronScheduler] [${new Date().toISOString()}] Scheduled Weekly Reconciliation Failed:`, err);
+          scheduleDelayedFollowUp("reconcile", () => reconcileHistoricalData({ days: 30 }));
         }
       },
       { timezone: TIMEZONE }

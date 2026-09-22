@@ -3,7 +3,11 @@ import pool from "../config/mysql.js";
 import { defaultRateLimiter } from "./rateLimiter.js";
 
 const yahooFinance = new YahooFinance({
-  suppressNotices: ["ripHistorical"],
+  suppressNotices: ["ripHistorical", "yahooSurvey"],
+  validation: {
+    logErrors: false,
+    logOptionsErrors: false,
+  },
 });
 
 export const GLOBAL_TARGET_ASSETS = [
@@ -165,9 +169,88 @@ export async function syncIndianEOD(options = {}) {
     }
   }
 
-  // Flush remaining batch
+  // Flush remaining batch from Pass 1
   if (candleBatch.length > 0) {
-    await bulkUpsertHistoricalCandles(candleBatch);
+    await bulkUpsertHistoricalCandles(candleBatch.splice(0, candleBatch.length));
+  }
+
+  // Multi-pass retry for rate-limited or transiently failed symbols
+  const maxRetryPasses = options.maxRetryPasses !== undefined ? options.maxRetryPasses : 2;
+  let retryPass = 0;
+  let totalRecovered = 0;
+
+  while (retryPass < maxRetryPasses) {
+    const retryable = defaultRateLimiter.getRetryableFailedQueue();
+    if (!retryable || retryable.length === 0) break;
+
+    retryPass++;
+    const cooldownSec = 30 * retryPass;
+    console.warn(
+      `[EODSync] [${new Date().toISOString()}] ⚠️ Rate limit/network recovery: Found ${retryable.length} retryable failed symbols. Entering ${cooldownSec}s cooldown before Retry Pass ${retryPass}/${maxRetryPasses}...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, cooldownSec * 1000));
+
+    const retrySymbolSet = new Set(retryable.map((r) => r.identifier));
+    const symbolsToRetry = symbols.filter((s) => {
+      const ySym = resolveYahooSymbol(s.symbol, s.exchange);
+      return retrySymbolSet.has(ySym) || retrySymbolSet.has(s.symbol);
+    });
+
+    defaultRateLimiter.clearFailedQueue();
+    let recoveredInPass = 0;
+
+    for (let i = 0; i < symbolsToRetry.length; i++) {
+      const symObj = symbolsToRetry[i];
+      const ySymbol = resolveYahooSymbol(symObj.symbol, symObj.exchange);
+
+      try {
+        const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {
+          return await yahooFinance.historical(ySymbol, {
+            period1,
+            period2,
+            interval: "1d",
+          });
+        }, ySymbol);
+
+        if (rawCandles && rawCandles.length > 0) {
+          let matchedCandle = rawCandles.find(
+            (c) => formatDateStr(c.date) === targetDateStr
+          ) || rawCandles[rawCandles.length - 1];
+
+          if (matchedCandle && matchedCandle.close !== undefined && matchedCandle.close !== null) {
+            candleBatch.push([
+              symObj.symbol,
+              formatDateStr(matchedCandle.date),
+              matchedCandle.open !== undefined ? Number(matchedCandle.open.toFixed(4)) : null,
+              matchedCandle.high !== undefined ? Number(matchedCandle.high.toFixed(4)) : null,
+              matchedCandle.low !== undefined ? Number(matchedCandle.low.toFixed(4)) : null,
+              matchedCandle.close !== undefined ? Number(matchedCandle.close.toFixed(4)) : null,
+              matchedCandle.volume !== undefined ? Number(matchedCandle.volume) : 0,
+              symObj.exchange || "NSE",
+              symObj.indice || null,
+            ]);
+            recoveredInPass++;
+            totalRecovered++;
+            syncedCount++;
+            failedCount = Math.max(0, failedCount - 1);
+          }
+        }
+      } catch (err) {
+        // Still failed; logged in rateLimiter.failedQueue for potential next pass
+      }
+
+      if (candleBatch.length >= batchSize) {
+        await bulkUpsertHistoricalCandles(candleBatch.splice(0, candleBatch.length));
+      }
+    }
+
+    if (candleBatch.length > 0) {
+      await bulkUpsertHistoricalCandles(candleBatch.splice(0, candleBatch.length));
+    }
+
+    console.log(
+      `[EODSync] [${new Date().toISOString()}] Retry Pass ${retryPass} completed. Recovered ${recoveredInPass}/${symbolsToRetry.length} symbols.`
+    );
   }
 
   // Update last_date in symbols_metadata
@@ -189,7 +272,7 @@ export async function syncIndianEOD(options = {}) {
   const failedQueue = defaultRateLimiter.getFailedQueue();
 
   console.log(
-    `[EODSync] [${new Date().toISOString()}] Finished Indian Market EOD sync in ${(durationMs / 1000).toFixed(1)}s. Total Synced: ${syncedCount}, Failed: ${failedCount}, Skipped: ${skippedCount}.`
+    `[EODSync] [${new Date().toISOString()}] Finished Indian Market EOD sync in ${(durationMs / 1000).toFixed(1)}s. Total Synced: ${syncedCount} (Recovered: ${totalRecovered}), Failed: ${failedCount}, Skipped: ${skippedCount}.`
   );
 
   return {
@@ -200,6 +283,8 @@ export async function syncIndianEOD(options = {}) {
     syncedCount,
     failedCount,
     skippedCount,
+    recoveredCount: totalRecovered,
+    retryPassesRun: retryPass,
     durationMs,
     failedSymbols: failedQueue.slice(0, 50),
   };
@@ -247,6 +332,8 @@ export async function syncGlobalEOD(options = {}) {
   const period1 = new Date(targetDateObj.getTime() - 4 * 86400000); // 4 days buffer
   const period2 = new Date(targetDateObj.getTime() + 1 * 86400000);
 
+  defaultRateLimiter.clearFailedQueue();
+
   for (const asset of assets) {
     const ySymbol = resolveYahooSymbol(asset.symbol, asset.exchange);
     try {
@@ -287,22 +374,80 @@ export async function syncGlobalEOD(options = {}) {
     }
   }
 
-  // Bulk Upsert into global_assets
+  // Bulk Upsert Pass 1 into global_assets
   if (candleBatch.length > 0) {
-    const query = `
-      INSERT INTO global_assets (symbol, date, open, high, low, close, adj_close, volume, exchange, indice)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-        open = VALUES(open),
-        high = VALUES(high),
-        low = VALUES(low),
-        close = VALUES(close),
-        adj_close = VALUES(adj_close),
-        volume = VALUES(volume),
-        exchange = VALUES(exchange),
-        indice = VALUES(indice)
-    `;
-    await pool.query(query, [candleBatch]);
+    await bulkUpsertGlobalAssets(candleBatch.splice(0, candleBatch.length));
+  }
+
+  // Multi-pass retry for global assets if any failed due to rate limits/network
+  const maxRetryPasses = options.maxRetryPasses !== undefined ? options.maxRetryPasses : 2;
+  let retryPass = 0;
+  let totalRecovered = 0;
+
+  while (retryPass < maxRetryPasses) {
+    const retryable = defaultRateLimiter.getRetryableFailedQueue();
+    if (!retryable || retryable.length === 0) break;
+
+    retryPass++;
+    const cooldownSec = 15 * retryPass;
+    console.warn(
+      `[EODSync] [${new Date().toISOString()}] ⚠️ Found ${retryable.length} failed global assets. Waiting ${cooldownSec}s cooldown before Retry Pass ${retryPass}...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, cooldownSec * 1000));
+
+    const retrySet = new Set(retryable.map((r) => r.identifier));
+    const assetsToRetry = assets.filter(
+      (a) => retrySet.has(a.symbol) || retrySet.has(resolveYahooSymbol(a.symbol, a.exchange))
+    );
+
+    defaultRateLimiter.clearFailedQueue();
+    let recoveredInPass = 0;
+
+    for (const asset of assetsToRetry) {
+      const ySymbol = resolveYahooSymbol(asset.symbol, asset.exchange);
+      try {
+        const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {
+          return await yahooFinance.historical(ySymbol, {
+            period1,
+            period2,
+            interval: "1d",
+          });
+        }, asset.symbol);
+
+        if (rawCandles && rawCandles.length > 0) {
+          for (const c of rawCandles) {
+            if (c.close !== undefined && c.close !== null) {
+              candleBatch.push([
+                asset.symbol,
+                formatDateStr(c.date),
+                c.open !== undefined ? Number(c.open.toFixed(4)) : null,
+                c.high !== undefined ? Number(c.high.toFixed(4)) : null,
+                c.low !== undefined ? Number(c.low.toFixed(4)) : null,
+                c.close !== undefined ? Number(c.close.toFixed(4)) : null,
+                c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+                c.volume !== undefined ? Number(c.volume) : 0,
+                asset.exchange,
+                asset.indice,
+              ]);
+            }
+          }
+          recoveredInPass++;
+          totalRecovered++;
+          syncedCount++;
+          failedCount = Math.max(0, failedCount - 1);
+        }
+      } catch (err) {
+        // Still failed
+      }
+    }
+
+    if (candleBatch.length > 0) {
+      await bulkUpsertGlobalAssets(candleBatch.splice(0, candleBatch.length));
+    }
+
+    console.log(
+      `[EODSync] [${new Date().toISOString()}] Global Assets Retry Pass ${retryPass} completed. Recovered ${recoveredInPass}/${assetsToRetry.length} assets.`
+    );
   }
 
   // Update symbols_metadata for global assets
@@ -322,7 +467,7 @@ export async function syncGlobalEOD(options = {}) {
 
   const durationMs = Date.now() - startTime;
   console.log(
-    `[EODSync] [${new Date().toISOString()}] Finished Global Assets sync in ${(durationMs / 1000).toFixed(1)}s. Total assets: ${assets.length}, Synced: ${syncedCount}, Failed: ${failedCount}.`
+    `[EODSync] [${new Date().toISOString()}] Finished Global Assets sync in ${(durationMs / 1000).toFixed(1)}s. Total assets: ${assets.length}, Synced: ${syncedCount} (Recovered: ${totalRecovered}), Failed: ${failedCount}.`
   );
 
   return {
@@ -331,7 +476,9 @@ export async function syncGlobalEOD(options = {}) {
     totalSymbols: assets.length,
     syncedCount,
     failedCount,
-    recordsInserted: candleBatch.length,
+    recoveredCount: totalRecovered,
+    retryPassesRun: retryPass,
+    recordsInserted: syncedCount,
     durationMs,
   };
 }
@@ -373,6 +520,7 @@ export async function reconcileHistoricalData(options = {}) {
   const period1 = new Date(Date.now() - (days + 2) * 86400000);
   const period2 = new Date();
 
+  defaultRateLimiter.clearFailedQueue();
   let reconciledCount = 0;
   let failedCount = 0;
   const indianBatch = [];
@@ -445,13 +593,109 @@ export async function reconcileHistoricalData(options = {}) {
     }
   }
 
-  // Flush remaining
-  if (indianBatch.length > 0) await bulkUpsertHistoricalCandles(indianBatch);
-  if (globalBatch.length > 0) await bulkUpsertGlobalAssets(globalBatch);
+  // Flush remaining Pass 1
+  if (indianBatch.length > 0) await bulkUpsertHistoricalCandles(indianBatch.splice(0, indianBatch.length));
+  if (globalBatch.length > 0) await bulkUpsertGlobalAssets(globalBatch.splice(0, globalBatch.length));
+
+  // Multi-pass retry for reconciliation
+  const maxRetryPasses = options.maxRetryPasses !== undefined ? options.maxRetryPasses : 2;
+  let retryPass = 0;
+  let totalRecovered = 0;
+
+  while (retryPass < maxRetryPasses) {
+    const retryable = defaultRateLimiter.getRetryableFailedQueue();
+    if (!retryable || retryable.length === 0) break;
+
+    retryPass++;
+    const cooldownSec = 30 * retryPass;
+    console.warn(
+      `[EODSync] [${new Date().toISOString()}] ⚠️ Found ${retryable.length} failed reconciliation symbols. Waiting ${cooldownSec}s cooldown before Retry Pass ${retryPass}...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, cooldownSec * 1000));
+
+    const retrySet = new Set(retryable.map((r) => r.identifier));
+    const symbolsToRetry = allSymbols.filter((s) => {
+      const isGlobal = s.exchange === "CRYPTO" || s.exchange === "METALS";
+      const ySym = isGlobal ? s.symbol : resolveYahooSymbol(s.symbol, s.exchange);
+      return retrySet.has(ySym) || retrySet.has(s.symbol);
+    });
+
+    defaultRateLimiter.clearFailedQueue();
+    let recoveredInPass = 0;
+
+    for (let i = 0; i < symbolsToRetry.length; i++) {
+      const item = symbolsToRetry[i];
+      const isGlobal = item.exchange === "CRYPTO" || item.exchange === "METALS";
+      const ySymbol = isGlobal ? item.symbol : resolveYahooSymbol(item.symbol, item.exchange);
+
+      try {
+        const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {
+          return await yahooFinance.historical(ySymbol, {
+            period1,
+            period2,
+            interval: "1d",
+          });
+        }, ySymbol);
+
+        if (rawCandles && rawCandles.length > 0) {
+          for (const c of rawCandles) {
+            if (c.close !== undefined && c.close !== null) {
+              if (isGlobal) {
+                globalBatch.push([
+                  item.symbol,
+                  formatDateStr(c.date),
+                  c.open !== undefined ? Number(c.open.toFixed(4)) : null,
+                  c.high !== undefined ? Number(c.high.toFixed(4)) : null,
+                  c.low !== undefined ? Number(c.low.toFixed(4)) : null,
+                  c.close !== undefined ? Number(c.close.toFixed(4)) : null,
+                  c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+                  c.volume !== undefined ? Number(c.volume) : 0,
+                  item.exchange,
+                  item.indice,
+                ]);
+              } else {
+                indianBatch.push([
+                  item.symbol,
+                  formatDateStr(c.date),
+                  c.open !== undefined ? Number(c.open.toFixed(4)) : null,
+                  c.high !== undefined ? Number(c.high.toFixed(4)) : null,
+                  c.low !== undefined ? Number(c.low.toFixed(4)) : null,
+                  c.close !== undefined ? Number(c.close.toFixed(4)) : null,
+                  c.volume !== undefined ? Number(c.volume) : 0,
+                  item.exchange || "NSE",
+                  item.indice || null,
+                ]);
+              }
+            }
+          }
+          recoveredInPass++;
+          totalRecovered++;
+          reconciledCount++;
+          failedCount = Math.max(0, failedCount - 1);
+        }
+      } catch (err) {
+        // Still failed
+      }
+
+      if (indianBatch.length >= batchSize) {
+        await bulkUpsertHistoricalCandles(indianBatch.splice(0, indianBatch.length));
+      }
+      if (globalBatch.length >= batchSize) {
+        await bulkUpsertGlobalAssets(globalBatch.splice(0, globalBatch.length));
+      }
+    }
+
+    if (indianBatch.length > 0) await bulkUpsertHistoricalCandles(indianBatch.splice(0, indianBatch.length));
+    if (globalBatch.length > 0) await bulkUpsertGlobalAssets(globalBatch.splice(0, globalBatch.length));
+
+    console.log(
+      `[EODSync] [${new Date().toISOString()}] Reconciliation Retry Pass ${retryPass} completed. Recovered ${recoveredInPass}/${symbolsToRetry.length} symbols.`
+    );
+  }
 
   const durationMs = Date.now() - startTime;
   console.log(
-    `[EODSync] [${new Date().toISOString()}] Finished 30-day Reconciliation in ${(durationMs / 1000).toFixed(1)}s. Reconciled: ${reconciledCount}, Failed: ${failedCount}.`
+    `[EODSync] [${new Date().toISOString()}] Finished 30-day Reconciliation in ${(durationMs / 1000).toFixed(1)}s. Reconciled: ${reconciledCount} (Recovered: ${totalRecovered}), Failed: ${failedCount}.`
   );
 
   return {
@@ -459,6 +703,8 @@ export async function reconcileHistoricalData(options = {}) {
     totalSymbols: allSymbols.length,
     reconciledCount,
     failedCount,
+    recoveredCount: totalRecovered,
+    retryPassesRun: retryPass,
     durationMs,
   };
 }
@@ -480,3 +726,4 @@ async function bulkUpsertGlobalAssets(records) {
   `;
   await pool.query(query, [records]);
 }
+
