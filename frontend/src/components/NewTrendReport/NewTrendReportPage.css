@@ -1,0 +1,430 @@
+/* ============================================================
+   NEW TREND REPORT / SCANNER - APPLE FINANCIAL DESIGN SYSTEM
+   Matches specification: Top control toolbar with RUN/ADV and
+   full table columns with green/red trend blocks.
+   ============================================================ */
+
+.new-trend-report-wrapper {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 18px 24px 60px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------
+   TOP CONTROLS TOOLBAR (DARK NAVY / MODERN FINTECH THEME)
+   ------------------------------------------------------------ */
+.ntr-top-toolbar {
+  background: #0f172a;
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+  border: 1px solid #1e293b;
+}
+
+.ntr-back-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ntr-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateX(-2px);
+}
+
+.ntr-title-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #38bdf8;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+.ntr-logo-icon {
+  font-size: 16px;
+}
+
+.ntr-brand-text {
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+.ntr-control-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ntr-wide-item {
+  min-width: 220px;
+}
+
+.ntr-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.ntr-select,
+.ntr-input {
+  height: 32px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+}
+
+.ntr-select:focus,
+.ntr-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+}
+
+/* ------------------------------------------------------------
+   ACTION BUTTONS (RUN SET#1 & ADV SET#2)
+   ------------------------------------------------------------ */
+.ntr-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ntr-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  line-height: 1.15;
+}
+
+.ntr-btn-run {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.ntr-btn-run:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.ntr-btn-adv {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+.ntr-btn-adv:hover {
+  background: #d97706;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.ntr-btn-main {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.ntr-btn-sub {
+  font-size: 9.5px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+/* ------------------------------------------------------------
+   STATS & SUMMARY BAR
+   ------------------------------------------------------------ */
+.ntr-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  flex-wrap: wrap;
+}
+
+.ntr-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.ntr-stat-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ntr-stat-val {
+  font-weight: 800;
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.text-green { color: #16a34a !important; }
+.text-red { color: #dc2626 !important; }
+.text-blue { color: #2563eb !important; }
+
+.ntr-stat-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.ntr-error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------
+   TABLE CARD & STYLING
+   ------------------------------------------------------------ */
+.ntr-table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ntr-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.ntr-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 12.5px;
+}
+
+/* Header Columns */
+.ntr-table thead tr {
+  background: #0f172a;
+}
+
+.ntr-table th {
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.ntr-table th:last-child {
+  border-right: none;
+}
+
+/* Body Rows */
+.ntr-row {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.12s ease;
+}
+
+.ntr-row:nth-child(even) {
+  background-color: #fafbfc;
+}
+
+.ntr-row:hover {
+  background-color: #f1f5f9;
+}
+
+.ntr-table td {
+  padding: 7px 10px;
+  border-right: 1px solid #f1f5f9;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ntr-table td:last-child {
+  border-right: none;
+}
+
+/* Column Specific Styling */
+.td-sr {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 11.5px;
+  width: 45px;
+}
+
+.td-ticker {
+  font-weight: 800;
+  text-align: left;
+  padding-left: 14px !important;
+}
+
+.ticker-pill-link {
+  color: #1d4ed8;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.12s ease;
+}
+
+.ticker-pill-link:hover {
+  background: #eff6ff;
+  text-decoration: underline;
+}
+
+/* Trend Badges (Full width solid colors matching screenshot) */
+.td-trend,
+.td-htftrend {
+  padding: 4px 6px !important;
+  min-width: 140px;
+}
+
+.trend-badge {
+  display: block;
+  width: 100%;
+  padding: 6px 0;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.badge-green {
+  background: #16a34a; /* Solid Vibrant Green */
+}
+
+.badge-red {
+  background: #dc2626; /* Solid Vibrant Red */
+}
+
+/* Area Text */
+.area-text {
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+}
+
+.area-green {
+  color: #16a34a;
+}
+
+.area-red {
+  color: #dc2626;
+}
+
+/* Slot Text */
+.slot-text {
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+  color: #0f172a;
+}
+
+.slot-higher {
+  color: #0f172a;
+}
+
+.slot-lower {
+  color: #b91c1c;
+}
+
+/* Power Text */
+.power-text {
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+}
+
+.power-high {
+  color: #0f172a;
+}
+
+.power-low {
+  color: #b91c1c;
+}
+
+/* HTR / LTR */
+.htrltr-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+}
+
+.td-date,
+.td-htfdate {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.ntr-muted {
+  color: #94a3b8;
+}
+
+.ntr-empty-cell {
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.ntr-loading-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.ntr-spinner {
+  font-size: 28px;
+}

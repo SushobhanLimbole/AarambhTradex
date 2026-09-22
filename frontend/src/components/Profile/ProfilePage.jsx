@@ -14,13 +14,15 @@ export default function ProfilePage() {
   // For Admin: view all user requests
   const [adminRequests, setAdminRequests] = useState([]);
 
-  // Fetch status on mount
+  // Fetch status on mount or when user ID/admin status changes
   useEffect(() => {
-    fetchMyStatus();
-    if (user?.isAdmin) {
-      fetchAdminRequests();
+    if (user) {
+      fetchMyStatus();
+      if (user.isAdmin) {
+        fetchAdminRequests();
+      }
     }
-  }, [user]);
+  }, [user?.id, user?.isAdmin]);
 
   const fetchMyStatus = async () => {
     try {
@@ -29,8 +31,12 @@ export default function ProfilePage() {
       if (res.data?.requests) {
         setRequests(res.data.requests);
       }
-      if (res.data?.hasAccess !== undefined && user) {
-        setUser((prev) => (prev ? { ...prev, hasAccess: res.data.hasAccess } : prev));
+      if (res.data?.hasAccess !== undefined) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          if (prev.hasAccess === res.data.hasAccess) return prev; // keep same object reference if unchanged
+          return { ...prev, hasAccess: res.data.hasAccess };
+        });
       }
     } catch (err) {
       console.error("Failed to fetch access status:", err);

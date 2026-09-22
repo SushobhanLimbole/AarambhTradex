@@ -7,44 +7,35 @@ import { useAuth } from "../../context/AuthContext";
 import Toast from "../Common/Toast";
 
 /* ---------------------------------------------------------
-   Instrument list (matches the requested watchlist)
-   `symbol` = Twelve Data style symbol, used for the live
-   fetch.
-
-   NOTE ON COVERAGE (Twelve Data free "Basic" plan):
-   Forex (EUR/USD, GBP/USD, USD/JPY, USD/INR) and crypto
-   (BTC/USD, ETH/USD) are fully supported on the free plan.
-   Indices (NIFTY, BANK NIFTY, SENSEX) and some commodities /
-   futures are often gated behind paid plans, or not offered
-   at all under those exact tickers. Those rows will simply
-   fail their individual lookup and show "Unavailable" instead
-   of a price — nothing is faked or simulated for them. Adjust
-   the `symbol` values below once you know what your plan
-   covers (check https://twelvedata.com/pricing / the API
-   playground).
+   LIVE MARKET DATA — Angel One SmartAPI
+   Real-time live prices directly from Angel One SmartAPI.
+   Zero simulated or fabricated numbers.
 --------------------------------------------------------- */
-const WATCHLIST = [
-  { label: "NIFTY", sub: "Nifty 50 Index", symbol: "NIFTY", currency: "" },
-  { label: "BANK NIFTY", sub: "Nifty Bank Index", symbol: "NIFTYBANK", currency: "" },
-  { label: "SENSEX", sub: "S&P BSE Sensex", symbol: "SENSEX", currency: "" },
-  { label: "GIFT NIFTY", sub: "NSE IX Nifty Futures", symbol: "NIFTY", currency: "" },
-  { label: "Gold", sub: "Gold Spot", symbol: "XAU/USD", currency: "$" },
-  { label: "Silver", sub: "Silver Spot", symbol: "XAG/USD", currency: "$" },
-  { label: "Crude Oil", sub: "WTI Crude", symbol: "WTI/USD", currency: "$" },
-  { label: "Natural Gas", sub: "Henry Hub Futures", symbol: "NATGAS/USD", currency: "$" },
-  { label: "Bitcoin (BTC)", sub: "BTC / USD", symbol: "BTC/USD", currency: "$" },
-  { label: "Ethereum (ETH)", sub: "ETH / USD", symbol: "ETH/USD", currency: "$" },
-  { label: "EUR/USD", sub: "Euro / US Dollar", symbol: "EUR/USD", currency: "" },
-  { label: "GBP/USD", sub: "Pound / US Dollar", symbol: "GBP/USD", currency: "" },
-  { label: "USD/JPY", sub: "Dollar / Yen", symbol: "USD/JPY", currency: "" },
-  { label: "USD/INR", sub: "Dollar / Rupee", symbol: "USD/INR", currency: "" },
+const INITIAL_WATCHLIST = [
+  { symbol: "NIFTY", label: "NIFTY 50", sub: "Nifty 50 Index", currency: "₹" },
+  { symbol: "BANKNIFTY", label: "BANK NIFTY", sub: "Nifty Bank Index", currency: "₹" },
+  { symbol: "SENSEX", label: "SENSEX", sub: "S&P BSE Sensex", currency: "₹" },
+  { symbol: "FINNIFTY", label: "FIN NIFTY", sub: "Financial Services", currency: "₹" },
+  { symbol: "NIFTYNEXT50", label: "NEXT 50", sub: "Nifty Next 50", currency: "₹" },
+  { symbol: "INDIAVIX", label: "INDIA VIX", sub: "Volatility Index", currency: "" },
+  { symbol: "RELIANCE", label: "RELIANCE", sub: "Reliance Industries", currency: "₹" },
+  { symbol: "TCS", label: "TCS", sub: "Tata Consultancy Services", currency: "₹" },
+  { symbol: "HDFCBANK", label: "HDFC BANK", sub: "HDFC Bank Ltd", currency: "₹" },
+  { symbol: "INFY", label: "INFOSYS", sub: "Infosys Limited", currency: "₹" },
+  { symbol: "ICICIBANK", label: "ICICI BANK", sub: "ICICI Bank Ltd", currency: "₹" },
+  { symbol: "SBIN", label: "SBI", sub: "State Bank of India", currency: "₹" },
+  { symbol: "BHARTIARTL", label: "BHARTI AIRTEL", sub: "Bharti Airtel Ltd", currency: "₹" },
+  { symbol: "ITC", label: "ITC", sub: "ITC Limited", currency: "₹" },
+  { symbol: "TATAMOTORS", label: "TATA MOTORS", sub: "Tata Motors Ltd", currency: "₹" },
+  { symbol: "LT", label: "L&T", sub: "Larsen & Toubro Ltd", currency: "₹" },
+  { symbol: "GOLD", label: "GOLD", sub: "MCX Gold Futures", currency: "₹" },
+  { symbol: "SILVER", label: "SILVER", sub: "MCX Silver Futures", currency: "₹" },
 ];
 
-/* Sparkline built from REAL fetched prices only — each symbol
-   accumulates up to the last 16 live quotes and the line is
-   drawn from that actual history. Until at least two live
-   quotes have come in, there is no line (a placeholder dash
-   is shown instead), rather than fabricating one. */
+/* Sparkline built from genuine live fetched prices only —
+   each symbol accumulates history of real prices and draws
+   a sparkline. If less than 2 live updates, a placeholder
+   dash is shown rather than fabricating data. */
 function makeSpark(history) {
   if (!history || history.length < 2) return null;
   const min = Math.min(...history);
@@ -60,7 +51,7 @@ function makeSpark(history) {
 }
 
 function buildInitialQuotes() {
-  return WATCHLIST.map((item) => ({
+  return INITIAL_WATCHLIST.map((item) => ({
     ...item,
     price: null,
     changePct: null,
@@ -71,172 +62,92 @@ function buildInitialQuotes() {
   }));
 }
 
-/* ---------------------------------------------------------
-   LIVE DATA — Twelve Data
-   https://twelvedata.com — free "Basic" plan, no CORS proxy
-   needed (unlike Yahoo Finance, which blocks browser fetches).
-
-   Sign up for a free key at https://twelvedata.com/pricing and
-   paste it below. The demo key ("demo") only serves a couple
-   of hardcoded symbols and will not work for this watchlist.
-
-   FREE PLAN LIMITS (as of writing): 8 API credits per minute,
-   800 API credits per day. Twelve Data's batch endpoint lets
-   you request many symbols in ONE call, but each symbol in
-   that call still costs 1 credit — a single call for all 14
-   watchlist symbols would burn 14 credits at once, over the
-   per-minute cap. So instead of one big call, this polls in
-   two alternating chunks of 7 symbols each (7 credits/call,
-   under the 8/min cap), on a rotating interval below. That
-   keeps daily usage comfortably under 800 credits/day at the
-   default interval. Tighten the watchlist or lengthen the
-   interval if you add more symbols; loosen it if you upgrade
-   your plan.
-
-   THIS PANEL SHOWS NO SIMULATED DATA. Every price on screen
-   came directly from the last successful Twelve Data response
-   for that symbol. Rows that have never had a successful fetch
-   show "Fetching…"; rows whose most recent fetch attempt
-   failed (and that have no prior live value yet) show
-   "Unavailable". Nothing drifts or animates on its own between
-   real polls.
---------------------------------------------------------- */
-const TWELVE_DATA_API_KEY = "05fc795bee03430bae7802fb9a404530"; // <-- put your free key here
-const TWELVE_DATA_BASE_URL = "https://api.twelvedata.com/quote";
-const CHUNK_SIZE = 7; // symbols per call — stays under the 8 credits/min free-plan cap
-const CHUNK_INTERVAL_MS = 15 * 60 * 1000; // 15 min per chunk => full 14-symbol refresh every 30 min
-const STAGGER_MS = 65 * 1000; // spacing between chunk calls on initial load, to stay under the per-minute cap
-
-function splitWatchlist() {
-  const chunks = [];
-  for (let i = 0; i < WATCHLIST.length; i += CHUNK_SIZE) {
-    chunks.push(WATCHLIST.slice(i, i + CHUNK_SIZE));
-  }
-  return chunks;
-}
-
-async function fetchQuoteChunk(items) {
-  const symbols = items.map((w) => w.symbol).join(",");
-  const url = `${TWELVE_DATA_BASE_URL}?symbol=${encodeURIComponent(
-    symbols
-  )}&apikey=${TWELVE_DATA_API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("bad response");
-  const json = await res.json();
-
-  // Twelve Data returns a single flat object when only one symbol is
-  // requested, and an object keyed by symbol when multiple are requested.
-  const bySymbol = items.length === 1 ? { [items[0].symbol]: json } : json;
-
-  const anyOk = items.some((w) => {
-    const q = bySymbol[w.symbol];
-    return q && !q.code && q.status !== "error" && isFinite(parseFloat(q.close));
-  });
-  if (!anyOk) throw new Error("chunk failed");
-
-  const results = {};
-  items.forEach((w) => {
-    const q = bySymbol[w.symbol];
-    if (q && !q.code && q.status !== "error") {
-      const price = parseFloat(q.close);
-      const changePct = parseFloat(q.percent_change);
-      if (isFinite(price)) {
-        results[w.symbol] = { price, changePct: isFinite(changePct) ? changePct : 0 };
-      }
-    }
-  });
-  return results;
-}
-
 function StockTicker() {
   const [quotes, setQuotes] = useState(buildInitialQuotes);
   const [live, setLive] = useState(false);
   const mounted = useRef(true);
-  const chunksRef = useRef(splitWatchlist());
-  const chunkIndexRef = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
-    let rotationTimer;
-    const staggerTimers = [];
+    let pollInterval = null;
 
-    const applyLiveResults = (results) => {
-      setQuotes((prev) =>
-        prev.map((q) => {
-          const r = results[q.symbol];
-          if (!r) return q; // not in this chunk, or this symbol's lookup failed
-          const up = r.changePct >= 0;
-          const history = [...(q.history || []), r.price].slice(-16);
-          return {
-            ...q,
-            price: r.price,
-            changePct: r.changePct,
-            up,
-            history,
-            spark: makeSpark(history),
-            unavailable: false,
-          };
-        })
-      );
-    };
+    const fetchLiveQuotes = async () => {
+      try {
+        const res = await fetch("/api/market/live-quotes");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-    const markUnresolved = (items) => {
-      setQuotes((prev) =>
-        prev.map((q) => {
-          if (!items.some((it) => it.symbol === q.symbol)) return q;
-          if (q.price != null) return q; // keep the last known live value on screen
-          return { ...q, unavailable: true };
-        })
-      );
-    };
+        if (!mounted.current || !data.success || !Array.isArray(data.quotes)) return;
 
-    const fetchChunk = (index) => {
-      const items = chunksRef.current[index];
-      fetchQuoteChunk(items)
-        .then((results) => {
-          if (!mounted.current) return;
-          applyLiveResults(results);
-          setLive(true);
-        })
-        .catch(() => {
-          if (!mounted.current) return;
-          markUnresolved(items);
+        setQuotes((prev) => {
+          const freshMap = new Map();
+          data.quotes.forEach((q) => freshMap.set(q.symbol, q));
+
+          return prev.map((item) => {
+            const fresh = freshMap.get(item.symbol);
+            if (!fresh) return item;
+
+            if (fresh.price != null && isFinite(fresh.price)) {
+              // Real live price received
+              const history = [...(item.history || []), fresh.price].slice(-16);
+              const up = (fresh.changePct ?? 0) >= 0;
+
+              return {
+                ...item,
+                label: fresh.label || item.label,
+                sub: fresh.sub || item.sub,
+                currency: fresh.currency ?? item.currency,
+                price: fresh.price,
+                changePct: fresh.changePct,
+                netChange: fresh.netChange,
+                up,
+                history,
+                spark: makeSpark(history),
+                unavailable: false,
+              };
+            }
+
+            // Only mark unavailable if we don't have any prior live price
+            if (item.price != null) return item;
+            return { ...item, unavailable: true };
+          });
         });
+
+        setLive(true);
+      } catch (err) {
+        if (!mounted.current) return;
+        // On error, keep existing prices if present, otherwise keep fetching state
+      }
     };
 
-    // Fetch every chunk once on mount, staggered to respect the
-    // 8 credits/min cap, so the whole watchlist populates as fast
-    // as the free plan allows instead of waiting on the full
-    // rotation interval for the later chunks.
-    chunksRef.current.forEach((_, i) => {
-      const t = setTimeout(() => {
-        if (mounted.current) fetchChunk(i);
-      }, i * STAGGER_MS);
-      staggerTimers.push(t);
-    });
-    chunkIndexRef.current = 0;
+    // Initial immediate fetch
+    fetchLiveQuotes();
 
-    // Once the initial staggered pass is done, settle into a
-    // steady rotation: one chunk every CHUNK_INTERVAL_MS.
-    const startRotation = setTimeout(() => {
-      rotationTimer = setInterval(() => {
-        fetchChunk(chunkIndexRef.current);
-        chunkIndexRef.current = (chunkIndexRef.current + 1) % chunksRef.current.length;
-      }, CHUNK_INTERVAL_MS);
-    }, chunksRef.current.length * STAGGER_MS);
+    // Poll Angel One SmartAPI live data every 10 seconds
+    pollInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchLiveQuotes();
+      }
+    }, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchLiveQuotes();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted.current = false;
-      staggerTimers.forEach(clearTimeout);
-      clearTimeout(startRotation);
-      if (rotationTimer) clearInterval(rotationTimer);
+      if (pollInterval) clearInterval(pollInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
   const formatPrice = (item) => {
     if (item.price == null) return item.unavailable ? "Unavailable" : "Fetching…";
     const decimals = item.price < 10 ? 4 : 2;
-    const val = item.price.toLocaleString(undefined, {
+    const val = item.price.toLocaleString("en-IN", {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
@@ -249,7 +160,7 @@ function StockTicker() {
     <div className="amu-ticker">
       <div className="amu-ticker-head">
         <span className="amu-live-dot" data-live={live}></span>
-        <span>{live ? "Live market data" : "Connecting to market data…"}</span>
+        <span>{live ? "Live • Angel One SmartAPI" : "Connecting to live market data…"}</span>
       </div>
       <div className="amu-ticker-mask">
         <div className="amu-ticker-track">
@@ -341,6 +252,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState("register"); // 'register' | 'login'
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
 
   // Register form state
@@ -379,7 +291,7 @@ export default function AuthPage() {
     try {
       const name = `${firstName} ${lastName}`.trim();
       await signup({ name, email, password });
-      setToast({ message: "Registration successful! Welcome to Aarambh TradeX.", type: "success" });
+      setToast({ message: "Registration successful! Welcome to Aarambh Tradex.", type: "success" });
     } catch (err) {
       setServerRegisterError(err.message || "Registration failed. Please try again.");
     } finally {
@@ -416,7 +328,7 @@ export default function AuthPage() {
       <div className="amu-card">
         <div className="amu-left">
           <div className="amu-topbar">
-            <div className="amu-logo">Aarambh TradeX</div>
+            <div className="amu-logo">Aarambh Tradex</div>
             <button className="amu-back-btn">
               Back to website
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -430,7 +342,7 @@ export default function AuthPage() {
 
         <div className="amu-right">
           <div className="amu-right-header">
-            <img src={logoImg} alt="Aarambh TradeX Logo" className="amu-brand-logo" />
+            <img src={logoImg} alt="Aarambh Tradex Logo" className="amu-brand-logo" />
           </div>
 
           {isRegister ? (
@@ -513,10 +425,27 @@ export default function AuthPage() {
                   type="checkbox"
                   className="amu-checkbox"
                   checked={agree}
-                  onChange={() => setAgree((a) => !a)}
+                  onChange={() => {
+                    const nextVal = !agree;
+                    setAgree(nextVal);
+                    if (nextVal && registerErrors.agree) {
+                      setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
+                    }
+                  }}
                 />
                 <span className="amu-terms-text">
-                  I agree to the <a className="amu-link" href="#">Terms &amp; Conditions</a>
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    className="amu-link amu-terms-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowTermsModal(true);
+                    }}
+                  >
+                    Terms &amp; Conditions
+                  </button>
                 </span>
               </label>
               {registerErrors.agree && <span className="amu-error">{registerErrors.agree}</span>}
@@ -614,6 +543,129 @@ export default function AuthPage() {
             </button>
           </div>
           */}
+        </div>
+      </div>
+
+      {showTermsModal && (
+        <TermsModal
+          onClose={() => setShowTermsModal(false)}
+          onAccept={() => {
+            setAgree(true);
+            setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
+            setShowTermsModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TermsModal({ onClose, onAccept }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="amu-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="amu-modal-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="amu-modal-header">
+          <div className="amu-modal-title-wrap">
+            <div className="amu-modal-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2f7de1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="amu-modal-title">Terms &amp; Conditions</h2>
+              <p className="amu-modal-subtitle">Aarambh Tradex • Terms of Service &amp; Risk Agreement</p>
+            </div>
+          </div>
+          <button className="amu-modal-close-btn" onClick={onClose} aria-label="Close dialog">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="amu-modal-body">
+          <div className="amu-modal-notice">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>Please review these terms carefully before creating an account on Aarambh Tradex.</span>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>1. Acceptance of Terms</h4>
+            <p>
+              By registering, accessing, or using Aarambh Tradex, you confirm that you are at least 18 years of age and agree to comply with and be bound by these Terms and Conditions along with our Privacy Policy.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>2. Account Registration &amp; Security</h4>
+            <p>
+              You agree to provide accurate, current, and complete registration details. You are solely responsible for maintaining the confidentiality of your credentials and all activities occurring under your account.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>3. Market Data &amp; Analytics</h4>
+            <p>
+              Real-time quotes, technical charts, indicators, and analytics available on Aarambh Tradex are provided for informational and educational purposes only. While we aim for high accuracy, we do not guarantee uninterrupted or error-free market feeds.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>4. Financial &amp; Investment Risk Disclaimer</h4>
+            <p>
+              Trading in equities, derivatives, commodities, foreign exchange, and cryptocurrencies carries substantial financial risk. Losses can exceed deposits. Aarambh Tradex does not provide personalized investment advice or guarantee any trading returns.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>5. User Conduct &amp; Platform Integrity</h4>
+            <p>
+              You agree not to engage in unauthorized data scraping, automated abuse, account sharing, or actions that compromise platform integrity, availability, or other users&apos; security.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>6. Privacy &amp; Data Protection</h4>
+            <p>
+              Your data is collected and processed in accordance with industry security standards and our Privacy Policy. We do not sell your personal trading information to unauthorized third parties.
+            </p>
+          </div>
+
+          <div className="amu-modal-section">
+            <h4>7. Amendments &amp; Termination</h4>
+            <p>
+              Aarambh Tradex reserves the right to update these terms or suspend/terminate accounts that violate our safety policies. If you have any questions, concerns, or need assistance regarding these terms or your account, please contact our support team at <a href="mailto:aarambhTradex@gmail.com">aarambhTradex@gmail.com</a>.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="amu-modal-footer">
+          <button type="button" className="amu-modal-btn amu-modal-btn-secondary" onClick={onClose}>
+            Decline
+          </button>
+          <button type="button" className="amu-modal-btn amu-modal-btn-primary" onClick={onAccept}>
+            I Agree &amp; Accept
+          </button>
         </div>
       </div>
     </div>

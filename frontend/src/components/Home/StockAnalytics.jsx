@@ -1,158 +1,21 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "./StockAnalytics.css";
+import stockService from "../../services/stockService.js";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
-const INITIAL_ROWS = [
-  {
-    no: "01",
-    day: "Fri",
-    date: "06-Sep-2024",
-    open: "2,980.50",
-    high: "3,025.00",
-    low: "2,972.10",
-    close: "3,018.40",
-    avg: "3,005.15",
-    range: "52.90",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "Y3",
-    pointerType: "orange",
-  },
-  {
-    no: "02",
-    day: "Thu",
-    date: "05-Sep-2024",
-    open: "2,995.00",
-    high: "3,004.80",
-    low: "2,960.00",
-    close: "2,975.20",
-    avg: "2,982.40",
-    range: "44.80",
-    status: "HLC LOWER",
-    statusType: "bearish",
-    pointer: "R2",
-    pointerType: "red",
-  },
-  {
-    no: "03",
-    day: "Wed",
-    date: "04-Sep-2024",
-    open: "2,940.00",
-    high: "3,002.50",
-    low: "2,935.00",
-    close: "2,998.10",
-    avg: "2,968.75",
-    range: "67.50",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "G-BUY",
-    pointerType: "green",
-  },
-  {
-    no: "04",
-    day: "Tue",
-    date: "03-Sep-2024",
-    open: "2,925.00",
-    high: "2,950.00",
-    low: "2,918.00",
-    close: "2,945.30",
-    avg: "2,934.00",
-    range: "32.00",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "Y1",
-    pointerType: "orange",
-  },
-  {
-    no: "05",
-    day: "Mon",
-    date: "02-Sep-2024",
-    open: "2,960.00",
-    high: "2,965.00",
-    low: "2,915.20",
-    close: "2,921.00",
-    avg: "2,940.10",
-    range: "49.80",
-    status: "HLC LOWER",
-    statusType: "bearish",
-    pointer: "R1",
-    pointerType: "red",
-  },
-  {
-    no: "06",
-    day: "Fri",
-    date: "30-Aug-2024",
-    open: "2,920.00",
-    high: "2,975.00",
-    low: "2,910.00",
-    close: "2,968.45",
-    avg: "2,942.50",
-    range: "65.00",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "Y6",
-    pointerType: "orange",
-  },
-  {
-    no: "07",
-    day: "Thu",
-    date: "29-Aug-2024",
-    open: "2,945.00",
-    high: "2,952.10",
-    low: "2,905.00",
-    close: "2,912.80",
-    avg: "2,928.55",
-    range: "47.10",
-    status: "HLC LOWER",
-    statusType: "bearish",
-    pointer: "R4",
-    pointerType: "red",
-  },
-  {
-    no: "08",
-    day: "Wed",
-    date: "28-Aug-2024",
-    open: "2,910.00",
-    high: "2,955.00",
-    low: "2,902.00",
-    close: "2,949.60",
-    avg: "2,928.50",
-    range: "53.00",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "Y3",
-    pointerType: "orange",
-  },
-  {
-    no: "09",
-    day: "Tue",
-    date: "27-Aug-2024",
-    open: "2,885.00",
-    high: "2,918.00",
-    low: "2,875.00",
-    close: "2,912.40",
-    avg: "2,896.50",
-    range: "43.00",
-    status: "HLC HIGHER",
-    statusType: "bullish",
-    pointer: "G-BUY",
-    pointerType: "green",
-  },
-  {
-    no: "10",
-    day: "Mon",
-    date: "26-Aug-2024",
-    open: "2,915.00",
-    high: "2,924.00",
-    low: "2,870.00",
-    close: "2,880.00",
-    avg: "2,897.00",
-    range: "54.00",
-    status: "HLC LOWER",
-    statusType: "bearish",
-    pointer: "R1",
-    pointerType: "red",
-  },
-];
+export { stripSymbolSuffix };
+
+export const getPointerInfo = (code) => {
+  if (!code || code === "—") return { code: "—", name: "", type: "neutral" };
+  const upper = String(code).trim().toUpperCase();
+  if (upper === "FALSE") return { code: "FALSE", name: "", type: "neutral" };
+  if (upper === "TABLE TENNIS") return { code: "Table Tennis", name: "", type: "blue" };
+  if (upper === "TABLE TOP") return { code: "Table Top", name: "", type: "purple" };
+  if (upper === "UPWARD ROTATION") return { code: "Upward Rotation", name: "", type: "cyan" };
+  if (upper === "RISING JACK") return { code: "Rising Jack", name: "", type: "orange" };
+  if (upper === "FALLING DUCK") return { code: "Falling Duck", name: "", type: "amber" };
+  return { code, name: code, type: "orange" };
+};
 
 // Helper to parse currency string into pure number
 const parseNum = (val) => {
@@ -170,18 +33,70 @@ const formatNum = (num, decimals = 2) => {
   });
 };
 
-export default function StockAnalytics({ onOpenPointer }) {
+// Helper to format raw date into clean readable display (e.g. 16-Sep-2026)
+const formatDateDisplay = (dateStr) => {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).replace(/ /g, "-");
+  } catch {
+    return String(dateStr);
+  }
+};
+
+// Helper to extract day of week (e.g. Mon, Tue, Wed)
+const getDayOfWeek = (dateStr) => {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-US", { weekday: "short" });
+  } catch {
+    return "—";
+  }
+};
+
+const getTodayDateStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+
   // Filter States
   const [exchange, setExchange] = useState("NSE");
-  const [indexVal, setIndexVal] = useState("All Indices");
-  const [ticker, setTicker] = useState("20MICRONS - 20 Microns Limited");
-  const [fromDate, setFromDate] = useState("2026-03-12");
-  const [toDate, setToDate] = useState("2026-09-12");
+  const [indexVal, setIndexVal] = useState("ALL");
+  const [ticker, setTicker] = useState("ALL");
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
   const [timeframe, setTimeframe] = useState("Daily");
+
+  // Metadata loaded from /api/symbols/meta
+  const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
+  const [availableIndices, setAvailableIndices] = useState([]);
+
+  // Symbols list loaded dynamically based on exchange & index filter
+  const [availableSymbols, setAvailableSymbols] = useState([]);
+  const [symbolsLoading, setSymbolsLoading] = useState(false);
+
+  // Data loading states
+  const [rawRecords, setRawRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Column Visibility States
   const [showColumnsMenu, setShowColumnsMenu] = useState(false);
   const [visibleCols, setVisibleCols] = useState({
+    symbol: true,
     day: true,
     avg: true,
     range: true,
@@ -198,114 +113,389 @@ export default function StockAnalytics({ onOpenPointer }) {
     setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // 1. Fetch metadata (exchanges and indices) once on mount (cached in stockService)
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadMeta() {
+      try {
+        const res = await stockService.getSymbolsMeta();
+        if (!isCancelled && res?.data) {
+          if (Array.isArray(res.data.exchanges) && res.data.exchanges.length > 0) {
+            setAvailableExchanges(res.data.exchanges);
+          }
+          if (Array.isArray(res.data.indices) && res.data.indices.length > 0) {
+            setAvailableIndices(res.data.indices);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load symbols meta from API:", err);
+      }
+    }
+    loadMeta();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // 2. Fetch symbols dynamically only when Exchange or Index filter changes
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadSymbolsForFilter() {
+      if (exchange === "ALL" && indexVal === "ALL") {
+        setAvailableSymbols([]);
+        return;
+      }
+      setSymbolsLoading(true);
+      try {
+        const res = await stockService.getSymbolsList({
+          exchange: exchange !== "ALL" ? exchange : undefined,
+          indice: indexVal !== "ALL" ? indexVal : undefined,
+          limit: "all",
+        });
+        if (!isCancelled && res?.data && Array.isArray(res.data)) {
+          setAvailableSymbols(res.data);
+          const exists = res.data.some((item) => item.symbol === ticker);
+          if (!exists && ticker !== "ALL") {
+            setTicker("ALL");
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load symbols list:", err);
+      } finally {
+        if (!isCancelled) setSymbolsLoading(false);
+      }
+    }
+    loadSymbolsForFilter();
+    return () => {
+      isCancelled = true;
+    };
+  }, [exchange, indexVal]);
+
+  // 3. Fetch stock candle data on demand based on user input
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      let response;
+      const options = {
+        exchange: exchange !== "ALL" ? exchange : undefined,
+        indice: indexVal !== "ALL" ? indexVal : undefined,
+        startDate: fromDate || undefined,
+        endDate: toDate || undefined,
+        limit: "all",
+        order: "DESC",
+      };
+
+      if (!ticker || ticker === "ALL" || ticker === "ALL_SYMBOLS") {
+        // Initial/Today's load when default today date is selected
+        if (fromDate === todayStr && toDate === todayStr && exchange === "ALL" && indexVal === "ALL") {
+          response = await stockService.getLatestAllStocks(timeframe, fromDate);
+          if (!response?.data || response.data.length === 0) {
+            response = await stockService.getLatestAllStocks(timeframe);
+          }
+        } else {
+          response = await stockService.getAllStocks(timeframe, options);
+        }
+      } else {
+        const cleanSymbol = ticker.split(" ")[0].trim();
+        response = await stockService.getStockData(cleanSymbol, timeframe, {
+          startDate: fromDate || undefined,
+          endDate: toDate || undefined,
+          limit: "all",
+          order: "DESC",
+        });
+      }
+
+      if (response?.data && Array.isArray(response.data)) {
+        setRawRecords(response.data);
+      } else {
+        setRawRecords([]);
+      }
+    } catch (err) {
+      console.error("Error fetching stock data:", err);
+      setError(err.message || "Failed to load stock data from server.");
+      setRawRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [ticker, exchange, indexVal, timeframe, fromDate, toDate, todayStr]);
+
+  // Initial load on mount only
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleClear = () => {
-    setExchange("NSE");
-    setIndexVal("All Indices");
-    setTicker("20MICRONS - 20 Microns Limited");
-    setFromDate("2026-03-12");
-    setToDate("2026-09-12");
+    const today = getTodayDateStr();
+    setExchange("ALL");
+    setIndexVal("ALL");
+    setTicker("ALL");
+    setFromDate(today);
+    setToDate(today);
     setTimeframe("Daily");
   };
 
-  // Compute calculated analytics columns dynamically
+  // 3. Compute calculated analytics columns dynamically from raw records
   const processedRows = useMemo(() => {
-    return INITIAL_ROWS.map((row, idx, arr) => {
-      const prevRow = arr[idx + 1]; // Next item is previous date chronologically
+    if (!rawRecords || rawRecords.length === 0) return [];
 
-      const lowVal = parseNum(row.low);
-      const highVal = parseNum(row.high);
-      const closeVal = parseNum(row.close);
-
-      let virgin = "—";
-      let virginType = "neutral";
-      let zone = "—";
-      let zoneType = "neutral";
-      let closure = "—";
-      let closureType = "neutral";
-
-      if (prevRow) {
-        const prevAvg = parseNum(prevRow.avg);
-        const prevClose = parseNum(prevRow.close);
-        const prevHigh = parseNum(prevRow.high);
-        const prevLow = parseNum(prevRow.low);
-
-        // 1. VIRGIN: (HIGHER = LOW > PREV.DAY AVG) | (LOWER = HIGH < PREV.DAY AVG)
-        if (lowVal > prevAvg) {
-          virgin = "HIGHER";
-          virginType = "higher";
-        } else if (highVal < prevAvg) {
-          virgin = "LOWER";
-          virginType = "lower";
-        } else {
-          virgin = "INSIDE";
-          virginType = "neutral";
-        }
-
-        // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG)
-        if (closeVal > prevClose && closeVal > prevAvg) {
-          zone = "GREEN";
-          zoneType = "green";
-        } else if (closeVal < prevClose && closeVal < prevAvg) {
-          zone = "RED";
-          zoneType = "red";
-        } else {
-          zone = "NEUTRAL";
-          zoneType = "neutral";
-        }
-
-        // 3. CLOSURE: (HIGH = CLOSE > PREV.DAY HIGH) | (LOW = CLOSE < PREV.DAY LOW)
-        if (closeVal > prevHigh) {
-          closure = "HIGH";
-          closureType = "high";
-        } else if (closeVal < prevLow) {
-          closure = "LOW";
-          closureType = "low";
-        } else {
-          closure = "INSIDE";
-          closureType = "neutral";
-        }
-      }
-
-      // 4. FLOOR & 5. CEILING PRICE based on timeframe
-      // For Daily: Prev. Week Low / High
-      // For Weekly: Prev. Month Low / High
-      // For Monthly: Prev. Year Low / High
-      let floorPrice = 2910.00;
-      let ceilingPrice = 3025.00;
-
-      if (timeframe === "Weekly") {
-        floorPrice = 2870.00;
-        ceilingPrice = 3080.00;
-      } else if (timeframe === "Monthly") {
-        floorPrice = 2650.00;
-        ceilingPrice = 3250.00;
-      } else if (timeframe === "Yearly" || timeframe === "5-Yearly") {
-        floorPrice = 2100.00;
-        ceilingPrice = 3800.00;
-      } else {
-        // Daily: Contextual relative floor / ceiling
-        if (idx < 5) {
-          floorPrice = 2910.00; // Previous week low (rows 6-10)
-          ceilingPrice = 2975.00; // Previous week high (rows 6-10)
-        } else {
-          floorPrice = 2870.00;
-          ceilingPrice = 2955.00;
-        }
-      }
-
-      return {
-        ...row,
-        virgin,
-        virginType,
-        zone,
-        zoneType,
-        closure,
-        closureType,
-        floor: formatNum(floorPrice),
-        ceiling: formatNum(ceilingPrice),
-      };
+    // Group records by symbol to correctly compare with previous candle of the same symbol
+    const symbolMap = {};
+    rawRecords.forEach((row) => {
+      const sym = row.symbol || "UNKNOWN";
+      if (!symbolMap[sym]) symbolMap[sym] = [];
+      symbolMap[sym].push(row);
     });
-  }, [timeframe]);
+
+    // Ensure records per symbol are sorted chronologically ASC (earliest first, latest at bottom)
+    const resultRows = [];
+    let globalIndex = 1;
+
+    Object.keys(symbolMap).forEach((sym) => {
+      const rowsForSym = symbolMap[sym];
+      // Sort ASC by date (oldest to newest)
+      rowsForSym.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      rowsForSym.forEach((row, idx, arr) => {
+        const prevRow = idx > 0 ? arr[idx - 1] : null; // Previous candle chronologically
+
+        const openVal = parseNum(row.open);
+        const highVal = parseNum(row.high);
+        const lowVal = parseNum(row.low);
+        const closeVal = parseNum(row.close);
+
+        // Average: (HIGH + LOW + CLOSE) / 3 (OPEN strictly not considered!)
+        const avgVal = (highVal + lowVal + closeVal) / 3;
+        const rangeVal = Math.max(0, highVal - lowVal);
+
+        let status = "—";
+        let statusType = "neutral";
+        let virgin = "—";
+        let virginType = "neutral";
+        let zone = "—";
+        let zoneType = "neutral";
+        let closure = "—";
+        let closureType = "neutral";
+        let pointer = "—";
+        let pointerType = "neutral";
+
+        if (prevRow) {
+          const prevHigh = parseNum(prevRow.high);
+          const prevLow = parseNum(prevRow.low);
+          const prevClose = parseNum(prevRow.close);
+          const prevAvg = (prevHigh + prevLow + prevClose) / 3;
+
+          // Status: HLC HIGHER / HLC LOWER (Exact 4-point institutional criteria)
+          if (
+            highVal > prevHigh &&
+            lowVal > prevLow &&
+            closeVal > prevClose &&
+            closeVal > prevHigh
+          ) {
+            status = "HLC HIGHER";
+            statusType = "bullish";
+          } else if (
+            highVal < prevHigh &&
+            lowVal < prevLow &&
+            closeVal < prevClose &&
+            closeVal < prevLow
+          ) {
+            status = "HLC LOWER";
+            statusType = "bearish";
+          } else {
+            status = "";
+            statusType = "neutral";
+          }
+
+          // 1. VIRGIN: (HIGHER = LOW > PREV.DAY AVG) | (LOWER = HIGH < PREV.DAY AVG)
+          if (lowVal > prevAvg) {
+            virgin = "HIGHER";
+            virginType = "higher";
+          } else if (highVal < prevAvg) {
+            virgin = "LOWER";
+            virginType = "lower";
+          } else {
+            virgin = "INSIDE";
+            virginType = "neutral";
+          }
+
+          // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG)
+          if (closeVal > prevClose && closeVal > prevAvg) {
+            zone = "GREEN";
+            zoneType = "green";
+          } else if (closeVal < prevClose && closeVal < prevAvg) {
+            zone = "RED";
+            zoneType = "red";
+          } else {
+            zone = "NEUTRAL";
+            zoneType = "neutral";
+          }
+
+          // 3. CLOSURE: (HIGH = CLOSE > PREV.DAY HIGH) | (LOW = CLOSE < PREV.DAY LOW)
+          if (closeVal > prevHigh) {
+            closure = "HIGH";
+            closureType = "high";
+          } else if (closeVal < prevLow) {
+            closure = "LOW";
+            closureType = "low";
+          } else {
+            closure = "INSIDE";
+            closureType = "neutral";
+          }
+
+          // 4. INSTITUTIONAL POINTER TYPE (Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck, or FALSE)
+          const rVal = Math.max(0, highVal - lowVal);
+          const rm14 = closeVal + rVal * 0.146;
+          const rm23 = closeVal + rVal * 0.236;
+          const rm38 = closeVal + rVal * 0.382;
+          const rm61 = closeVal + rVal * 0.618;
+          const rm100 = closeVal + rVal * 1.0;
+          const fm14 = closeVal - rVal * 0.146;
+          const fm23 = closeVal - rVal * 0.236;
+          const fm38 = closeVal - rVal * 0.382;
+          const fm61 = closeVal - rVal * 0.618;
+          const fm100 = closeVal - rVal * 1.0;
+
+          let highCond = "FALSE";
+          if (highVal >= fm14 && highVal <= rm14) highCond = "Above FC 14.6 & Below RC 14.6.";
+          else if (highVal > rm14 && highVal <= rm23) highCond = "Above RC 14.6 & Below RC 23.6.";
+          else if (highVal > rm23 && highVal <= rm38) highCond = "Above RC 23.6 & Below RC 38.2.";
+          else if (highVal > rm38 && highVal <= rm61) highCond = "Above RC 38.2 & Below RC 61.8.";
+          else if (highVal > rm61 && highVal <= rm100) highCond = "Above RC 61.8 & Below RC 100.";
+
+          let lowCond = "FALSE";
+          if (lowVal >= fm14 && lowVal <= rm14) lowCond = "Above FC 14.6 & Below RC 14.6.";
+          else if (lowVal >= fm23 && lowVal < fm14) lowCond = "Above FC 23.6 & Below FC 14.6.";
+          else if (lowVal >= fm38 && lowVal < fm23) lowCond = "Above FC 38.2 & Below FC 23.6.";
+          else if (lowVal >= fm61 && lowVal < fm38) lowCond = "Above FC 61.8 & Below FC 38.2.";
+          else if (lowVal >= fm100 && lowVal < fm61) lowCond = "Above FC 100 & Below FC 61.8.";
+
+          if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
+            pointer = "Upward Rotation";
+            pointerType = "cyan";
+          } else if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
+            pointer = "Table Top";
+            pointerType = "purple";
+          } else if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
+            pointer = "Table Tennis";
+            pointerType = "blue";
+          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
+            pointer = "Rising Jack";
+            pointerType = "orange";
+          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
+            pointer = "Falling Duck";
+            pointerType = "amber";
+          } else {
+            pointer = "FALSE";
+            pointerType = "neutral";
+          }
+        } else {
+          status = "";
+          statusType = "neutral";
+          pointer = "FALSE";
+          pointerType = "neutral";
+        }
+
+        // Floor & Ceiling Price based on timeframe
+        let floorPrice = lowVal;
+        let ceilingPrice = highVal;
+        if (prevRow) {
+          const tf = (timeframe || "Daily").toLowerCase();
+          let windowSize = 5; // Daily: approx 1 week
+          if (tf === "weekly") windowSize = 4; // Weekly: approx 1 month
+          else if (tf === "monthly") windowSize = 12; // Monthly: approx 1 year
+          else if (tf === "quarterly") windowSize = 4;
+          else if (tf === "half-yearly" || tf === "halfyearly") windowSize = 2;
+          else if (tf === "yearly") windowSize = 5;
+
+          const prevCandles = arr.slice(Math.max(0, idx - windowSize), idx);
+          if (prevCandles.length > 0) {
+            floorPrice = Math.min(...prevCandles.map((r) => parseNum(r.low)));
+            ceilingPrice = Math.max(...prevCandles.map((r) => parseNum(r.high)));
+          } else {
+            floorPrice = parseNum(prevRow.low);
+            ceilingPrice = parseNum(prevRow.high);
+          }
+        }
+
+        resultRows.push({
+          rawId: row.id,
+          no: String(globalIndex++).padStart(2, "0"),
+          symbol: row.symbol || "—",
+          day: getDayOfWeek(row.date),
+          date: formatDateDisplay(row.date),
+          rawDate: row.date,
+          open: formatNum(openVal),
+          high: formatNum(highVal),
+          low: formatNum(lowVal),
+          close: formatNum(closeVal),
+          avg: formatNum(avgVal),
+          range: formatNum(rangeVal),
+          rawOpen: openVal,
+          rawHigh: highVal,
+          rawLow: lowVal,
+          rawClose: closeVal,
+          rawAvg: avgVal,
+          rawRange: rangeVal,
+          status,
+          statusType,
+          pointer,
+          pointerType,
+          virgin,
+          virginType,
+          zone,
+          zoneType,
+          closure,
+          closureType,
+          floor: formatNum(floorPrice),
+          ceiling: formatNum(ceilingPrice),
+        });
+      });
+    });
+
+    return resultRows;
+  }, [rawRecords]);
+
+  // Table scroll container ref for scrolling to the last row
+  const tableScrollRef = useRef(null);
+
+  // Auto-scroll table to the very last row when records load/update
+  useEffect(() => {
+    if (!loading && processedRows.length > 0 && tableScrollRef.current) {
+      const container = tableScrollRef.current;
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    }
+  }, [loading, processedRows]);
+
+  // Handle row click / pointer navigation
+  const handleOpenRowDetails = (row) => {
+    const payload = {
+      open: row.rawOpen,
+      high: row.rawHigh,
+      low: row.rawLow,
+      close: row.rawClose,
+      range: row.rawRange,
+      average: row.rawAvg,
+      timeframe,
+      symbol: row.symbol,
+      script: stripSymbolSuffix(row.symbol),
+      date: row.date,
+      title: `${stripSymbolSuffix(row.symbol)} (${row.date}) - Strategy Decision Matrix`,
+    };
+
+    if (onOpenStrategy) {
+      onOpenStrategy(payload);
+    } else if (onOpenPointer) {
+      onOpenPointer(payload);
+    }
+  };
+
+  const isAllSymbols = !ticker || ticker === "ALL" || ticker === "ALL_SYMBOLS";
 
   return (
     <div className="analytics-container">
@@ -319,9 +509,12 @@ export default function StockAnalytics({ onOpenPointer }) {
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
           >
-            <option value="NSE">NSE</option>
-            <option value="BSE">BSE</option>
-            <option value="MCX">MCX</option>
+            <option value="ALL">ALL (All Exchanges)</option>
+            {availableExchanges.map((ex) => (
+              <option key={ex} value={ex}>
+                {ex}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -333,31 +526,47 @@ export default function StockAnalytics({ onOpenPointer }) {
             value={indexVal}
             onChange={(e) => setIndexVal(e.target.value)}
           >
-            <option value="All Indices">All Indices...</option>
-            <option value="NIFTY 50">NIFTY 50</option>
-            <option value="NIFTY BANK">NIFTY BANK</option>
-            <option value="SENSEX">SENSEX</option>
+            <option value="ALL">ALL (All Indices)</option>
+            {availableIndices.map((idx) => (
+              <option key={idx} value={idx}>
+                {idx}
+              </option>
+            ))}
           </select>
         </div>
 
         {/* TICKER SYMBOL */}
         <div className="filter-group wide">
           <label className="filter-label">
-            Ticker Symbol <span>(All Stocks)</span>
+            Ticker Symbol <span>({symbolsLoading ? "Loading..." : `${availableSymbols.length} Available`})</span>
           </label>
           <select
             className="apple-select"
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
+            disabled={symbolsLoading}
           >
-            <option value="20MICRONS - 20 Microns Limited">20MICRONS - 20 Microns Limited</option>
-            <option value="RELIANCE - Reliance Industries Limited">RELIANCE - Reliance Industries Limited</option>
-            <option value="TCS - Tata Consultancy Services">TCS - Tata Consultancy Services</option>
-            <option value="INFY - Infosys Limited">INFY - Infosys Limited</option>
-            <option value="HDFCBANK - HDFC Bank Limited">HDFCBANK - HDFC Bank Limited</option>
-            <option value="TATAMOTORS - Tata Motors Limited">TATAMOTORS - Tata Motors Limited</option>
-            <option value="ICICIBANK - ICICI Bank Limited">ICICIBANK - ICICI Bank Limited</option>
-            <option value="SBIN - State Bank of India">SBIN - State Bank of India</option>
+            <option value="ALL">
+              {symbolsLoading
+                ? "Loading symbols..."
+                : exchange === "ALL" && indexVal === "ALL"
+                ? "ALL - All Symbols (Whole Database)"
+                : `ALL - All Symbols in Filter (${availableSymbols.length} available)`}
+            </option>
+            {availableSymbols.map((item) => {
+              const sym = typeof item === "string" ? item : item.symbol;
+              const cleanSym = stripSymbolSuffix(sym);
+              const metaLabel = typeof item === "object" && item.indice
+                ? `${cleanSym} — [${item.exchange}] ${item.indice}`
+                : typeof item === "object" && item.exchange
+                  ? `${cleanSym} — [${item.exchange}]`
+                  : cleanSym;
+              return (
+                <option key={sym} value={sym}>
+                  {metaLabel}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -403,17 +612,23 @@ export default function StockAnalytics({ onOpenPointer }) {
 
         {/* ACTIONS */}
         <div className="filter-actions" style={{ position: "relative" }}>
-          <button className="btn-analyze" onClick={() => alert(`Analyzing ${ticker}...`)}>
-            <span>🔍</span> Analyze
+          <button
+            className="btn-analyze"
+            onClick={fetchData}
+            disabled={loading}
+            type="button"
+          >
+            <span>{loading ? "⏳" : "🔍"}</span> {loading ? "Loading..." : "Analyze"}
           </button>
 
-          <button className="btn-clear" onClick={handleClear}>
+          <button className="btn-clear" onClick={handleClear} type="button">
             ✕ Clear
           </button>
 
           <button
             className="btn-columns"
             onClick={() => setShowColumnsMenu((s) => !s)}
+            type="button"
           >
             <span>田</span> Columns
           </button>
@@ -424,6 +639,14 @@ export default function StockAnalytics({ onOpenPointer }) {
               <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 4 }}>
                 Add / Remove Columns
               </span>
+              <label className="col-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={visibleCols.symbol}
+                  onChange={() => toggleCol("symbol")}
+                />
+                Symbol
+              </label>
               <label className="col-checkbox-label">
                 <input
                   type="checkbox"
@@ -509,10 +732,64 @@ export default function StockAnalytics({ onOpenPointer }) {
         </div>
       </div>
 
+      {/* ERROR ALERT */}
+      {error && (
+        <div style={{
+          background: "#fef2f2",
+          border: "1px solid #fecaca",
+          color: "#b91c1c",
+          borderRadius: 12,
+          padding: "12px 18px",
+          marginBottom: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <span>⚠️ {error}</span>
+          <button
+            onClick={fetchData}
+            style={{
+              background: "#ef4444",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "4px 12px",
+              cursor: "pointer",
+              fontWeight: 600,
+              fontSize: 12
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* MATRIX TABLE CARD */}
       <div className="matrix-card">
-        <div className="matrix-header-bar">
-          <span className="matrix-title">Institutional Analytical Matrix</span>
+        {/* <div className="matrix-header-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span className="matrix-title">
+              {isAllSymbols && !fromDate && !toDate
+                ? "Today's / Latest Stock Analytics Matrix (All Symbols)"
+                : isAllSymbols
+                ? "All Symbols Stock Analytics Matrix"
+                : `${ticker} Analytics Matrix`}
+            </span>
+            <span style={{
+              background: "#e0f2fe",
+              color: "#0369a1",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "3px 10px",
+              borderRadius: 20
+            }}>
+              {loading
+                ? "Fetching records..."
+                : isAllSymbols && !fromDate && !toDate
+                ? `${processedRows.length} Symbols (Today's Latest Bar)`
+                : `${processedRows.length} Total Records (Single Page)`}
+            </span>
+          </div>
           <div className="matrix-legend">
             <span className="legend-item">
               <span className="legend-pill bullish">HLC HIGHER</span> Bullish
@@ -530,13 +807,14 @@ export default function StockAnalytics({ onOpenPointer }) {
               <span className="legend-pill zone-pill">ZONE GREEN</span> Bullish Momentum
             </span>
           </div>
-        </div>
+        </div> */}
 
-        <div className="table-scroll">
+        <div className="table-scroll" ref={tableScrollRef}>
           <table className="apple-table">
             <thead>
               <tr>
                 <th>SR.NO</th>
+                {visibleCols.symbol && <th>SYMBOL</th>}
                 {visibleCols.day && <th>DAY</th>}
                 <th>DATE</th>
                 <th>OPEN</th>
@@ -555,71 +833,107 @@ export default function StockAnalytics({ onOpenPointer }) {
               </tr>
             </thead>
             <tbody>
-              {processedRows.map((row) => (
-                <tr key={row.no}>
-                  <td className="serial-col">{row.no}</td>
-                  {visibleCols.day && <td>{row.day}</td>}
-                  <td>{row.date}</td>
-                  <td>{row.open}</td>
-                  <td className="high-green">{row.high}</td>
-                  <td className={row.statusType === "bearish" ? "low-red" : ""}>
-                    {row.low}
+              {loading ? (
+                <tr>
+                  <td colSpan={17} style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
+                    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 28 }}>⏳</span>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>Connecting to MySQL &amp; Loading All Stock Records...</span>
+                    </div>
                   </td>
-                  <td>{row.close}</td>
-                  {visibleCols.avg && <td>{row.avg}</td>}
-                  {visibleCols.range && <td>{row.range}</td>}
-                  {visibleCols.status && (
-                    <td>
-                      <span className={`hlc-badge ${row.statusType}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.pointer && (
-                    <td>
-                      <span
-                        className={`pointer-tag ${row.pointerType}`}
-                        style={{ cursor: onOpenPointer ? "pointer" : "default" }}
-                        onClick={() => onOpenPointer && onOpenPointer(row)}
-                        title="Click to view full Pointer Fibonacci Matrix"
-                      >
-                        {row.pointer} ↗
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.virgin && (
-                    <td>
-                      <span className={`analytics-pill virgin-${row.virginType}`}>
-                        {row.virgin}
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.zone && (
-                    <td>
-                      <span className={`analytics-pill zone-${row.zoneType}`}>
-                        {row.zone}
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.closure && (
-                    <td>
-                      <span className={`analytics-pill closure-${row.closureType}`}>
-                        {row.closure}
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.floor && (
-                    <td className="metric-col floor-val" title={`Floor Price for ${timeframe}`}>
-                      {row.floor}
-                    </td>
-                  )}
-                  {visibleCols.ceiling && (
-                    <td className="metric-col ceiling-val" title={`Ceiling Price for ${timeframe}`}>
-                      {row.ceiling}
-                    </td>
-                  )}
                 </tr>
-              ))}
+              ) : processedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={17} style={{ textAlign: "center", padding: "60px 20px", color: "#94a3b8" }}>
+                    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 32 }}>📊</span>
+                      <span style={{ fontWeight: 600, fontSize: 15, color: "#475569" }}>No stock data found for the selected criteria.</span>
+                      <span style={{ fontSize: 13 }}>Try selecting "ALL - All Symbols", picking a different timeframe, or adjusting date filters.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                processedRows.map((row) => {
+                  const pInfo = getPointerInfo(row.pointer);
+                  return (
+                    <tr key={`${row.symbol}-${row.rawId || row.rawDate || row.no}`}>
+                      <td className="serial-col">{row.no}</td>
+                      {visibleCols.symbol && (
+                        <td style={{ fontWeight: 700, color: "#1e293b" }}>
+                          {stripSymbolSuffix(row.symbol)}
+                        </td>
+                      )}
+                      {visibleCols.day && <td>{row.day}</td>}
+                      <td>{row.date}</td>
+                      <td>{row.open}</td>
+                      <td className="high-green">{row.high}</td>
+                      <td className={row.statusType === "bearish" ? "low-red" : ""}>
+                        {row.low}
+                      </td>
+                      <td>{row.close}</td>
+                      {visibleCols.avg && <td>{row.avg}</td>}
+                      {visibleCols.range && <td>{row.range}</td>}
+                      {visibleCols.status && (
+                        <td>
+                          {row.status &&
+                          row.status !== "BASELINE" &&
+                          row.status !== "—" &&
+                          row.status !== "-" ? (
+                            <span className={`hlc-badge ${row.statusType}`}>
+                              {row.status}
+                            </span>
+                          ) : null}
+                        </td>
+                      )}
+                      {visibleCols.pointer && (
+                        <td>
+                          <span
+                            className={`pointer-tag ${pInfo.type || row.pointerType || "orange"}`}
+                            style={{ cursor: "pointer" }}
+                            onClick={() => handleOpenRowDetails(row)}
+                            title={`Click to view Strategy Decision Matrix (${pInfo.name || row.pointer})`}
+                          >
+                            <span className="pointer-code">{pInfo.code}</span>
+                            {pInfo.name && <span className="pointer-name">{pInfo.name}</span>}
+                            <span className="pointer-arrow">↗</span>
+                          </span>
+                        </td>
+                      )}
+                      {visibleCols.virgin && (
+                        <td>
+                          <span className={`analytics-pill virgin-${row.virginType}`}>
+                            {row.virgin}
+                          </span>
+                        </td>
+                      )}
+                      {visibleCols.zone && (
+                        <td>
+                          <span className={`analytics-pill zone-${row.zoneType}`}>
+                            {row.zone}
+                          </span>
+                        </td>
+                      )}
+                      {visibleCols.closure && (
+                        <td>
+                          <span className={`analytics-pill closure-${row.closureType}`}>
+                            {row.closure}
+                          </span>
+                        </td>
+                      )}
+                      {visibleCols.floor && (
+                        <td className="metric-col floor-val" title={`Floor Price for ${timeframe}`}>
+                          {row.floor}
+                        </td>
+                      )}
+                      {visibleCols.ceiling && (
+                        <td className="metric-col ceiling-val" title={`Ceiling Price for ${timeframe}`}>
+                          {row.ceiling}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

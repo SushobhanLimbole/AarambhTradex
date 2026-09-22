@@ -6,7 +6,9 @@ const router = express.Router();
 
 // Public auth routes
 router.post("/signup", signup);
+router.post("/register", signup);
 router.post("/signin", signin);
+router.post("/login", signin);
 
 // Protected auth route
 router.get("/me", verifyJWT, getProfile);

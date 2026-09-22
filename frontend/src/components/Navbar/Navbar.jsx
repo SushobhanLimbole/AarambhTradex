@@ -11,7 +11,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
     <header className="nav-header">
       <div className="nav-left" onClick={() => setActiveTab("reports")}>
         <img src={logoImg} alt="Aarambh TradeX Logo" className="nav-logo" />
-        <span className="nav-brand">Aarambh TradeX</span>
+        <span className="nav-brand">Aarambh Tradex</span>
       </div>
 
       <div className="nav-right">
@@ -20,10 +20,20 @@ export default function Navbar({ activeTab, setActiveTab }) {
           onClick={() => setActiveTab("reports")}
         >
           <span>📊</span>
-          <span>Reports</span>
+          <span>Data Summary</span>
         </button>
 
-        <button
+        {(user?.isAdmin || user?.hasAccess) && (
+          <button
+            className={`nav-btn ${activeTab === "reporthub" || activeTab === "trend-report" || activeTab === "ab-top-bottom" || activeTab === "trend-reversal" ? "active" : ""}`}
+            onClick={() => setActiveTab("reporthub")}
+          >
+            <span>📑</span>
+            <span>Report Hub</span>
+          </button>
+        )}
+
+        {/* <button
           className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
           onClick={() => setActiveTab("pointer")}
         >
@@ -37,16 +47,33 @@ export default function Navbar({ activeTab, setActiveTab }) {
         >
           <span>💡</span>
           <span>Strategy Page</span>
-        </button>
+        </button> */}
+
+        {/* <button
+          className={`nav-btn ${activeTab === "screener" ? "active" : ""}`}
+          onClick={() => setActiveTab("screener")}
+        >
+          <span>🚀</span>
+          <span>Screener</span>
+        </button> */}
 
         {user?.isAdmin && (
-          <button
-            className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
-            onClick={() => setActiveTab("requests")}
-          >
-            <span>📋</span>
-            <span>Requests</span>
-          </button>
+          <>
+            <button
+              className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
+              onClick={() => setActiveTab("requests")}
+            >
+              <span>📋</span>
+              <span>Requests</span>
+            </button>
+            <button
+              className={`nav-btn ${activeTab === "datasync" ? "active" : ""}`}
+              onClick={() => setActiveTab("datasync")}
+            >
+              <span>⚡</span>
+              <span>Data Sync</span>
+            </button>
+          </>
         )}
 
         <button

@@ -1,0 +1,613 @@
+/* ============================================================
+   AB TOP & BLW BOTTOM (ABOVE TOP & BELOW BOTTOM) REPORT STYLES
+   Matches specification: Red & Green Headers, Metric Boxes,
+   Gold Backtest Accuracy Ribbon, and Interactive Live Data Table.
+   ============================================================ */
+
+.ab-top-bottom-wrapper {
+  /* max-width: 1400px; */
+  margin: 0 auto;
+  padding: 20px 24px 60px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+}
+
+/* ------------------------------------------------------------
+   1. EXCEL SPECIFICATION HEADER MATRIX CARD
+   ------------------------------------------------------------ */
+.ab-matrix-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.ab-matrix-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 20px 24px;
+  gap: 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+@media (max-width: 900px) {
+  .ab-matrix-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ab-matrix-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ab-badge-scope {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  text-transform: uppercase;
+  background: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.ab-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  gap: 16px;
+}
+
+.ab-metric-label {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.2px;
+}
+
+.ab-value-box {
+  min-width: 100px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.box-red {
+  background: #dc2626; /* Vibrant Red from screenshot */
+  color: #ffffff;
+}
+
+.box-green {
+  background: #16a34a; /* Vibrant Green from screenshot */
+  color: #ffffff;
+}
+
+.ab-val-num {
+  font-size: 17px;
+  font-weight: 900;
+  font-family: "SF Mono", Menlo, monospace;
+}
+
+/* Rule Headers */
+.ab-rule-headers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ab-rule-box {
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rule-red {
+  background: #dc2626; /* Red for top */
+}
+
+.rule-green {
+  background: #16a34a; /* Green for bottom */
+}
+
+.rule-title {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+}
+
+.rule-sub {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ab-rule-desc-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.ab-rule-desc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pointer-tag {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: 0.3px;
+}
+
+.pointer-desc {
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+/* GOLD RIBBON: BACKTESTING WITH ACCURACY IN % */
+.ab-backtest-ribbon {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ab-ribbon-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ribbon-icon {
+  font-size: 18px;
+}
+
+.ribbon-title {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.ab-ribbon-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ribbon-stat-pill {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ribbon-stat-pill .highlight {
+  font-weight: 900;
+  font-size: 13.5px;
+  color: #fef08a;
+}
+
+.ribbon-stat-pill .text-top {
+  color: #fecaca;
+  font-weight: 900;
+}
+
+.ribbon-stat-pill .text-bottom {
+  color: #bbf7d0;
+  font-weight: 900;
+}
+
+/* ------------------------------------------------------------
+   2. FILTER TOOLBAR
+   ------------------------------------------------------------ */
+.ab-toolbar {
+  background: #0f172a;
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.15);
+}
+
+.ab-back-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ab-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateX(-2px);
+}
+
+.ab-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ab-control-group.ab-wide {
+  min-width: 220px;
+}
+
+.ab-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.ab-select,
+.ab-input {
+  height: 32px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+}
+
+.ab-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.ab-pill-btn {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ab-pill-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.ab-pill-btn.pill-top.active {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.ab-pill-btn.pill-bottom.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.ab-run-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 7px 18px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ab-run-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.ab-error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------
+   3. SEARCH & TABLE STATS
+   ------------------------------------------------------------ */
+.ab-search-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ab-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 340px;
+  max-width: 100%;
+}
+
+.ab-search-box .search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.ab-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 32px 0 34px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+}
+
+.ab-search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.clear-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.ab-table-counts {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+/* ------------------------------------------------------------
+   4. DATA TABLE
+   ------------------------------------------------------------ */
+.ab-table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.ab-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.ab-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 12.5px;
+}
+
+.ab-table thead tr {
+  background: #0f172a;
+}
+
+.ab-table th {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.ab-table th:last-child {
+  border-right: none;
+}
+
+.ab-row {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.12s ease;
+}
+
+.ab-row:nth-child(even) {
+  background-color: #fafbfc;
+}
+
+.ab-row:hover {
+  background-color: #f1f5f9;
+}
+
+.ab-table td {
+  padding: 8px 10px;
+  border-right: 1px solid #f1f5f9;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ab-table td:last-child {
+  border-right: none;
+}
+
+.td-sr {
+  color: #64748b;
+  font-weight: 700;
+  width: 45px;
+}
+
+.td-sym {
+  font-weight: 800;
+  text-align: left;
+  padding-left: 14px !important;
+}
+
+.ticker-badge-link {
+  color: #1d4ed8;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  transition: all 0.12s ease;
+}
+
+.ticker-badge-link:hover {
+  background: #eff6ff;
+  text-decoration: underline;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.status-top {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.status-bottom {
+  background: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #86efac;
+}
+
+.status-neutral {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.level-badge {
+  font-weight: 800;
+  font-size: 11.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.level-top {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.level-bottom {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.delta-tag {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.tag-top {
+  color: #dc2626;
+}
+
+.tag-bottom {
+  color: #16a34a;
+}
+
+.target-pill-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.tgt-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.acc-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 11.5px;
+}
+
+.ab-muted {
+  color: #94a3b8;
+}
+
+.ab-empty-cell {
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.ab-loading-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.ab-spinner {
+  font-size: 28px;
+}

@@ -6,7 +6,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
 }
@@ -83,12 +84,10 @@ html, body {
   overflow: hidden;
 
   background:
-    linear-gradient(
-      160deg,
+    linear-gradient(160deg,
       #eaf4ff 0%,
       #dcecfd 55%,
-      #cfe4fa 100%
-    );
+      #cfe4fa 100%);
 
   display: flex;
   flex-direction: column;
@@ -104,7 +103,7 @@ html, body {
 .amu-logo {
   color: #123a66;
 
-  font-weight: 700;
+  font-weight: 800;
   font-size: 22px;
 
   letter-spacing: 1px;
@@ -234,22 +233,18 @@ html, body {
   border-radius: 12px;
 
   -webkit-mask-image:
-    linear-gradient(
-      to bottom,
+    linear-gradient(to bottom,
       transparent 0,
       #000 18px,
       #000 calc(100% - 18px),
-      transparent 100%
-    );
+      transparent 100%);
 
   mask-image:
-    linear-gradient(
-      to bottom,
+    linear-gradient(to bottom,
       transparent 0,
       #000 18px,
       #000 calc(100% - 18px),
-      transparent 100%
-    );
+      transparent 100%);
 }
 
 
@@ -300,9 +295,7 @@ html, body {
   display: grid;
 
   grid-template-columns:
-    minmax(90px, 1.1fr)
-    minmax(45px, 1fr)
-    minmax(90px, auto);
+    minmax(90px, 1.1fr) minmax(45px, 1fr) minmax(90px, auto);
 
   align-items: center;
 
@@ -452,7 +445,7 @@ html, body {
   min-width: 0;
   min-height: 0;
 
-  padding: 48px;
+  padding: 0px 24px 0px 24px;
 
   display: flex;
 
@@ -733,8 +726,7 @@ html, body {
   border-width: 0 2px 2px 0;
 
   transform:
-    rotate(45deg)
-    translate(-1px, -1px);
+    rotate(45deg) translate(-1px, -1px);
 }
 
 .amu-terms-text {
@@ -762,11 +754,9 @@ html, body {
   border: none;
 
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       #4fa3f7 0%,
-      #2f7de1 100%
-    );
+      #2f7de1 100%);
 
   color: #fff;
 
@@ -895,9 +885,7 @@ html, body {
 
   .amu-tick-card {
     grid-template-columns:
-      minmax(80px, 1fr)
-      minmax(40px, 0.8fr)
-      minmax(85px, auto);
+      minmax(80px, 1fr) minmax(40px, 0.8fr) minmax(85px, auto);
 
     gap: 8px;
   }
@@ -965,9 +953,7 @@ html, body {
 
   .amu-tick-card {
     grid-template-columns:
-      minmax(70px, 1fr)
-      minmax(35px, 0.7fr)
-      minmax(75px, auto);
+      minmax(70px, 1fr) minmax(35px, 0.7fr) minmax(75px, auto);
 
     gap: 7px;
 
@@ -988,5 +974,265 @@ html, body {
 
   .amu-tick-badge {
     font-size: 8.5px;
+  }
+}
+
+
+/* =========================
+   TERMS PROMPT BOX / MODAL
+========================= */
+
+.amu-terms-link {
+  font-weight: 600;
+  display: inline;
+  vertical-align: baseline;
+}
+
+.amu-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: amuFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.amu-modal-dialog {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 25px 60px -15px rgba(15, 23, 42, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  animation: amuModalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+
+.amu-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #eef3fa;
+  background: #fafcff;
+  flex-shrink: 0;
+}
+
+.amu-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.amu-modal-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #ebf3fe;
+  border: 1px solid #d4e6fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.amu-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #10233f;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.amu-modal-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 3px 0 0 0;
+}
+
+.amu-modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.amu-modal-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.amu-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.amu-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.amu-modal-body::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+.amu-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.amu-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.amu-modal-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #1e40af;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.amu-modal-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.amu-modal-section h4 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.amu-modal-section p {
+  font-size: 12.5px;
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.amu-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid #eef3fa;
+  background: #fafcff;
+  flex-shrink: 0;
+}
+
+.amu-modal-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.amu-modal-btn-secondary {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.amu-modal-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.amu-modal-btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.amu-modal-btn-primary:hover {
+  opacity: 0.93;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+@keyframes amuFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes amuModalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .amu-modal-overlay {
+    padding: 12px;
+  }
+
+  .amu-modal-dialog {
+    max-height: 90vh;
+  }
+
+  .amu-modal-header {
+    padding: 14px 16px;
+  }
+
+  .amu-modal-body {
+    padding: 14px 16px;
+  }
+
+  .amu-modal-footer {
+    padding: 12px 16px;
   }
 }
