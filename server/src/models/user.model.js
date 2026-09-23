@@ -161,6 +161,15 @@ export class User {
   }
 
   /**
+   * Delete user by ID
+   */
+  static async deleteById(id) {
+    if (!id) return false;
+    const [result] = await pool.query("DELETE FROM users WHERE id = ?", [String(id)]);
+    return result.affectedRows > 0;
+  }
+
+  /**
    * Ensure users table exists in MySQL
    */
   static async initTable() {

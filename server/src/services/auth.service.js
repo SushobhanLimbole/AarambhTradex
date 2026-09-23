@@ -101,3 +101,62 @@ export const getUserById = async (userId) => {
     }
     return user;
 };
+
+/**
+ * Admin creates a user
+ */
+export const createUserByAdmin = async ({ name, email, password, hasAccess = false }) => {
+    if (!name || !email || !password) {
+        const error = new Error("Name, email, and password are required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+        const error = new Error("User with this email already exists");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const user = new User({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password,
+        isAdmin: false,
+        hasAccess: Boolean(hasAccess)
+    });
+
+    await user.save();
+    return user;
+};
+
+/**
+ * Get all users for admin
+ */
+export const getAllUsers = async () => {
+    const users = await User.find();
+    return users.map((u) => u.toJSON());
+};
+
+/**
+ * Delete a user by ID
+ */
+export const deleteUserById = async (userId) => {
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (targetUser.isAdmin) {
+        const error = new Error("Admin accounts cannot be deleted");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const deleted = await User.deleteById(userId);
+    return deleted;
+};
+

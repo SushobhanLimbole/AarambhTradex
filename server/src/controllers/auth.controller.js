@@ -82,3 +82,63 @@ export const getProfile = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Admin: Create a new user
+ */
+export const adminCreateUser = async (req, res, next) => {
+    try {
+        const { name, email, password, hasAccess } = req.body;
+
+        const user = await authService.createUserByAdmin({
+            name,
+            email,
+            password,
+            hasAccess
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: `User '${user.name}' created successfully`,
+            data: {
+                user: user.toJSON()
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Get all users
+ */
+export const adminGetUsers = async (req, res, next) => {
+    try {
+        const users = await authService.getAllUsers();
+        return res.status(200).json({
+            success: true,
+            data: {
+                users
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Admin: Delete a user
+ */
+export const adminDeleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await authService.deleteUserById(id);
+        return res.status(200).json({
+            success: true,
+            message: "User deleted successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
