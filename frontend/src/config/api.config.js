@@ -5,6 +5,9 @@ export const ENDPOINTS = {
     SIGNUP: `${API_BASE_URL}/auth/signup`,
     SIGNIN: `${API_BASE_URL}/auth/signin`,
     ME: `${API_BASE_URL}/auth/me`,
+    ADMIN_CREATE_USER: `${API_BASE_URL}/auth/admin/create-user`,
+    ADMIN_USERS: `${API_BASE_URL}/auth/admin/users`,
+    ADMIN_DELETE_USER: (id) => `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(id)}`,
   },
   STRATEGY_ACCESS: {
     REQUEST: `${API_BASE_URL}/strategy-access/request`,

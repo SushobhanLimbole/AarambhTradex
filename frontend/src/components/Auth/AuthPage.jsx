@@ -160,7 +160,7 @@ function StockTicker() {
     <div className="amu-ticker">
       <div className="amu-ticker-head">
         <span className="amu-live-dot" data-live={live}></span>
-        <span>{live ? "Live • Angel One SmartAPI" : "Connecting to live market data…"}</span>
+        <span>{live ? "Live • Data" : "Connecting to live market data…"}</span>
       </div>
       <div className="amu-ticker-mask">
         <div className="amu-ticker-track">
@@ -214,27 +214,7 @@ function StockTicker() {
 --------------------------------------------------------- */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validateRegister({ firstName, lastName, email, password, agree }) {
-  const errors = {};
-  if (!firstName.trim()) errors.firstName = "This field is required";
-  if (!lastName.trim()) errors.lastName = "This field is required";
-
-  if (!email.trim()) {
-    errors.email = "This field is required";
-  } else if (!EMAIL_RE.test(email.trim())) {
-    errors.email = "Enter a valid email address";
-  }
-
-  if (!password) {
-    errors.password = "This field is required";
-  }
-
-  if (!agree) errors.agree = "This field is required";
-
-  return errors;
-}
-
-function validateLogin({ email, password }) {
+function validateLogin({ email, password, agree }) {
   const errors = {};
   if (!email.trim()) {
     errors.email = "This field is required";
@@ -243,26 +223,19 @@ function validateLogin({ email, password }) {
   }
   if (!password) {
     errors.password = "This field is required";
+  }
+  if (!agree) {
+    errors.agree = "Please accept the Terms & Conditions to sign in";
   }
   return errors;
 }
 
 export default function AuthPage() {
-  const { signup, login, isAuthenticated, user, loading } = useAuth();
-  const [mode, setMode] = useState("register"); // 'register' | 'login'
+  const { login, isAuthenticated } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [agree, setAgree] = useState(true);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
-
-  // Register form state
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [registerErrors, setRegisterErrors] = useState({});
-  const [serverRegisterError, setServerRegisterError] = useState("");
-  const [registerSubmitting, setRegisterSubmitting] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -271,37 +244,9 @@ export default function AuthPage() {
   const [serverLoginError, setServerLoginError] = useState("");
   const [loginSubmitting, setLoginSubmitting] = useState(false);
 
-  const isRegister = mode === "register";
-
-  const switchMode = (next) => {
-    setMode(next);
-    setRegisterErrors({});
-    setLoginErrors({});
-    setServerRegisterError("");
-    setServerLoginError("");
-  };
-
-  const handleRegisterSubmit = async () => {
-    setServerRegisterError("");
-    const errors = validateRegister({ firstName, lastName, email, password, agree });
-    setRegisterErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setRegisterSubmitting(true);
-    try {
-      const name = `${firstName} ${lastName}`.trim();
-      await signup({ name, email, password });
-      setToast({ message: "Registration successful! Welcome to Aarambh Tradex.", type: "success" });
-    } catch (err) {
-      setServerRegisterError(err.message || "Registration failed. Please try again.");
-    } finally {
-      setRegisterSubmitting(false);
-    }
-  };
-
   const handleLoginSubmit = async () => {
     setServerLoginError("");
-    const errors = validateLogin({ email: loginEmail, password: loginPassword });
+    const errors = validateLogin({ email: loginEmail, password: loginPassword, agree });
     setLoginErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -316,8 +261,7 @@ export default function AuthPage() {
     }
   };
 
-  // Once login or register succeeds, route straight into the
-  // stock analytics screen instead of the auth card.
+  // Once login succeeds, route straight into the main layout
   if (isAuthenticated) {
     return <MainLayout />;
   }
@@ -329,12 +273,6 @@ export default function AuthPage() {
         <div className="amu-left">
           <div className="amu-topbar">
             <div className="amu-logo">Aarambh Tradex</div>
-            <button className="amu-back-btn">
-              Back to website
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12h14M13 6l6 6-6 6" stroke="#14213D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
           </div>
 
           <StockTicker />
@@ -343,206 +281,92 @@ export default function AuthPage() {
         <div className="amu-right">
           <div className="amu-right-header">
             <img src={logoImg} alt="Aarambh Tradex Logo" className="amu-brand-logo" />
+            <div className="amu-brand-tagline">Aarambh. Analyze. Ascend.</div>
           </div>
 
-          {isRegister ? (
-            <>
-              <h1 className="amu-title">Create an account</h1>
-              <p className="amu-subtitle">
-                Already have an account?{" "}
-                <button className="amu-link" onClick={() => switchMode("login")}>
-                  Log in
-                </button>
-              </p>
+          <h1 className="amu-title">Welcome back</h1>
+          <p className="amu-subtitle">
+            Sign in to access your Aarambh Tradex terminal
+          </p>
 
-              {serverRegisterError && (
-                <div className="amu-server-error">
-                  <span>⚠️</span> {serverRegisterError}
-                </div>
-              )}
-
-              <div className="amu-row">
-                <div className="amu-field-wrap">
-                  <input
-                    className={`amu-field ${registerErrors.firstName ? "amu-field-error" : ""}`}
-                    type="text"
-                    placeholder="First name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                  {registerErrors.firstName && (
-                    <span className="amu-error">{registerErrors.firstName}</span>
-                  )}
-                </div>
-                <div className="amu-field-wrap">
-                  <input
-                    className={`amu-field ${registerErrors.lastName ? "amu-field-error" : ""}`}
-                    type="text"
-                    placeholder="Last name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                  {registerErrors.lastName && (
-                    <span className="amu-error">{registerErrors.lastName}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="amu-field-wrap">
-                <input
-                  className={`amu-field amu-field-single ${registerErrors.email ? "amu-field-error" : ""}`}
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                {registerErrors.email && <span className="amu-error">{registerErrors.email}</span>}
-              </div>
-
-              <div className="amu-field-wrap">
-                <input
-                  className={`amu-field ${registerErrors.password ? "amu-field-error" : ""}`}
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  className="amu-eye"
-                  onClick={() => setShowPassword((s) => !s)}
-                  type="button"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-                {registerErrors.password && (
-                  <span className="amu-error">{registerErrors.password}</span>
-                )}
-              </div>
-
-              <label className="amu-terms">
-                <input
-                  type="checkbox"
-                  className="amu-checkbox"
-                  checked={agree}
-                  onChange={() => {
-                    const nextVal = !agree;
-                    setAgree(nextVal);
-                    if (nextVal && registerErrors.agree) {
-                      setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
-                    }
-                  }}
-                />
-                <span className="amu-terms-text">
-                  I agree to the{" "}
-                  <button
-                    type="button"
-                    className="amu-link amu-terms-link"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowTermsModal(true);
-                    }}
-                  >
-                    Terms &amp; Conditions
-                  </button>
-                </span>
-              </label>
-              {registerErrors.agree && <span className="amu-error">{registerErrors.agree}</span>}
-
-              <button
-                className="amu-submit"
-                type="button"
-                onClick={handleRegisterSubmit}
-                disabled={registerSubmitting}
-              >
-                {registerSubmitting ? "Creating account..." : "Create account"}
-              </button>
-
-              {/* <div className="amu-divider">
-                <span className="line"></span>
-                <span>Or register with</span>
-                <span className="line"></span>
-              </div> */}
-            </>
-          ) : (
-            <>
-              <h1 className="amu-title">Welcome back</h1>
-              <p className="amu-subtitle">
-                Don&apos;t have an account?{" "}
-                <button className="amu-link" onClick={() => switchMode("register")}>
-                  Sign up
-                </button>
-              </p>
-
-              {serverLoginError && (
-                <div className="amu-server-error">
-                  <span>⚠️</span> {serverLoginError}
-                </div>
-              )}
-
-              <div className="amu-field-wrap">
-                <input
-                  className={`amu-field amu-field-single ${loginErrors.email ? "amu-field-error" : ""}`}
-                  type="email"
-                  placeholder="Email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                />
-                {loginErrors.email && <span className="amu-error">{loginErrors.email}</span>}
-              </div>
-
-              <div className="amu-field-wrap">
-                <input
-                  className={`amu-field ${loginErrors.password ? "amu-field-error" : ""}`}
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                />
-                <button
-                  className="amu-eye"
-                  onClick={() => setShowPassword((s) => !s)}
-                  type="button"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-                {loginErrors.password && <span className="amu-error">{loginErrors.password}</span>}
-              </div>
-
-              <div style={{ marginBottom: 22 }}></div>
-
-              <button
-                className="amu-submit"
-                type="button"
-                onClick={handleLoginSubmit}
-                disabled={loginSubmitting}
-              >
-                {loginSubmitting ? "Logging in..." : "Log in"}
-              </button>
-              {/* 
-              <div className="amu-divider">
-                <span className="line"></span>
-                <span>Or continue with</span>
-                <span className="line"></span>
-              </div>
-               */}
-            </>
+          {serverLoginError && (
+            <div className="amu-server-error">
+              <span>⚠️</span> {serverLoginError}
+            </div>
           )}
 
-          {/*
-          <div className="amu-social-row">
-            <button className="amu-social-btn">
-              <GoogleIcon />
-              Google
-            </button>
-            <button className="amu-social-btn">
-              <AppleIcon />
-              Apple
-            </button>
+          <div className="amu-field-wrap">
+            <input
+              className={`amu-field amu-field-single ${loginErrors.email ? "amu-field-error" : ""}`}
+              type="email"
+              placeholder="Email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLoginSubmit()}
+            />
+            {loginErrors.email && <span className="amu-error">{loginErrors.email}</span>}
           </div>
-          */}
+
+          <div className="amu-field-wrap">
+            <input
+              className={`amu-field ${loginErrors.password ? "amu-field-error" : ""}`}
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLoginSubmit()}
+            />
+            <button
+              className="amu-eye"
+              onClick={() => setShowPassword((s) => !s)}
+              type="button"
+              aria-label="Toggle password visibility"
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+            {loginErrors.password && <span className="amu-error">{loginErrors.password}</span>}
+          </div>
+
+          <label className="amu-terms">
+            <input
+              type="checkbox"
+              className="amu-checkbox"
+              checked={agree}
+              onChange={() => {
+                const nextVal = !agree;
+                setAgree(nextVal);
+                if (nextVal && loginErrors.agree) {
+                  setLoginErrors((prev) => ({ ...prev, agree: undefined }));
+                }
+              }}
+            />
+            <span className="amu-terms-text">
+              I agree to the{" "}
+              <button
+                type="button"
+                className="amu-link amu-terms-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowTermsModal(true);
+                }}
+              >
+                Terms &amp; Conditions
+              </button>
+            </span>
+          </label>
+          {loginErrors.agree && <span className="amu-error">{loginErrors.agree}</span>}
+
+          <div style={{ marginBottom: 20 }}></div>
+
+          <button
+            className="amu-submit"
+            type="button"
+            onClick={handleLoginSubmit}
+            disabled={loginSubmitting}
+          >
+            {loginSubmitting ? "Logging in..." : "Log in"}
+          </button>
         </div>
       </div>
 
@@ -551,7 +375,7 @@ export default function AuthPage() {
           onClose={() => setShowTermsModal(false)}
           onAccept={() => {
             setAgree(true);
-            setRegisterErrors((prev) => ({ ...prev, agree: undefined }));
+            setLoginErrors((prev) => ({ ...prev, agree: undefined }));
             setShowTermsModal(false);
           }}
         />

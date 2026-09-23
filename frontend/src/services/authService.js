@@ -49,6 +49,36 @@ export const authService = {
   },
 
   /**
+   * Admin: Create a new user account
+   * @param {Object} userData - { name, email, password, hasAccess }
+   */
+  async adminCreateUser(userData) {
+    return await apiClient(ENDPOINTS.AUTH.ADMIN_CREATE_USER, {
+      method: "POST",
+      body: userData,
+    });
+  },
+
+  /**
+   * Admin: Get all user accounts
+   */
+  async adminGetUsers() {
+    return await apiClient(ENDPOINTS.AUTH.ADMIN_USERS, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Admin: Delete a user account by ID
+   * @param {string} userId
+   */
+  async adminDeleteUser(userId) {
+    return await apiClient(ENDPOINTS.AUTH.ADMIN_DELETE_USER(userId), {
+      method: "DELETE",
+    });
+  },
+
+  /**
    * Logout user and clear stored token
    */
   logout() {
@@ -57,3 +87,4 @@ export const authService = {
 };
 
 export default authService;
+
