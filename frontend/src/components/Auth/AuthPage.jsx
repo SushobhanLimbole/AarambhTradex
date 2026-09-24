@@ -272,7 +272,7 @@ export default function AuthPage() {
       <div className="amu-card">
         <div className="amu-left">
           <div className="amu-topbar">
-            <div className="amu-logo">Aarambh Tradex</div>
+            <div className="amu-logo">Aarambh TradeX</div>
           </div>
 
           <StockTicker />

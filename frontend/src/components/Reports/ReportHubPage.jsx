@@ -128,7 +128,6 @@ export default function ReportHubPage({ onSelectReportCard }) {
 
         <div className="reporthub-header-right">
           <div className="reporthub-search">
-            <span className="search-icon">🔍</span>
             <input
               type="text"
               placeholder="Search 8 report cards..."

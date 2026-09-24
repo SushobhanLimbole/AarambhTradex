@@ -9,19 +9,27 @@ export default function Navbar({ activeTab, setActiveTab }) {
 
   return (
     <header className="nav-header">
-      <div className="nav-left" onClick={() => setActiveTab("reports")}>
+      <div className="nav-left" onClick={() => setActiveTab("symbols")}>
         <img src={logoImg} alt="Aarambh TradeX Logo" className="nav-logo" />
-        <span className="nav-brand">Aarambh Tradex</span>
+        <span className="nav-brand">Aarambh TradeX</span>
       </div>
 
       <div className="nav-right">
-        <button
+        {/* <button
+          className={`nav-btn ${activeTab === "symbols" ? "active" : ""}`}
+          onClick={() => setActiveTab("symbols")}
+        >
+          <span>🏛️</span>
+          <span>Symbols</span>
+        </button> */}
+
+        {/* <button
           className={`nav-btn ${activeTab === "reports" ? "active" : ""}`}
           onClick={() => setActiveTab("reports")}
         >
           <span>📊</span>
-          <span>Data Summary</span>
-        </button>
+          <span>Stock Analytics</span>
+        </button> */}
 
         {(user?.isAdmin || user?.hasAccess) && (
           <button
@@ -33,21 +41,23 @@ export default function Navbar({ activeTab, setActiveTab }) {
           </button>
         )}
 
-        {/* <button
-          className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
-          onClick={() => setActiveTab("pointer")}
-        >
-          <span>🎯</span>
-          <span>Pointer Page</span>
-        </button>
-
-        <button
-          className={`nav-btn ${activeTab === "strategy" ? "active" : ""}`}
-          onClick={() => setActiveTab("strategy")}
-        >
-          <span>💡</span>
-          <span>Strategy Page</span>
-        </button> */}
+        {(user?.isAdmin || user?.hasAccess) ? (
+          <button
+            className={`nav-btn ${activeTab === "strategy" ? "active" : ""}`}
+            onClick={() => setActiveTab("strategy")}
+          >
+            <span>💡</span>
+            <span>Strategy</span>
+          </button>
+        ) : (
+          <button
+            className={`nav-btn ${activeTab === "pointer" ? "active" : ""}`}
+            onClick={() => setActiveTab("pointer")}
+          >
+            <span>🎯</span>
+            <span>Pointer</span>
+          </button>
+        )}
 
         {/* <button
           className={`nav-btn ${activeTab === "screener" ? "active" : ""}`}

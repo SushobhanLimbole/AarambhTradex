@@ -66,35 +66,53 @@ export function evaluatePriceBand(price, channels) {
  * Strictly maps to: Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck
  * If no match, returns "FALSE"
  */
-export function determineScenario(highCond, lowCond, closeCond) {
-  if (!highCond || !lowCond || highCond === "FALSE" || lowCond === "FALSE") {
-    return "FALSE";
+export function determineScenario(h, l, channels, highCond, lowCond) {
+  if (channels && channels.risingMain && channels.fallingMain && h !== undefined && l !== undefined && typeof h === "number" && typeof l === "number") {
+    const rm = channels.risingMain;
+    const fm = channels.fallingMain;
+
+    const evalP = (highVal, lowVal) => {
+      // 1. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 38.2 - FC 14.6)
+      if (highVal > rm[61.8] && highVal < rm[100] && lowVal < fm[14.6] && lowVal > fm[38.2]) {
+        return "Rising Jack";
+      }
+      // 2. TABLE TENNIS: High in (RC 38.2 - RC 61.8), Low in (FC 61.8 - FC 38.2)
+      if (highVal > rm[38.2] && highVal < rm[61.8] && lowVal < fm[38.2] && lowVal > fm[61.8]) {
+        return "Table Tennis";
+      }
+      // 3. TABLE TOP: High in (RC 14.6 - RC 38.2), Low in (FC 100 - FC 61.8)
+      if (highVal > rm[14.6] && highVal < rm[38.2] && lowVal < fm[61.8] && lowVal > fm[100]) {
+        return "Table Top";
+      }
+      // 4. UPWARD ROTATION: High in (FC 14.6 - RC 14.6), Low in (FC 100 - FC 61.8)
+      if (highVal > fm[14.6] && highVal < rm[14.6] && lowVal > fm[100] && lowVal < fm[61.8]) {
+        return "Upward Rotation";
+      }
+      // 5. FALLING DUCK: High in (RC 61.8 - RC 100), Low in (FC 14.6 - RC 14.6)
+      if (highVal > rm[61.8] && highVal < rm[100] && lowVal > fm[14.6] && lowVal < rm[14.6]) {
+        return "Falling Duck";
+      }
+      return "FALSE";
+    };
+
+    let res = evalP(parseFloat(h) || 0, parseFloat(l) || 0);
+    if (res === "FALSE") {
+      res = evalP((parseFloat(h) || 0) + 0.05, (parseFloat(l) || 0) + 0.05);
+    }
+
+    return res;
   }
 
-  // 1. UPWARD ROTATION: High in central band (FC 14.6 - RC 14.6), Low in (FC 100 - FC 61.8)
-  if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
-    return "Upward Rotation";
-  }
+  // Fallback if called with condition string arguments
+  const hC = typeof h === "string" ? h : highCond;
+  const lC = typeof l === "string" ? l : lowCond;
+  if (!hC || !lC || hC === "FALSE" || lC === "FALSE") return "FALSE";
 
-  // 2. TABLE TOP: High in (RC 23.6 - RC 38.2), Low in (FC 100 - FC 61.8)
-  if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
-    return "Table Top";
-  }
-
-  // 3. TABLE TENNIS: High in (RC 38.2 - RC 61.8), Low in (FC 61.8 - FC 38.2)
-  if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
-    return "Table Tennis";
-  }
-
-  // 4. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 23.6 - FC 14.6)
-  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
-    return "Rising Jack";
-  }
-
-  // 5. FALLING DUCK: High in (RC 61.8 - RC 100), Low in central band (FC 14.6 - RC 14.6)
-  if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
-    return "Falling Duck";
-  }
+  if (hC === "Above FC 14.6 & Below RC 14.6." && lC === "Above FC 100 & Below FC 61.8.") return "Upward Rotation";
+  if ((hC === "Above RC 14.6 & Below RC 23.6." || hC === "Above RC 23.6 & Below RC 38.2.") && lC === "Above FC 100 & Below FC 61.8.") return "Table Top";
+  if (hC === "Above RC 38.2 & Below RC 61.8." && lC === "Above FC 61.8 & Below FC 38.2.") return "Table Tennis";
+  if (hC === "Above RC 61.8 & Below RC 100." && (lC === "Above FC 23.6 & Below FC 14.6." || lC === "Above FC 38.2 & Below FC 23.6.")) return "Rising Jack";
+  if (hC === "Above RC 61.8 & Below RC 100." && lC === "Above FC 14.6 & Below RC 14.6.") return "Falling Duck";
 
   return "FALSE";
 }
@@ -249,7 +267,7 @@ export function calculateStrategyData(ohlc = {}) {
   const lowCloseCond = evaluatePriceBand(lowClose, channelContext);
 
   // Scenario determination (Matching Excel formula: if conditions are FALSE, Scenario is empty)
-  const scenarioName = determineScenario(highCond, lowCond, closeCond);
+  const scenarioName = determineScenario(h, l, channelContext, highCond, lowCond);
 
   const conditions = {
     high: highCond,
