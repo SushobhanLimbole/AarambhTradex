@@ -1,6 +1,3 @@
 niftyCsv/
-index_constituents_dump.sql
-nse_indices_historical_dump.sql
-indices_dump.sql
-missing_symbols_dump.sql
-symbols_dump.sql
+*.sql
+.DS_Store
