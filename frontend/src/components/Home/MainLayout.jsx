@@ -20,7 +20,8 @@ import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function MainLayout() {
   const { user } = useAuth();
-  const canAccessStrategy = Boolean(user?.isAdmin || user?.hasAccess);
+  const isAdmin = Boolean(user?.isAdmin);
+  const canAccessReports = Boolean(user?.isAdmin || user?.hasAccess);
 
   const [activeTab, setActiveTab] = useState("symbols");
   const [tabHistory, setTabHistory] = useState(["symbols"]);
@@ -55,29 +56,42 @@ export default function MainLayout() {
     "screener",
   ];
 
-  // Restrict Report Hub and all reports to users with strategy access
+  // Restrict Report Hub and all reports to users with strategy/report access
+  // Restrict Strategy page to admin only (redirect regular users to pointer)
   useEffect(() => {
-    if (!canAccessStrategy && REPORT_TABS.includes(activeTab)) {
+    if (!canAccessReports && REPORT_TABS.includes(activeTab)) {
       setActiveTab("symbols");
       setTabHistory(["symbols"]);
       try {
         window.history.replaceState({ tab: "symbols" }, "", "#symbols");
       } catch (_) {}
+    } else if (!isAdmin && activeTab === "strategy") {
+      setActiveTab("pointer");
+      setTabHistory((prev) => [...prev.filter((t) => t !== "strategy"), "pointer"]);
+      try {
+        window.history.replaceState({ tab: "pointer" }, "", "#pointer");
+      } catch (_) {}
     }
-  }, [canAccessStrategy, activeTab]);
+  }, [canAccessReports, isAdmin, activeTab]);
 
   const handleTabChange = (newTab) => {
-    if (!canAccessStrategy && REPORT_TABS.includes(newTab)) {
+    if (!canAccessReports && REPORT_TABS.includes(newTab)) {
       return;
     }
-    if (newTab === "pointer" || newTab === "strategy") {
+    // Only admin can switch to strategy tab; non-admins get pointer tab
+    let resolvedTab = newTab;
+    if (resolvedTab === "strategy" && !isAdmin) {
+      resolvedTab = "pointer";
+    }
+
+    if (resolvedTab === "pointer" || resolvedTab === "strategy") {
       setPointerData(null);
     }
-    if (newTab !== activeTab) {
-      setTabHistory((prev) => [...prev, newTab]);
-      setActiveTab(newTab);
+    if (resolvedTab !== activeTab) {
+      setTabHistory((prev) => [...prev, resolvedTab]);
+      setActiveTab(resolvedTab);
       try {
-        window.history.pushState({ tab: newTab }, "", `#${newTab}`);
+        window.history.pushState({ tab: resolvedTab }, "", `#${resolvedTab}`);
       } catch (_) {}
     }
   };
@@ -113,7 +127,7 @@ export default function MainLayout() {
   };
 
   const handleOpenPointerOrStrategy = (row, fromTab = activeTab) => {
-    const targetTab = canAccessStrategy ? "strategy" : "pointer";
+    const targetTab = isAdmin ? "strategy" : "pointer";
     setTabHistory((prev) => [...prev, targetTab]);
 
     if (row) {
@@ -135,7 +149,7 @@ export default function MainLayout() {
         isReadOnly: true,
         showTabSelector: false,
         fromTab,
-        title: canAccessStrategy
+        title: isAdmin
           ? `${cleanScript} - Strategy Decision Matrix`
           : `${cleanScript} - Pointer Matrix`,
       });
@@ -285,7 +299,7 @@ export default function MainLayout() {
           />
         )}
         {activeTab === "strategy" && (
-          canAccessStrategy ? (
+          isAdmin ? (
             <StrategyPage
               initialData={pointerData}
               readOnly={Boolean(pointerData?.isReadOnly)}

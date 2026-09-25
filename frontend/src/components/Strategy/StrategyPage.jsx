@@ -205,21 +205,51 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   const isCustomRange = currentData.isCustomRange;
   const isCustomAverage = currentData.isCustomAverage;
 
-  // Multi-column Paste Handler (Open, High, Low, Close, Average, Range)
-  const handlePaste = (e) => {
+  // Robust parser for numbers with Western and Indian comma separators
+  const parseNumbersFromPastedText = (text) => {
+    if (!text || typeof text !== "string") return [];
+    const clean = text.replace(/[₹$€£¥"'\(\)]/g, " ").trim();
+    const regex = /-?(?:\d{1,2}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
+    const matches = clean.match(regex);
+    if (!matches) return [];
+
+    return matches
+      .map((m) => {
+        const numStr = m.replace(/,/g, "").trim();
+        const n = parseFloat(numStr);
+        return isNaN(n) ? null : Number(n.toFixed(4));
+      })
+      .filter((n) => n !== null);
+  };
+
+  // Multi-column and Single-column Paste Handler (Open, High, Low, Close, Average, Range)
+  const handlePaste = (e, field) => {
     if (isReadOnly) return;
     const pasteText = e.clipboardData?.getData("text");
     if (!pasteText) return;
 
-    const tokens = pasteText
-      .trim()
-      .split(/[\t,\r\n\s]+/)
-      .map((t) => t.replace(/,/g, "").trim())
-      .filter((t) => t.length > 0 && !isNaN(Number(t)));
+    const numbers = parseNumbersFromPastedText(pasteText);
+    if (!numbers || numbers.length === 0) return;
 
-    if (tokens.length > 1) {
-      e.preventDefault();
-      const [pOpen, pHigh, pLow, pClose, pAvg, pRange] = tokens.map((t) => Number(Number(t).toFixed(2)));
+    e.preventDefault();
+
+    if (numbers.length === 1) {
+      // Single value pasted into a specific field
+      const val = numbers[0];
+      if (field === "open") setOpen(val);
+      else if (field === "high") setHigh(val);
+      else if (field === "low") setLow(val);
+      else if (field === "close") setClose(val);
+      else if (field === "average") {
+        setAverage(val);
+        setIsCustomAverage(true);
+      } else if (field === "range") {
+        setRange(val);
+        setIsCustomRange(true);
+      }
+    } else {
+      // Multi-column paste: [Open, High, Low, Close, Average?, Range?]
+      const [pOpen, pHigh, pLow, pClose, pAvg, pRange] = numbers;
 
       setTimeframePages((prev) => {
         const current = prev[timeframe] || {};
@@ -229,8 +259,11 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
         if (pLow !== undefined && !isNaN(pLow)) next.low = pLow;
         if (pClose !== undefined && !isNaN(pClose)) next.close = pClose;
 
-        const calcRange = (next.high !== undefined && next.low !== undefined) ? Math.max(0, next.high - next.low) : 0;
-        const calcAvg = (next.high !== undefined && next.low !== undefined && next.close !== undefined) ? (next.high + next.low + next.close) / 3 : 0;
+        const effectiveHigh = (pHigh !== undefined && !isNaN(pHigh)) ? pHigh : (parseFloat(current.high) || 0);
+        const effectiveLow = (pLow !== undefined && !isNaN(pLow)) ? pLow : (parseFloat(current.low) || 0);
+        const effectiveClose = (pClose !== undefined && !isNaN(pClose)) ? pClose : (parseFloat(current.close) || 0);
+        const calcRange = Math.max(0, effectiveHigh - effectiveLow);
+        const calcAvg = (effectiveHigh + effectiveLow + effectiveClose) / 3;
 
         if (pAvg !== undefined && !isNaN(pAvg)) {
           next.average = pAvg;
@@ -871,7 +904,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   className="apple-number-input"
                   value={format2Dec(open)}
                   onChange={(e) => setOpen(e.target.value)}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "open")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only OPEN value" : "Click to edit OPEN value (or paste OHLC range row)"}
@@ -894,7 +927,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                       setAverage((((parseFloat(val) || 0) + (parseFloat(low) || 0) + (parseFloat(close) || 0)) / 3).toFixed(2));
                     }
                   }}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "high")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only HIGH value" : "Click to edit HIGH value"}
@@ -917,7 +950,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                       setAverage((((parseFloat(high) || 0) + (parseFloat(val) || 0) + (parseFloat(close) || 0)) / 3).toFixed(2));
                     }
                   }}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "low")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only LOW value" : "Click to edit LOW value"}
@@ -937,7 +970,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                       setAverage((((parseFloat(high) || 0) + (parseFloat(low) || 0) + (parseFloat(val) || 0)) / 3).toFixed(2));
                     }
                   }}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "close")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only CLOSE value" : "Click to edit CLOSE value"}
@@ -954,7 +987,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                     setAverage(e.target.value);
                     setIsCustomAverage(true);
                   }}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "average")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only Average" : "Average (High + Low + Close) / 3 (Editable - Open not considered)"}
@@ -971,7 +1004,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                     setRange(e.target.value);
                     setIsCustomRange(true);
                   }}
-                  onPaste={handlePaste}
+                  onPaste={(e) => handlePaste(e, "range")}
                   readOnly={isReadOnly}
                   disabled={isReadOnly}
                   title={isReadOnly ? "Read-only Range" : "Fibonacci Channel Range (Editable)"}

@@ -41,7 +41,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
           </button>
         )}
 
-        {(user?.isAdmin || user?.hasAccess) ? (
+        {user?.isAdmin ? (
           <button
             className={`nav-btn ${activeTab === "strategy" ? "active" : ""}`}
             onClick={() => setActiveTab("strategy")}

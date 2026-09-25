@@ -213,21 +213,50 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
     }
   }, [initialData]);
 
-  // Multi-column Paste Handler (Open, High, Low, Close, Average, Range)
-  const handlePaste = (e) => {
+  // Robust parser for numbers with Western and Indian comma separators
+  const parseNumbersFromPastedText = (text) => {
+    if (!text || typeof text !== "string") return [];
+    const clean = text.replace(/[₹$€£¥"'\(\)]/g, " ").trim();
+    const regex = /-?(?:\d{1,2}(?:,\d{2})*,\d{3}|\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
+    const matches = clean.match(regex);
+    if (!matches) return [];
+
+    return matches
+      .map((m) => {
+        const numStr = m.replace(/,/g, "").trim();
+        const n = parseFloat(numStr);
+        return isNaN(n) ? null : Number(n.toFixed(4));
+      })
+      .filter((n) => n !== null);
+  };
+
+  // Multi-column and Single-column Paste Handler (Open, High, Low, Close)
+  const handlePaste = (e, field) => {
     if (isReadOnly) return;
     const pasteText = e.clipboardData?.getData("text");
     if (!pasteText) return;
 
-    const tokens = pasteText
-      .trim()
-      .split(/[\t,\r\n\s]+/)
-      .map((t) => t.replace(/,/g, "").trim())
-      .filter((t) => t.length > 0 && !isNaN(Number(t)));
+    const numbers = parseNumbersFromPastedText(pasteText);
+    if (!numbers || numbers.length === 0) return;
 
-    if (tokens.length > 1) {
-      e.preventDefault();
-      const [pOpen, pHigh, pLow, pClose] = tokens.map((t) => Number(Number(t).toFixed(2)));
+    e.preventDefault();
+
+    if (numbers.length === 1) {
+      // Single value pasted into a specific input
+      const val = numbers[0];
+      if (field === "open") setOpen(val);
+      else if (field === "high") setHigh(val);
+      else if (field === "low") setLow(val);
+      else if (field === "close") setClose(val);
+      else if (field) {
+        setTimeframePages((prev) => ({
+          ...prev,
+          [timeframe]: { ...prev[timeframe], [field]: val },
+        }));
+      }
+    } else {
+      // Multi-column OHLC paste (open, high, low, close)
+      const [pOpen, pHigh, pLow, pClose] = numbers;
 
       setTimeframePages((prev) => {
         const current = prev[timeframe] || {};
@@ -993,7 +1022,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               className="apple-number-input"
               value={format2Dec(open)}
               onChange={(e) => setOpen(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={(e) => handlePaste(e, "open")}
               readOnly={isReadOnly}
               disabled={isReadOnly}
               title={isReadOnly ? "Read-only OPEN value" : "Click to edit OPEN value (or paste OHLC range row)"}
@@ -1006,7 +1035,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               className="apple-number-input"
               value={format2Dec(high)}
               onChange={(e) => setHigh(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={(e) => handlePaste(e, "high")}
               readOnly={isReadOnly}
               disabled={isReadOnly}
               title={isReadOnly ? "Read-only HIGH value" : "Click to edit HIGH value"}
@@ -1019,7 +1048,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               className="apple-number-input"
               value={format2Dec(low)}
               onChange={(e) => setLow(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={(e) => handlePaste(e, "low")}
               readOnly={isReadOnly}
               disabled={isReadOnly}
               title={isReadOnly ? "Read-only LOW value" : "Click to edit LOW value"}
@@ -1032,7 +1061,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               className="apple-number-input"
               value={format2Dec(close)}
               onChange={(e) => setClose(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={(e) => handlePaste(e, "close")}
               readOnly={isReadOnly}
               disabled={isReadOnly}
               title={isReadOnly ? "Read-only CLOSE value" : "Click to edit CLOSE value"}

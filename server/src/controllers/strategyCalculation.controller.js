@@ -8,13 +8,13 @@ import pool from "../config/mysql.js";
 
 export const calculateStrategy = async (req, res, next) => {
   try {
-    // Check Authorization: User must be authenticated and have strategy access (or be admin)
+    // Check Authorization: Exclusively for Admin
     if (req.user) {
-      if (!req.user.isAdmin && !req.user.hasAccess) {
+      if (!req.user.isAdmin) {
         return res.status(403).json({
           success: false,
           hasAccess: false,
-          message: "Strategy Access Required: Your account does not have permission to view institutional strategy formulas. Please submit an access request.",
+          message: "Strategy Access Restricted: Only administrators have permission to access institutional strategy calculations.",
         });
       }
     }
