@@ -7,7 +7,7 @@
   max-width: 100%;
   margin: 0;
   padding: 18px 24px 60px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
   box-sizing: border-box;
 }
@@ -872,6 +872,14 @@
   background: #ffffff;
   border-color: #38bdf8;
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.apple-number-input:read-only,
+.apple-number-input:disabled {
+  background: #f1f5f9;
+  color: #334155;
+  cursor: default;
+  border-color: #cbd5e1;
 }
 
 .apple-number-input::-webkit-outer-spin-button,

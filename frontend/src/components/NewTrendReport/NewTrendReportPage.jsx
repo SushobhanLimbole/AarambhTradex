@@ -3,6 +3,7 @@ import "./NewTrendReportPage.css";
 import trendReportService from "../../services/trendReportService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import SearchableSelect from "../Common/SearchableSelect.jsx";
 
 const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"];
 
@@ -180,53 +181,36 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
         </div>
 
         {/* EXCHANGE */}
-        <div className="ntr-control-item">
+        <div className="ntr-control-item" style={{ minWidth: 110 }}>
           <label className="ntr-label">Exchange</label>
-          <select
-            className="ntr-select"
+          <SearchableSelect
+            options={[{ value: "ALL", label: "ALL" }, ...availableExchanges.map((ex) => ({ value: ex, label: ex }))]}
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
-          >
-            <option value="ALL">ALL</option>
-            {availableExchanges.map((ex) => (
-              <option key={ex} value={ex}>
-                {ex}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* INDEX WITH EXACT "NAME (X STOCKS)" FORMAT */}
-        <div className="ntr-control-item ntr-wide-item">
+        <div className="ntr-control-item ntr-wide-item" style={{ minWidth: 240 }}>
           <label className="ntr-label">Index</label>
-          <select
-            className="ntr-select"
+          <SearchableSelect
+            options={[{ value: "ALL", label: "ALL (All Stocks)" }, ...indexOptions]}
             value={indexVal}
             onChange={(e) => setIndexVal(e.target.value)}
-          >
-            <option value="ALL">ALL (All Stocks)</option>
-            {indexOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* TIMEFRAME */}
-        <div className="ntr-control-item">
+        <div className="ntr-control-item" style={{ minWidth: 130 }}>
           <label className="ntr-label">Timeframe</label>
-          <select
-            className="ntr-select"
+          <SearchableSelect
+            options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-          >
-            {TIMEFRAMES.map((tf) => (
-              <option key={tf} value={tf}>
-                {tf}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* ACTION DATE */}

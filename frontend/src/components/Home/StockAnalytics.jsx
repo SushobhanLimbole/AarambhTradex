@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import "./StockAnalytics.css";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import SearchableSelect from "../Common/SearchableSelect.jsx";
 
 export { stripSymbolSuffix };
 
@@ -69,16 +70,28 @@ const getTodayDateStr = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
+export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selectedStockParams, onBackToSymbols }) {
   const todayStr = useMemo(() => getTodayDateStr(), []);
 
   // Filter States
-  const [exchange, setExchange] = useState("NSE");
-  const [indexVal, setIndexVal] = useState("ALL");
-  const [ticker, setTicker] = useState("ALL");
-  const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate, setToDate] = useState(todayStr);
-  const [timeframe, setTimeframe] = useState("Daily");
+  const [exchange, setExchange] = useState(selectedStockParams?.exchange || "ALL");
+  const [indexVal, setIndexVal] = useState(selectedStockParams?.indice || "ALL");
+  const [ticker, setTicker] = useState(selectedStockParams?.symbol || "ALL");
+  const [fromDate, setFromDate] = useState(selectedStockParams?.fromDate || todayStr);
+  const [toDate, setToDate] = useState(selectedStockParams?.toDate || todayStr);
+  const [timeframe, setTimeframe] = useState(selectedStockParams?.timeframe || "Daily");
+
+  // Sync state if selectedStockParams prop changes
+  useEffect(() => {
+    if (selectedStockParams?.symbol) {
+      setTicker(selectedStockParams.symbol);
+      if (selectedStockParams.exchange) setExchange(selectedStockParams.exchange);
+      if (selectedStockParams.indice) setIndexVal(selectedStockParams.indice);
+      if (selectedStockParams.fromDate) setFromDate(selectedStockParams.fromDate);
+      if (selectedStockParams.toDate) setToDate(selectedStockParams.toDate);
+      if (selectedStockParams.timeframe) setTimeframe(selectedStockParams.timeframe);
+    }
+  }, [selectedStockParams]);
 
   // Metadata loaded from /api/symbols/meta
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
@@ -96,8 +109,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
   // Column Visibility States
   const [showColumnsMenu, setShowColumnsMenu] = useState(false);
   const [visibleCols, setVisibleCols] = useState({
-    symbol: true,
-    day: true,
+    symbol: false,
+    day: false,
     avg: true,
     range: true,
     status: true,
@@ -154,10 +167,6 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         });
         if (!isCancelled && res?.data && Array.isArray(res.data)) {
           setAvailableSymbols(res.data);
-          const exists = res.data.some((item) => item.symbol === ticker);
-          if (!exists && ticker !== "ALL") {
-            setTicker("ALL");
-          }
         }
       } catch (err) {
         console.warn("Failed to load symbols list:", err);
@@ -257,6 +266,119 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
       // Sort ASC by date (oldest to newest)
       rowsForSym.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+      // 1. Calculate HLC Higher / Lower transitions across rowsForSym (chronological ASC)
+      const statusMap = new Map(); // idx -> { status: string, statusType: string }
+      const isAbTopMap = new Map(); // idx -> boolean
+      const isAbBottomMap = new Map(); // idx -> boolean
+      const events = []; // Array of { idx, type: 'HLC HIGHER' | 'HLC LOWER' }
+      let currentMode = null; // 'HLC HIGHER' | 'HLC LOWER' | null
+
+      for (let i = 1; i < rowsForSym.length; i++) {
+        const curr = rowsForSym[i];
+        const prev = rowsForSym[i - 1];
+        const cHigh = parseNum(curr.high);
+        const cLow = parseNum(curr.low);
+        const cClose = parseNum(curr.close);
+        const pHigh = parseNum(prev.high);
+        const pLow = parseNum(prev.low);
+        const pClose = parseNum(prev.close);
+
+        // 4-point institutional criteria:
+        // HLC HIGHER: High > Prev High & Low > Prev Low & Close > Prev Close & Close > Prev High
+        const isHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+        // HLC LOWER: High < Prev High & Low < Prev Low & Close < Prev Close & Close < Prev Low
+        const isHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
+
+        if (isHlcHigher) {
+          if (currentMode !== "HLC HIGHER") {
+            currentMode = "HLC HIGHER";
+            events.push({ idx: i, type: "HLC HIGHER" });
+            statusMap.set(i, { status: "HLC HIGHER", statusType: "bullish" });
+          }
+        } else if (isHlcLower) {
+          if (currentMode !== "HLC LOWER") {
+            currentMode = "HLC LOWER";
+            events.push({ idx: i, type: "HLC LOWER" });
+            statusMap.set(i, { status: "HLC LOWER", statusType: "bearish" });
+          }
+        }
+      }
+
+      // 2. Identify AB TOP (Highest High strictly between HLC HIGHER & HLC LOWER)
+      //    and AB BOTTOM (Lowest Low strictly between HLC LOWER & HLC HIGHER)
+      for (let e = 1; e < events.length; e++) {
+        const prevEv = events[e - 1];
+        const currEv = events[e];
+
+        if (prevEv.type === "HLC HIGHER" && currEv.type === "HLC LOWER") {
+          // Find candle strictly between with maximum High
+          if (currEv.idx > prevEv.idx + 1) {
+            let bestIdx = -1;
+            let maxHigh = -Infinity;
+            for (let k = prevEv.idx + 1; k < currEv.idx; k++) {
+              const h = parseNum(rowsForSym[k].high);
+              if (h >= maxHigh) {
+                maxHigh = h;
+                bestIdx = k;
+              }
+            }
+            if (bestIdx !== -1) {
+              isAbTopMap.set(bestIdx, true);
+            }
+          }
+        } else if (prevEv.type === "HLC LOWER" && currEv.type === "HLC HIGHER") {
+          // Find candle strictly between with minimum Low
+          if (currEv.idx > prevEv.idx + 1) {
+            let bestIdx = -1;
+            let minLow = Infinity;
+            for (let k = prevEv.idx + 1; k < currEv.idx; k++) {
+              const l = parseNum(rowsForSym[k].low);
+              if (l <= minLow) {
+                minLow = l;
+                bestIdx = k;
+              }
+            }
+            if (bestIdx !== -1) {
+              isAbBottomMap.set(bestIdx, true);
+            }
+          }
+        }
+      }
+
+      // 3. For the trailing/running open cycle to the end of data:
+      if (events.length > 0) {
+        const lastEv = events[events.length - 1];
+        if (lastEv.idx + 1 < rowsForSym.length) {
+          if (lastEv.type === "HLC HIGHER") {
+            let bestIdx = -1;
+            let maxHigh = -Infinity;
+            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
+              const h = parseNum(rowsForSym[k].high);
+              if (h >= maxHigh) {
+                maxHigh = h;
+                bestIdx = k;
+              }
+            }
+            if (bestIdx !== -1) {
+              isAbTopMap.set(bestIdx, true);
+            }
+          } else if (lastEv.type === "HLC LOWER") {
+            let bestIdx = -1;
+            let minLow = Infinity;
+            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
+              const l = parseNum(rowsForSym[k].low);
+              if (l <= minLow) {
+                minLow = l;
+                bestIdx = k;
+              }
+            }
+            if (bestIdx !== -1) {
+              isAbBottomMap.set(bestIdx, true);
+            }
+          }
+        }
+      }
+
       rowsForSym.forEach((row, idx, arr) => {
         const prevRow = idx > 0 ? arr[idx - 1] : null; // Previous candle chronologically
 
@@ -269,13 +391,18 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         const avgVal = (highVal + lowVal + closeVal) / 3;
         const rangeVal = Math.max(0, highVal - lowVal);
 
-        let status = "—";
-        let statusType = "neutral";
-        let virgin = "—";
+        // Status from state machine: only HLC HIGHER / HLC LOWER (blank otherwise)
+        const stObj = statusMap.get(idx);
+        let status = stObj ? stObj.status : "";
+        let statusType = stObj ? stObj.statusType : "neutral";
+        const isAbTop = !!isAbTopMap.get(idx);
+        const isAbBottom = !!isAbBottomMap.get(idx);
+
+        let virgin = "";
         let virginType = "neutral";
-        let zone = "—";
+        let zone = "";
         let zoneType = "neutral";
-        let closure = "—";
+        let closure = "";
         let closureType = "neutral";
         let pointer = "—";
         let pointerType = "neutral";
@@ -286,28 +413,6 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           const prevClose = parseNum(prevRow.close);
           const prevAvg = (prevHigh + prevLow + prevClose) / 3;
 
-          // Status: HLC HIGHER / HLC LOWER (Exact 4-point institutional criteria)
-          if (
-            highVal > prevHigh &&
-            lowVal > prevLow &&
-            closeVal > prevClose &&
-            closeVal > prevHigh
-          ) {
-            status = "HLC HIGHER";
-            statusType = "bullish";
-          } else if (
-            highVal < prevHigh &&
-            lowVal < prevLow &&
-            closeVal < prevClose &&
-            closeVal < prevLow
-          ) {
-            status = "HLC LOWER";
-            statusType = "bearish";
-          } else {
-            status = "";
-            statusType = "neutral";
-          }
-
           // 1. VIRGIN: (HIGHER = LOW > PREV.DAY AVG) | (LOWER = HIGH < PREV.DAY AVG)
           if (lowVal > prevAvg) {
             virgin = "HIGHER";
@@ -316,11 +421,11 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             virgin = "LOWER";
             virginType = "lower";
           } else {
-            virgin = "INSIDE";
+            virgin = "";
             virginType = "neutral";
           }
 
-          // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG)
+          // 2. ZONE: (GREEN = CLOSE > PREV.DAY CLOSE & PREV.DAY AVG(BOTH)) | (RED = CLOSE < PREV.DAY CLOSE & PREV.DAY AVG(BOTH))
           if (closeVal > prevClose && closeVal > prevAvg) {
             zone = "GREEN";
             zoneType = "green";
@@ -328,7 +433,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             zone = "RED";
             zoneType = "red";
           } else {
-            zone = "NEUTRAL";
+            zone = "";
             zoneType = "neutral";
           }
 
@@ -340,62 +445,44 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
             closure = "LOW";
             closureType = "low";
           } else {
-            closure = "INSIDE";
+            closure = "";
             closureType = "neutral";
           }
-
-          // 4. INSTITUTIONAL POINTER TYPE (Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck, or FALSE)
-          const rVal = Math.max(0, highVal - lowVal);
-          const rm14 = closeVal + rVal * 0.146;
-          const rm23 = closeVal + rVal * 0.236;
-          const rm38 = closeVal + rVal * 0.382;
-          const rm61 = closeVal + rVal * 0.618;
-          const rm100 = closeVal + rVal * 1.0;
-          const fm14 = closeVal - rVal * 0.146;
-          const fm23 = closeVal - rVal * 0.236;
-          const fm38 = closeVal - rVal * 0.382;
-          const fm61 = closeVal - rVal * 0.618;
-          const fm100 = closeVal - rVal * 1.0;
-
-          let highCond = "FALSE";
-          if (highVal >= fm14 && highVal <= rm14) highCond = "Above FC 14.6 & Below RC 14.6.";
-          else if (highVal > rm14 && highVal <= rm23) highCond = "Above RC 14.6 & Below RC 23.6.";
-          else if (highVal > rm23 && highVal <= rm38) highCond = "Above RC 23.6 & Below RC 38.2.";
-          else if (highVal > rm38 && highVal <= rm61) highCond = "Above RC 38.2 & Below RC 61.8.";
-          else if (highVal > rm61 && highVal <= rm100) highCond = "Above RC 61.8 & Below RC 100.";
-
-          let lowCond = "FALSE";
-          if (lowVal >= fm14 && lowVal <= rm14) lowCond = "Above FC 14.6 & Below RC 14.6.";
-          else if (lowVal >= fm23 && lowVal < fm14) lowCond = "Above FC 23.6 & Below FC 14.6.";
-          else if (lowVal >= fm38 && lowVal < fm23) lowCond = "Above FC 38.2 & Below FC 23.6.";
-          else if (lowVal >= fm61 && lowVal < fm38) lowCond = "Above FC 61.8 & Below FC 38.2.";
-          else if (lowVal >= fm100 && lowVal < fm61) lowCond = "Above FC 100 & Below FC 61.8.";
-
-          if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
-            pointer = "Upward Rotation";
-            pointerType = "cyan";
-          } else if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
-            pointer = "Table Top";
-            pointerType = "purple";
-          } else if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
-            pointer = "Table Tennis";
-            pointerType = "blue";
-          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
-            pointer = "Rising Jack";
-            pointerType = "orange";
-          } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
-            pointer = "Falling Duck";
-            pointerType = "amber";
-          } else {
-            pointer = "FALSE";
-            pointerType = "neutral";
-          }
-        } else {
-          status = "";
-          statusType = "neutral";
-          pointer = "FALSE";
-          pointerType = "neutral";
         }
+
+        const evalPointer = (hV, lV, cV) => {
+          const rV = Math.max(0, hV - lV);
+          const rm14 = cV + rV * 0.146;
+          const rm38 = cV + rV * 0.382;
+          const rm61 = cV + rV * 0.618;
+          const rm100 = cV + rV * 1.0;
+          const fm14 = cV - rV * 0.146;
+          const fm38 = cV - rV * 0.382;
+          const fm61 = cV - rV * 0.618;
+          const fm100 = cV - rV * 1.0;
+
+          if (hV > rm61 && hV < rm100 && lV < fm14 && lV > fm38) {
+            return { pointer: "Rising Jack", pointerType: "orange" };
+          } else if (hV > rm38 && hV < rm61 && lV < fm38 && lV > fm61) {
+            return { pointer: "Table Tennis", pointerType: "blue" };
+          } else if (hV > rm14 && hV < rm38 && lV < fm61 && lV > fm100) {
+            return { pointer: "Table Top", pointerType: "purple" };
+          } else if (hV > fm14 && hV < rm14 && lV > fm100 && lV < fm61) {
+            return { pointer: "Upward Rotation", pointerType: "cyan" };
+          } else if (hV > rm61 && hV < rm100 && lV > fm14 && lV < rm14) {
+            return { pointer: "Falling Duck", pointerType: "amber" };
+          }
+          return { pointer: "FALSE", pointerType: "neutral" };
+        };
+
+        let pointerResult = evalPointer(highVal, lowVal, closeVal);
+        // If FALSE, adjust high and low by +0.05 to resolve edge boundary
+        if (pointerResult.pointer === "FALSE") {
+          pointerResult = evalPointer(highVal + 0.05, lowVal + 0.05, closeVal);
+        }
+
+        pointer = pointerResult.pointer;
+        pointerType = pointerResult.pointerType;
 
         // Floor & Ceiling Price based on timeframe
         let floorPrice = lowVal;
@@ -440,6 +527,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           rawRange: rangeVal,
           status,
           statusType,
+          isAbTop,
+          isAbBottom,
           pointer,
           pointerType,
           virgin,
@@ -495,6 +584,60 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
     }
   };
 
+  const exchangeOptions = useMemo(() => [
+    { value: "ALL", label: "ALL (All Exchanges)" },
+    ...availableExchanges.map((ex) => ({ value: ex, label: ex })),
+  ], [availableExchanges]);
+
+  const indexOptions = useMemo(() => [
+    { value: "ALL", label: "ALL" },
+    ...availableIndices.map((idx) => ({ value: idx, label: idx })),
+  ], [availableIndices]);
+
+  const tickerOptions = useMemo(() => {
+    const opts = [
+      {
+        value: "ALL",
+        label:
+          symbolsLoading
+            ? "Loading symbols..."
+            : "ALL"
+      },
+    ];
+
+    if (
+      ticker &&
+      ticker !== "ALL" &&
+      !availableSymbols.some((i) => (typeof i === "string" ? i : i.symbol) === ticker)
+    ) {
+      opts.push({
+        value: ticker,
+        label: stripSymbolSuffix(ticker),
+      });
+    }
+
+    availableSymbols.forEach((item) => {
+      const sym = typeof item === "string" ? item : item.symbol;
+      const cleanSym = stripSymbolSuffix(sym);
+      opts.push({
+        value: sym,
+        label: cleanSym,
+      });
+    });
+
+    return opts;
+  }, [availableSymbols, symbolsLoading, exchange, indexVal, ticker]);
+
+  const timeframeOptions = useMemo(() => [
+    { value: "Daily", label: "Daily" },
+    { value: "Weekly", label: "Weekly" },
+    { value: "Monthly", label: "Monthly" },
+    { value: "Quarterly", label: "Quarterly" },
+    { value: "Half-Yearly", label: "Half Yearly" },
+    { value: "Yearly", label: "Yearly" },
+    { value: "5-Yearly", label: "5 Yearly" },
+  ], []);
+
   const isAllSymbols = !ticker || ticker === "ALL" || ticker === "ALL_SYMBOLS";
 
   return (
@@ -504,35 +647,21 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         {/* EXCHANGE */}
         <div className="filter-group">
           <label className="filter-label">Exchange</label>
-          <select
-            className="apple-select"
+          <SearchableSelect
+            options={exchangeOptions}
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
-          >
-            <option value="ALL">ALL (All Exchanges)</option>
-            {availableExchanges.map((ex) => (
-              <option key={ex} value={ex}>
-                {ex}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* INDEX */}
         <div className="filter-group">
           <label className="filter-label">Index</label>
-          <select
-            className="apple-select"
+          <SearchableSelect
+            options={indexOptions}
             value={indexVal}
             onChange={(e) => setIndexVal(e.target.value)}
-          >
-            <option value="ALL">ALL (All Indices)</option>
-            {availableIndices.map((idx) => (
-              <option key={idx} value={idx}>
-                {idx}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* TICKER SYMBOL */}
@@ -540,34 +669,13 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
           <label className="filter-label">
             Ticker Symbol <span>({symbolsLoading ? "Loading..." : `${availableSymbols.length} Available`})</span>
           </label>
-          <select
-            className="apple-select"
+          <SearchableSelect
+            options={tickerOptions}
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
             disabled={symbolsLoading}
-          >
-            <option value="ALL">
-              {symbolsLoading
-                ? "Loading symbols..."
-                : exchange === "ALL" && indexVal === "ALL"
-                ? "ALL - All Symbols (Whole Database)"
-                : `ALL - All Symbols in Filter (${availableSymbols.length} available)`}
-            </option>
-            {availableSymbols.map((item) => {
-              const sym = typeof item === "string" ? item : item.symbol;
-              const cleanSym = stripSymbolSuffix(sym);
-              const metaLabel = typeof item === "object" && item.indice
-                ? `${cleanSym} — [${item.exchange}] ${item.indice}`
-                : typeof item === "object" && item.exchange
-                  ? `${cleanSym} — [${item.exchange}]`
-                  : cleanSym;
-              return (
-                <option key={sym} value={sym}>
-                  {metaLabel}
-                </option>
-              );
-            })}
-          </select>
+            searchPlaceholder="Type to search ticker symbol..."
+          />
         </div>
 
         {/* FROM DATE */}
@@ -595,19 +703,11 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
         {/* TIMEFRAME */}
         <div className="filter-group">
           <label className="filter-label">Timeframe</label>
-          <select
-            className="apple-select"
+          <SearchableSelect
+            options={timeframeOptions}
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-          >
-            <option value="Daily">Daily</option>
-            <option value="Weekly">Weekly</option>
-            <option value="Monthly">Monthly</option>
-            <option value="Quarterly">Quarterly</option>
-            <option value="Half-Yearly">Half Yearly</option>
-            <option value="Yearly">Yearly</option>
-            <option value="5-Yearly">5 Yearly</option>
-          </select>
+          />
         </div>
 
         {/* ACTIONS */}
@@ -766,49 +866,6 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
 
       {/* MATRIX TABLE CARD */}
       <div className="matrix-card">
-        {/* <div className="matrix-header-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span className="matrix-title">
-              {isAllSymbols && !fromDate && !toDate
-                ? "Today's / Latest Stock Analytics Matrix (All Symbols)"
-                : isAllSymbols
-                ? "All Symbols Stock Analytics Matrix"
-                : `${ticker} Analytics Matrix`}
-            </span>
-            <span style={{
-              background: "#e0f2fe",
-              color: "#0369a1",
-              fontSize: 12,
-              fontWeight: 700,
-              padding: "3px 10px",
-              borderRadius: 20
-            }}>
-              {loading
-                ? "Fetching records..."
-                : isAllSymbols && !fromDate && !toDate
-                ? `${processedRows.length} Symbols (Today's Latest Bar)`
-                : `${processedRows.length} Total Records (Single Page)`}
-            </span>
-          </div>
-          <div className="matrix-legend">
-            <span className="legend-item">
-              <span className="legend-pill bullish">HLC HIGHER</span> Bullish
-            </span>
-            <span className="legend-item">
-              <span className="legend-pill bearish">HLC LOWER</span> Bearish
-            </span>
-            <span className="legend-item">
-              <span className="legend-pill breakout">Y1-Y6</span> Breakout
-            </span>
-            <span className="legend-item">
-              <span className="legend-pill virgin-pill">VIRGIN HIGHER</span> Low &gt; Prev. Avg
-            </span>
-            <span className="legend-item">
-              <span className="legend-pill zone-pill">ZONE GREEN</span> Bullish Momentum
-            </span>
-          </div>
-        </div> */}
-
         <div className="table-scroll" ref={tableScrollRef}>
           <table className="apple-table">
             <thead>
@@ -848,7 +905,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
                     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 32 }}>📊</span>
                       <span style={{ fontWeight: 600, fontSize: 15, color: "#475569" }}>No stock data found for the selected criteria.</span>
-                      <span style={{ fontSize: 13 }}>Try selecting "ALL - All Symbols", picking a different timeframe, or adjusting date filters.</span>
+                      <span style={{ fontSize: 13 }}>Try selecting "ALL", picking a different timeframe, or adjusting date filters.</span>
                     </div>
                   </td>
                 </tr>
@@ -866,19 +923,30 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
                       {visibleCols.day && <td>{row.day}</td>}
                       <td>{row.date}</td>
                       <td>{row.open}</td>
-                      <td className="high-green">{row.high}</td>
+                      <td className="high-green">
+                        {row.isAbTop ? (
+                          <span className="val-box ab-top-box" title="ABS TOP: Highest High in cycle">
+                            {row.high}
+                          </span>
+                        ) : (
+                          row.high
+                        )}
+                      </td>
                       <td className={row.statusType === "bearish" ? "low-red" : ""}>
-                        {row.low}
+                        {row.isAbBottom ? (
+                          <span className="val-box ab-bottom-box" title="ABS BOTTOM: Lowest Low in cycle">
+                            {row.low}
+                          </span>
+                        ) : (
+                          row.low
+                        )}
                       </td>
                       <td>{row.close}</td>
                       {visibleCols.avg && <td>{row.avg}</td>}
                       {visibleCols.range && <td>{row.range}</td>}
                       {visibleCols.status && (
                         <td>
-                          {row.status &&
-                          row.status !== "BASELINE" &&
-                          row.status !== "—" &&
-                          row.status !== "-" ? (
+                          {row.status === "HLC HIGHER" || row.status === "HLC LOWER" ? (
                             <span className={`hlc-badge ${row.statusType}`}>
                               {row.status}
                             </span>
@@ -901,23 +969,29 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy }) {
                       )}
                       {visibleCols.virgin && (
                         <td>
-                          <span className={`analytics-pill virgin-${row.virginType}`}>
-                            {row.virgin}
-                          </span>
+                          {row.virgin ? (
+                            <span className={`analytics-pill virgin-${row.virginType}`}>
+                              {row.virgin}
+                            </span>
+                          ) : null}
                         </td>
                       )}
                       {visibleCols.zone && (
                         <td>
-                          <span className={`analytics-pill zone-${row.zoneType}`}>
-                            {row.zone}
-                          </span>
+                          {row.zone ? (
+                            <span className={`analytics-pill zone-${row.zoneType}`}>
+                              {row.zone}
+                            </span>
+                          ) : null}
                         </td>
                       )}
                       {visibleCols.closure && (
                         <td>
-                          <span className={`analytics-pill closure-${row.closureType}`}>
-                            {row.closure}
-                          </span>
+                          {row.closure ? (
+                            <span className={`analytics-pill closure-${row.closureType}`}>
+                              {row.closure}
+                            </span>
+                          ) : null}
                         </td>
                       )}
                       {visibleCols.floor && (

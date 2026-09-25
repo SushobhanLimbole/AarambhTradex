@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../Navbar/Navbar";
+import SymbolsPage from "../Symbols/SymbolsPage";
 import StockAnalytics from "./StockAnalytics";
 import ReportHubPage from "../Reports/ReportHubPage";
 import NewTrendReportPage from "../NewTrendReport";
@@ -21,9 +22,10 @@ export default function MainLayout() {
   const { user } = useAuth();
   const canAccessStrategy = Boolean(user?.isAdmin || user?.hasAccess);
 
-  const [activeTab, setActiveTab] = useState("reports");
-  const [tabHistory, setTabHistory] = useState(["reports"]);
+  const [activeTab, setActiveTab] = useState("symbols");
+  const [tabHistory, setTabHistory] = useState(["symbols"]);
   const [pointerData, setPointerData] = useState(null);
+  const [selectedStockParams, setSelectedStockParams] = useState(null);
 
   // Browser back/forward button synchronization
   useEffect(() => {
@@ -56,10 +58,10 @@ export default function MainLayout() {
   // Restrict Report Hub and all reports to users with strategy access
   useEffect(() => {
     if (!canAccessStrategy && REPORT_TABS.includes(activeTab)) {
-      setActiveTab("reports");
-      setTabHistory(["reports"]);
+      setActiveTab("symbols");
+      setTabHistory(["symbols"]);
       try {
-        window.history.replaceState({ tab: "reports" }, "", "#reports");
+        window.history.replaceState({ tab: "symbols" }, "", "#symbols");
       } catch (_) {}
     }
   }, [canAccessStrategy, activeTab]);
@@ -68,6 +70,9 @@ export default function MainLayout() {
     if (!canAccessStrategy && REPORT_TABS.includes(newTab)) {
       return;
     }
+    if (newTab === "pointer" || newTab === "strategy") {
+      setPointerData(null);
+    }
     if (newTab !== activeTab) {
       setTabHistory((prev) => [...prev, newTab]);
       setActiveTab(newTab);
@@ -75,6 +80,36 @@ export default function MainLayout() {
         window.history.pushState({ tab: newTab }, "", `#${newTab}`);
       } catch (_) {}
     }
+  };
+
+  const handleSelectSymbolFromDirectory = (symbolItem) => {
+    if (!symbolItem?.symbol) return;
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const formatDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const params = {
+      symbol: symbolItem.symbol,
+      exchange: symbolItem.exchange || "ALL",
+      indice: symbolItem.indice || "ALL",
+      fromDate: formatDate(sixMonthsAgo),
+      toDate: formatDate(now),
+      timeframe: "Daily",
+    };
+
+    setSelectedStockParams(params);
+    setTabHistory((prev) => [...prev, "reports"]);
+    setActiveTab("reports");
+    try {
+      window.history.pushState({ tab: "reports" }, "", "#reports");
+    } catch (_) {}
   };
 
   const handleOpenPointerOrStrategy = (row, fromTab = activeTab) => {
@@ -97,10 +132,15 @@ export default function MainLayout() {
         timeframe: row.timeframe || "Daily",
         symbol: row.symbol,
         script: cleanScript,
+        isReadOnly: true,
+        showTabSelector: false,
+        fromTab,
         title: canAccessStrategy
           ? `${cleanScript} - Strategy Decision Matrix`
           : `${cleanScript} - Pointer Matrix`,
       });
+    } else {
+      setPointerData(null);
     }
 
     setActiveTab(targetTab);
@@ -113,14 +153,14 @@ export default function MainLayout() {
     if (tabHistory.length > 1) {
       const nextHistory = [...tabHistory];
       nextHistory.pop(); // Remove current tab
-      const previous = nextHistory[nextHistory.length - 1] || "reports";
+      const previous = nextHistory[nextHistory.length - 1] || "symbols";
       setTabHistory(nextHistory);
       setActiveTab(previous);
       try {
         window.history.pushState({ tab: previous }, "", `#${previous}`);
       } catch (_) {}
     } else {
-      setActiveTab("reports");
+      setActiveTab("symbols");
     }
   };
 
@@ -149,8 +189,13 @@ export default function MainLayout() {
           overflow: isReportsTab ? "hidden" : "visible",
         }}
       >
+        {activeTab === "symbols" && (
+          <SymbolsPage onSelectSymbol={handleSelectSymbolFromDirectory} />
+        )}
         {activeTab === "reports" && (
           <StockAnalytics
+            selectedStockParams={selectedStockParams}
+            onBackToSymbols={() => handleTabChange("symbols")}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "reports")}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "reports")}
           />
@@ -233,6 +278,9 @@ export default function MainLayout() {
         {activeTab === "pointer" && (
           <PointerPage
             initialData={pointerData}
+            readOnly={Boolean(pointerData?.isReadOnly)}
+            showTabSelector={!pointerData?.isReadOnly}
+            previousTab={pointerData?.fromTab || "reports"}
             onBack={handleBack}
           />
         )}
@@ -240,11 +288,17 @@ export default function MainLayout() {
           canAccessStrategy ? (
             <StrategyPage
               initialData={pointerData}
+              readOnly={Boolean(pointerData?.isReadOnly)}
+              showTabSelector={!pointerData?.isReadOnly}
+              previousTab={pointerData?.fromTab || "reports"}
               onBack={handleBack}
             />
           ) : (
             <PointerPage
               initialData={pointerData}
+              readOnly={Boolean(pointerData?.isReadOnly)}
+              showTabSelector={!pointerData?.isReadOnly}
+              previousTab={pointerData?.fromTab || "reports"}
               onBack={handleBack}
             />
           )

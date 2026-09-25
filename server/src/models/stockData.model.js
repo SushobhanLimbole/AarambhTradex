@@ -82,8 +82,8 @@ export class StockDataModel {
         \`close\` DECIMAL(15,4) DEFAULT NULL,
         \`volume\` BIGINT DEFAULT NULL,
         PRIMARY KEY (\`id\`),
-        UNIQUE KEY \`uniq_symbol_date\` (\`symbol\`, \`date\`),
-        KEY \`idx_symbol_date\` (\`symbol\`, \`date\` DESC)
+        UNIQUE KEY \`unique_symbol_date\` (\`symbol\`, \`date\`),
+        KEY \`idx_candle_sym_date\` (\`symbol\`, \`date\` DESC)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
     const [result] = await pool.query(query);
@@ -191,7 +191,7 @@ export class StockDataModel {
    * Find raw daily records by symbol with optional filters and pagination
    * Supports limit = 'all' for fetching all records.
    * @param {string} symbol
-   * @param {Object} options - { startDate, endDate, limit, offset, order }
+   * @param {Object} options - { startDate, endDate, limit, offset, order, exchange }
    */
   static async findBySymbol(symbol, options = {}, tableName = this.tableName) {
     const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, symbol, tableName) : tableName;
@@ -236,7 +236,8 @@ export class StockDataModel {
   /**
    * Find raw daily records across ALL stock symbols (Non-symbol specific)
    * Supports limit = 'all' for unlimited row retrieval.
-   * @param {Object} options - { symbols, startDate, endDate, limit, offset, order }
+   * Joins with symbols, indices, and index_constituents when filtering by exchange or indice.
+   * @param {Object} options - { symbols, exchange, indice, startDate, endDate, limit, offset, order }
    */
   static async findAll(options = {}, tableName = this.tableName) {
     const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, null, tableName) : tableName;
@@ -253,14 +254,27 @@ export class StockDataModel {
 
     const conditions = [];
     const params = [];
+    let joins = "";
 
-    if (exchange && String(exchange).toUpperCase() !== "ALL") {
-      conditions.push("`exchange` = ?");
+    const hasExchangeFilter = exchange && String(exchange).toUpperCase() !== "ALL";
+    const hasIndiceFilter = indice && String(indice).toUpperCase() !== "ALL";
+
+    if (hasExchangeFilter || hasIndiceFilter) {
+      joins += " JOIN `symbols` s ON t.`symbol` = s.`symbol`";
+    }
+
+    if (hasExchangeFilter) {
+      conditions.push("s.`exchange` = ?");
       params.push(exchange);
     }
 
-    if (indice && String(indice).toUpperCase() !== "ALL") {
-      conditions.push("`indice` = ?");
+    if (hasIndiceFilter) {
+      conditions.push(`t.\`symbol\` IN (
+        SELECT ic.symbol 
+        FROM index_constituents ic 
+        JOIN indices i ON ic.index_id = i.index_id 
+        WHERE LOWER(i.index_name) = LOWER(?)
+      )`);
       params.push(indice);
     }
 
@@ -269,17 +283,17 @@ export class StockDataModel {
         ? symbols
         : String(symbols).split(",").map((s) => s.trim()).filter(Boolean);
       if (symList.length > 0) {
-        conditions.push(`\`symbol\` IN (${symList.map(() => "?").join(", ")})`);
+        conditions.push(`t.\`symbol\` IN (${symList.map(() => "?").join(", ")})`);
         params.push(...symList);
       }
     }
 
     if (startDate) {
-      conditions.push("`date` >= ?");
+      conditions.push("t.`date` >= ?");
       params.push(startDate);
     }
     if (endDate) {
-      conditions.push("`date` <= ?");
+      conditions.push("t.`date` <= ?");
       params.push(endDate);
     }
 
@@ -288,9 +302,11 @@ export class StockDataModel {
     const isAll = this.isLimitAll(limit);
 
     let query = `
-      SELECT * FROM \`${effectiveTable}\`
+      SELECT t.\`id\`, t.\`symbol\`, t.\`date\`, t.\`open\`, t.\`high\`, t.\`low\`, t.\`close\`, t.\`volume\`
+      FROM \`${effectiveTable}\` t
+      ${joins}
       ${whereClause}
-      ORDER BY \`date\` ${sortOrder}, \`symbol\` ASC
+      ORDER BY t.\`date\` ${sortOrder}, t.\`symbol\` ASC
     `;
 
     if (!isAll) {
@@ -334,9 +350,9 @@ export class StockDataModel {
    * Retrieve OHLCV data for a SPECIFIC symbol aggregated by timeframe
    * Supports limit = 'all' for unlimited row retrieval.
    *
-   * @param {string} symbol - Stock symbol (e.g., 'NIFTY', 'RELIANCE')
+   * @param {string} symbol - Stock symbol (e.g., 'NIFTY', 'RELIANCE.NS')
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
-   * @param {Object} options - { startDate, endDate, limit, order = 'DESC' }
+   * @param {Object} options - { startDate, endDate, limit, order = 'DESC', exchange }
    * @returns {Promise<Array<Object>>} Aggregated OHLCV candle records
    */
   static async findByTimeframe(symbol, timeframe = "Daily", options = {}, tableName = this.tableName) {
@@ -395,7 +411,7 @@ export class StockDataModel {
    * Supports limit = 'all' for unlimited row retrieval.
    *
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
-   * @param {Object} options - { symbols, startDate, endDate, limit, order = 'DESC' }
+   * @param {Object} options - { symbols, exchange, indice, startDate, endDate, limit = 1000, order = 'DESC' }
    * @returns {Promise<Array<Object>>} Aggregated OHLCV candle records across stocks
    */
   static async findAllByTimeframe(timeframe = "Daily", options = {}, tableName = this.tableName) {
@@ -415,14 +431,27 @@ export class StockDataModel {
     // For higher timeframes, fetch all underlying daily records in ASC order
     const conditions = [];
     const params = [];
+    let joins = "";
 
-    if (exchange && String(exchange).toUpperCase() !== "ALL") {
-      conditions.push("`exchange` = ?");
+    const hasExchangeFilter = exchange && String(exchange).toUpperCase() !== "ALL";
+    const hasIndiceFilter = indice && String(indice).toUpperCase() !== "ALL";
+
+    if (hasExchangeFilter || hasIndiceFilter) {
+      joins += " JOIN `symbols` s ON t.`symbol` = s.`symbol`";
+    }
+
+    if (hasExchangeFilter) {
+      conditions.push("s.`exchange` = ?");
       params.push(exchange);
     }
 
-    if (indice && String(indice).toUpperCase() !== "ALL") {
-      conditions.push("`indice` = ?");
+    if (hasIndiceFilter) {
+      conditions.push(`t.\`symbol\` IN (
+        SELECT ic.symbol 
+        FROM index_constituents ic 
+        JOIN indices i ON ic.index_id = i.index_id 
+        WHERE LOWER(i.index_name) = LOWER(?)
+      )`);
       params.push(indice);
     }
 
@@ -431,26 +460,27 @@ export class StockDataModel {
         ? symbols
         : String(symbols).split(",").map((s) => s.trim()).filter(Boolean);
       if (symList.length > 0) {
-        conditions.push(`\`symbol\` IN (${symList.map(() => "?").join(", ")})`);
+        conditions.push(`t.\`symbol\` IN (${symList.map(() => "?").join(", ")})`);
         params.push(...symList);
       }
     }
 
     if (startDate) {
-      conditions.push("`date` >= ?");
+      conditions.push("t.`date` >= ?");
       params.push(startDate);
     }
     if (endDate) {
-      conditions.push("`date` <= ?");
+      conditions.push("t.`date` <= ?");
       params.push(endDate);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const query = `
-      SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\`
-      FROM \`${effectiveTable}\`
+      SELECT t.\`id\`, t.\`symbol\`, t.\`date\`, t.\`open\`, t.\`high\`, t.\`low\`, t.\`close\`, t.\`volume\`
+      FROM \`${effectiveTable}\` t
+      ${joins}
       ${whereClause}
-      ORDER BY \`symbol\` ASC, \`date\` ASC
+      ORDER BY t.\`symbol\` ASC, t.\`date\` ASC
     `;
 
     const [dailyRows] = await pool.query(query, params);
@@ -490,7 +520,7 @@ export class StockDataModel {
   /**
    * Get today's / latest trading session candles for all symbols (matching the latest date only)
    * @param {string} timeframe - 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly' | '5-Yearly'
-   * @param {Object} options - { date }
+   * @param {Object} options - { date, exchange, indice }
    */
   static async getLatestAllSymbols(timeframe = "Daily", options = {}, tableName = this.tableName) {
     const effectiveTable = tableName === this.tableName ? resolveTableName(options.exchange, null, tableName) : tableName;
@@ -511,17 +541,44 @@ export class StockDataModel {
         ? targetDate.slice(0, 10)
         : new Date(targetDate).toISOString().slice(0, 10);
 
+      const conditions = ["t.`date` = ?"];
+      const params = [dateStr];
+      let joins = "";
+
+      const hasExchangeFilter = options.exchange && String(options.exchange).toUpperCase() !== "ALL";
+      const hasIndiceFilter = options.indice && String(options.indice).toUpperCase() !== "ALL";
+
+      if (hasExchangeFilter || hasIndiceFilter) {
+        joins += " JOIN `symbols` s ON t.`symbol` = s.`symbol`";
+      }
+
+      if (hasExchangeFilter) {
+        conditions.push("s.`exchange` = ?");
+        params.push(options.exchange);
+      }
+
+      if (hasIndiceFilter) {
+        conditions.push(`t.\`symbol\` IN (
+          SELECT ic.symbol 
+          FROM index_constituents ic 
+          JOIN indices i ON ic.index_id = i.index_id 
+          WHERE LOWER(i.index_name) = LOWER(?)
+        )`);
+        params.push(options.indice);
+      }
+
       const query = `
-        SELECT * FROM \`${effectiveTable}\`
-        WHERE \`date\` = ?
-        ORDER BY \`symbol\` ASC
+        SELECT t.* FROM \`${effectiveTable}\` t
+        ${joins}
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY t.\`symbol\` ASC
       `;
-      const [rows] = await pool.query(query, [dateStr]);
+      const [rows] = await pool.query(query, params);
       return rows.map((r) => this._formatRow(r));
     }
 
     // For higher timeframes, get candles for the latest time bucket only
-    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC", exchange: options.exchange }, effectiveTable);
+    const allCandles = await this.findAllByTimeframe(timeframe, { limit: "all", order: "DESC", exchange: options.exchange, indice: options.indice }, effectiveTable);
     if (!allCandles || allCandles.length === 0) return [];
 
     const latestBucket = allCandles[0]?.bucket || allCandles[0]?.date;

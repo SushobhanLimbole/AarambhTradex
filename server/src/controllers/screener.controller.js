@@ -58,50 +58,58 @@ function buildScreenerQuery(startDate, endDate, exchange, indice) {
   const normExch = exchange ? String(exchange).trim().toUpperCase() : "ALL";
   const normInd = indice ? String(indice).trim() : "ALL";
 
-  if (normExch === "CRYPTO" || normExch === "METALS") {
-    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `global_assets` WHERE `date` >= ? AND `date` <= ?";
+  const hasExchangeFilter = normExch !== "ALL" && normExch !== "ALL EXCHANGES" && normExch !== "";
+  const hasIndiceFilter = normInd !== "ALL" && normInd !== "ALL INDICES" && normInd !== "" && normInd.toUpperCase() !== "TOP 500";
+
+  if (normExch === "CRYPTO" || normExch === "METALS" || normInd.toLowerCase() === "crypto" || normInd.toLowerCase() === "metals") {
+    let q = "SELECT t.`symbol`, t.`date`, t.`open`, t.`high`, t.`low`, t.`close`, t.`volume`, s.`exchange` FROM `global_assets` t JOIN `symbols` s ON t.`symbol` = s.`symbol`";
     const p = [startDate, endDate];
-    if (normExch !== "ALL") {
-      q += " AND `exchange` = ?";
+    let where = "WHERE t.`date` >= ? AND t.`date` <= ?";
+    if (hasExchangeFilter) {
+      where += " AND s.`exchange` = ?";
       p.push(normExch);
     }
-    if (normInd !== "ALL" && normInd !== "") {
-      q += " AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?))";
+    if (hasIndiceFilter && normInd.toLowerCase() !== "crypto" && normInd.toLowerCase() !== "metals") {
+      q += " JOIN `index_constituents` ic ON s.`symbol` = ic.`symbol` JOIN `indices` i ON ic.`index_id` = i.`index_id`";
+      where += " AND (LOWER(i.`index_name`) = LOWER(?) OR LOWER(i.`index_name`) LIKE LOWER(?))";
       p.push(normInd, `%${normInd}%`);
     }
-    q += " ORDER BY `symbol` ASC, `date` ASC";
+    q += ` ${where} ORDER BY t.\`symbol\` ASC, t.\`date\` ASC`;
     return { query: q, params: p };
   }
 
   if (normExch === "NSE" || normExch === "BSE") {
-    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `historical_candles` WHERE `date` >= ? AND `date` <= ?";
+    let q = "SELECT t.`symbol`, t.`date`, t.`open`, t.`high`, t.`low`, t.`close`, t.`volume`, s.`exchange` FROM `historical_candles` t JOIN `symbols` s ON t.`symbol` = s.`symbol`";
     const p = [startDate, endDate];
-    q += " AND `exchange` = ?";
+    let where = "WHERE t.`date` >= ? AND t.`date` <= ?";
+    where += " AND s.`exchange` = ?";
     p.push(normExch);
-    if (normInd !== "ALL" && normInd !== "") {
-      q += " AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?))";
+    if (hasIndiceFilter) {
+      q += " JOIN `index_constituents` ic ON s.`symbol` = ic.`symbol` JOIN `indices` i ON ic.`index_id` = i.`index_id`";
+      where += " AND (LOWER(i.`index_name`) = LOWER(?) OR LOWER(i.`index_name`) LIKE LOWER(?))";
       p.push(normInd, `%${normInd}%`);
     }
-    q += " ORDER BY `symbol` ASC, `date` ASC";
+    q += ` ${where} ORDER BY t.\`symbol\` ASC, t.\`date\` ASC`;
     return { query: q, params: p };
   }
 
   // If ALL exchanges, but specific indice
-  if (normInd.toLowerCase() === "crypto" || normInd.toLowerCase() === "metals") {
-    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `global_assets` WHERE `date` >= ? AND `date` <= ? AND LOWER(`indice`) = LOWER(?) ORDER BY `symbol` ASC, `date` ASC";
-    return { query: q, params: [startDate, endDate, normInd] };
-  }
-
-  if (normInd !== "ALL" && normInd !== "") {
-    let q = "SELECT `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `exchange`, `indice` FROM `historical_candles` WHERE `date` >= ? AND `date` <= ? AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?)) ORDER BY `symbol` ASC, `date` ASC";
+  if (hasIndiceFilter) {
+    let q = "SELECT t.`symbol`, t.`date`, t.`open`, t.`high`, t.`low`, t.`close`, t.`volume`, s.`exchange` FROM `historical_candles` t JOIN `symbols` s ON t.`symbol` = s.`symbol` JOIN `index_constituents` ic ON s.`symbol` = ic.`symbol` JOIN `indices` i ON ic.`index_id` = i.`index_id` WHERE t.`date` >= ? AND t.`date` <= ? AND (LOWER(i.`index_name`) = LOWER(?) OR LOWER(i.`index_name`) LIKE LOWER(?)) ORDER BY t.`symbol` ASC, t.`date` ASC";
     return { query: q, params: [startDate, endDate, normInd, `%${normInd}%`] };
   }
 
   // ALL exchanges & ALL indices: Union historical_candles and global_assets
   let q = `
-    SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\` FROM \`historical_candles\` WHERE \`date\` >= ? AND \`date\` <= ?
+    SELECT t.\`symbol\`, t.\`date\`, t.\`open\`, t.\`high\`, t.\`low\`, t.\`close\`, t.\`volume\`, s.\`exchange\` 
+    FROM \`historical_candles\` t 
+    JOIN \`symbols\` s ON t.\`symbol\` = s.\`symbol\` 
+    WHERE t.\`date\` >= ? AND t.\`date\` <= ?
     UNION ALL
-    SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`, \`exchange\`, \`indice\` FROM \`global_assets\` WHERE \`date\` >= ? AND \`date\` <= ?
+    SELECT g.\`symbol\`, g.\`date\`, g.\`open\`, g.\`high\`, g.\`low\`, g.\`close\`, g.\`volume\`, s.\`exchange\` 
+    FROM \`global_assets\` g 
+    JOIN \`symbols\` s ON g.\`symbol\` = s.\`symbol\` 
+    WHERE g.\`date\` >= ? AND g.\`date\` <= ?
     ORDER BY \`symbol\` ASC, \`date\` ASC
   `;
   const p = [startDate, endDate, startDate, endDate];

@@ -103,17 +103,28 @@ export const strategyCalculationService = {
 
       const highCond = evalBand(h);
       const lowCond = evalBand(l);
-      let detectedScenario = "FALSE";
-      if (highCond === "Above FC 14.6 & Below RC 14.6." && lowCond === "Above FC 100 & Below FC 61.8.") {
-        detectedScenario = "Upward Rotation";
-      } else if (highCond === "Above RC 23.6 & Below RC 38.2." && lowCond === "Above FC 100 & Below FC 61.8.") {
-        detectedScenario = "Table Top";
-      } else if (highCond === "Above RC 38.2 & Below RC 61.8." && lowCond === "Above FC 61.8 & Below FC 38.2.") {
-        detectedScenario = "Table Tennis";
-      } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 23.6 & Below FC 14.6.") {
-        detectedScenario = "Rising Jack";
-      } else if (highCond === "Above RC 61.8 & Below RC 100." && lowCond === "Above FC 14.6 & Below RC 14.6.") {
-        detectedScenario = "Falling Duck";
+      const evalScenario = (hVal, lVal, cVal) => {
+        const rVal = Math.max(0, hVal - lVal);
+        const rm14 = cVal + rVal * 0.146;
+        const rm38 = cVal + rVal * 0.382;
+        const rm61 = cVal + rVal * 0.618;
+        const rm100 = cVal + rVal * 1.0;
+        const fm14 = cVal - rVal * 0.146;
+        const fm38 = cVal - rVal * 0.382;
+        const fm61 = cVal - rVal * 0.618;
+        const fm100 = cVal - rVal * 1.0;
+
+        if (hVal > rm61 && hVal < rm100 && lVal < fm14 && lVal > fm38) return "Rising Jack";
+        if (hVal > rm38 && hVal < rm61 && lVal < fm38 && lVal > fm61) return "Table Tennis";
+        if (hVal > rm14 && hVal < rm38 && lVal < fm61 && lVal > fm100) return "Table Top";
+        if (hVal > fm14 && hVal < rm14 && lVal > fm100 && lVal < fm61) return "Upward Rotation";
+        if (hVal > rm61 && hVal < rm100 && lVal > fm14 && lVal < rm14) return "Falling Duck";
+        return "FALSE";
+      };
+
+      let detectedScenario = evalScenario(h, l, c);
+      if (detectedScenario === "FALSE") {
+        detectedScenario = evalScenario(h + 0.05, l + 0.05, c);
       }
 
       return {

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import "./PointerPage.css";
+import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 
 // 9 Fibonacci Ratio Columns matching the institutional specification
 const FIB_COLUMNS = [14.6, 23.6, 38.2, 61.8, 100, 127.2, 161.8, 261.8, 423.6];
@@ -130,7 +131,11 @@ const createDefaultPointerPages = (
   return pages;
 };
 
-export default function PointerPage({ initialData, onBack, previousTab = "reports" }) {
+export default function PointerPage({ initialData, onBack, previousTab = "reports", readOnly = false, showTabSelector = true }) {
+  const isReadOnly = Boolean(readOnly || initialData?.isReadOnly);
+  const shouldShowTabSelector = showTabSelector !== false && !initialData?.isReadOnly;
+
+  const [scriptName, setScriptName] = useState(initialData?.script ?? "Selected Stock");
   const [timeframe, setTimeframe] = useState(normalizeTimeframe(initialData?.timeframe ?? "Daily"));
   const [copiedText, setCopiedText] = useState(null);
   const [selectedPresetName, setSelectedPresetName] = useState(
@@ -157,6 +162,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
   const close = currentData.close;
 
   const setOpen = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], open: val },
@@ -164,6 +170,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
   };
 
   const setHigh = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], high: val },
@@ -171,6 +178,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
   };
 
   const setLow = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], low: val },
@@ -178,6 +186,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
   };
 
   const setClose = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], close: val },
@@ -199,9 +208,80 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
           )
         );
       }
+      if (initialData.script) setScriptName(initialData.script);
       if (initialData.title) setSelectedPresetName(initialData.title);
     }
   }, [initialData]);
+
+  // Multi-column Paste Handler (Open, High, Low, Close, Average, Range)
+  const handlePaste = (e) => {
+    if (isReadOnly) return;
+    const pasteText = e.clipboardData?.getData("text");
+    if (!pasteText) return;
+
+    const tokens = pasteText
+      .trim()
+      .split(/[\t,\r\n\s]+/)
+      .map((t) => t.replace(/,/g, "").trim())
+      .filter((t) => t.length > 0 && !isNaN(Number(t)));
+
+    if (tokens.length > 1) {
+      e.preventDefault();
+      const [pOpen, pHigh, pLow, pClose] = tokens.map((t) => Number(Number(t).toFixed(2)));
+
+      setTimeframePages((prev) => {
+        const current = prev[timeframe] || {};
+        const next = { ...current };
+        if (pOpen !== undefined && !isNaN(pOpen)) next.open = pOpen;
+        if (pHigh !== undefined && !isNaN(pHigh)) next.high = pHigh;
+        if (pLow !== undefined && !isNaN(pLow)) next.low = pLow;
+        if (pClose !== undefined && !isNaN(pClose)) next.close = pClose;
+        return { ...prev, [timeframe]: next };
+      });
+      setCopiedText("Pasted OHLC data into fields!");
+      setTimeout(() => setCopiedText(null), 2500);
+    }
+  };
+
+  const format2Dec = (val) => {
+    if (val === null || val === undefined || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num)) return val;
+    return Number(num.toFixed(2));
+  };
+
+  // Pointer Type Calculation using Exact Excel Formula (with +0.05 fallback if FALSE)
+  const pointerType = useMemo(() => {
+    const o = parseFloat(open) || 0;
+    const h = parseFloat(high) || 0;
+    const l = parseFloat(low) || 0;
+    const c = parseFloat(close) || 0;
+
+    const evalP = (hV, lV, cV) => {
+      const r = Math.max(0, hV - lV);
+      const rm14 = cV + r * 0.146;
+      const rm38 = cV + r * 0.382;
+      const rm61 = cV + r * 0.618;
+      const rm100 = cV + r * 1.0;
+      const fm14 = cV - r * 0.146;
+      const fm38 = cV - r * 0.382;
+      const fm61 = cV - r * 0.618;
+      const fm100 = cV - r * 1.0;
+
+      if (hV > rm61 && hV < rm100 && lV < fm14 && lV > fm38) return "Rising Jack";
+      if (hV > rm38 && hV < rm61 && lV < fm38 && lV > fm61) return "Table Tennis";
+      if (hV > rm14 && hV < rm38 && lV < fm61 && lV > fm100) return "Table Top";
+      if (hV > fm14 && hV < rm14 && lV > fm100 && lV < fm61) return "Upward Rotation";
+      if (hV > rm61 && hV < rm100 && lV > fm14 && lV < rm14) return "Falling Duck";
+      return "FALSE";
+    };
+
+    let res = evalP(h, l, c);
+    if (res === "FALSE") {
+      res = evalP(h + 0.05, l + 0.05, c);
+    }
+    return res;
+  }, [open, high, low, close]);
 
   // Formatting helper
   const fmt = (num, decimals = 2) => {
@@ -338,53 +418,35 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
     <div className="pointer-page-wrapper">
       {/* HEADER HERO BAR */}
       <div className="pointer-header-container">
-        {onBack && (
-          <div style={{ marginBottom: 14 }}>
-            <button
-              onClick={onBack}
-              type="button"
-              className="pointer-back-btn"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                background: "#ffffff",
-                border: "1px solid #cbd5e1",
-                borderRadius: "10px",
-                padding: "8px 16px",
-                fontSize: "13.5px",
-                fontWeight: "600",
-                color: "#1e293b",
-                cursor: "pointer",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#f1f5f9";
-                e.currentTarget.style.borderColor = "#94a3b8";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#ffffff";
-                e.currentTarget.style.borderColor = "#cbd5e1";
-              }}
-            >
-              <span style={{ fontSize: 16 }}>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
-            </button>
+        {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
+        {shouldShowTabSelector && (
+          <div className="pointer-timeframe-tab-bar">
+            {["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"].map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
+                onClick={() => setTimeframe(tf)}
+              >
+                {tf}
+              </button>
+            ))}
           </div>
         )}
+      </div>
 
-        {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
-        <div className="pointer-timeframe-tab-bar">
-          {["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly", "5-Yearly"].map((tf) => (
-            <button
-              key={tf}
-              type="button"
-              className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
-              onClick={() => setTimeframe(tf)}
-            >
-              {tf}
-            </button>
-          ))}
+      {/* IDENTIFIED POINTER TYPE BANNER ABOVE MATRIX CARD */}
+      <div className="strategy-pointer-type-banner">
+        <div className="pointer-type-title-group">
+          <span className="pointer-type-dot"></span>
+          <span className="pointer-type-label">Identified Pointer Type:</span>
+          <span className={`pointer-type-badge ${pointerType === "FALSE" ? "false-badge" : ""}`}>
+            {pointerType}
+          </span>
+        </div>
+        <div className="pointer-type-meta">
+          <span className="meta-item">Symbol: <strong className="highlight-val">{stripSymbolSuffix(scriptName)}</strong></span>
+          <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
         </div>
       </div>
 
@@ -398,12 +460,19 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
 
       {/* MAIN CARD CONTAINER */}
       <div className="pointer-matrix-card">
-        <div className="pointer-compact-layout">
-          
-          {/* ========================================================= */}
-          {/* RIGHT MATRIX: CONTINUOUS STAIRCASE (EXACT MATCHING ROWS)  */}
-          {/* ========================================================= */}
-          <div className="pointer-compact-matrix">
+        {/* HORIZONTAL CHANNEL BADGES BAR */}
+        <div className="pointer-horizontal-channel-bar">
+          <div className="channel-badge-group">
+            <span className="sidebar-rising-badge">RISING CHANNEL</span>
+            <span className="sidebar-timeframe-badge">{timeframe}</span>
+          </div>
+          <div className="channel-badge-group">
+            <span className="sidebar-falling-badge red">FALLING CHANNEL</span>
+          </div>
+        </div>
+
+        {/* FULL MATRIX */}
+        <div className="pointer-compact-matrix full-width">
             
             {/* TOP FIBONACCI RATIO HEADER */}
             <div className="fib-header-row top-header">
@@ -901,8 +970,6 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
             </div>
 
           </div>
-
-        </div>
       </div>
 
       {/* ========================================================= */}
@@ -924,9 +991,12 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               type="number"
               step="any"
               className="apple-number-input"
-              value={open}
+              value={format2Dec(open)}
               onChange={(e) => setOpen(e.target.value)}
-              title="Click to edit OPEN value"
+              onPaste={handlePaste}
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
+              title={isReadOnly ? "Read-only OPEN value" : "Click to edit OPEN value (or paste OHLC range row)"}
             />
           </div>
           <div className="summary-col-val input-wrapper">
@@ -934,9 +1004,12 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               type="number"
               step="any"
               className="apple-number-input"
-              value={high}
+              value={format2Dec(high)}
               onChange={(e) => setHigh(e.target.value)}
-              title="Click to edit HIGH value"
+              onPaste={handlePaste}
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
+              title={isReadOnly ? "Read-only HIGH value" : "Click to edit HIGH value"}
             />
           </div>
           <div className="summary-col-val input-wrapper">
@@ -944,9 +1017,12 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               type="number"
               step="any"
               className="apple-number-input"
-              value={low}
+              value={format2Dec(low)}
               onChange={(e) => setLow(e.target.value)}
-              title="Click to edit LOW value"
+              onPaste={handlePaste}
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
+              title={isReadOnly ? "Read-only LOW value" : "Click to edit LOW value"}
             />
           </div>
           <div className="summary-col-val input-wrapper">
@@ -954,39 +1030,22 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
               type="number"
               step="any"
               className="apple-number-input"
-              value={close}
+              value={format2Dec(close)}
               onChange={(e) => setClose(e.target.value)}
-              title="Click to edit CLOSE value"
+              onPaste={handlePaste}
+              readOnly={isReadOnly}
+              disabled={isReadOnly}
+              title={isReadOnly ? "Read-only CLOSE value" : "Click to edit CLOSE value"}
             />
           </div>
           <div className="summary-col-val readonly-val" title="Calculated Average (H+L+C)/3">
-            {fmt(calcs.average, 1)}
+            {fmt(calcs.average, 2)}
           </div>
           <div className="summary-col-val readonly-val" title="Calculated Range (H-L)">
-            {fmt(calcs.range, 0)}
+            {fmt(calcs.range, 2)}
           </div>
         </div>
       </div>
-
-      {/* FOOTER LEGEND */}
-      {/* <div className="pointer-footer-legend">
-        <div className="legend-chip">
-          <span className="chip-dot golden"></span>
-          <span><strong>Fibonacci Headers &amp; Pivots (23.6%)</strong>: Key turning inflection levels</span>
-        </div>
-        <div className="legend-chip">
-          <span className="chip-dot emerald"></span>
-          <span><strong>Rising Channel</strong>: Bullish targets &amp; expansion staircase</span>
-        </div>
-        <div className="legend-chip">
-          <span className="chip-dot coral"></span>
-          <span><strong>Falling Channel</strong>: Bearish supports &amp; breakdown targets</span>
-        </div>
-        <div className="legend-chip">
-          <span className="chip-dot slate"></span>
-          <span><strong>Upper/Lower Bands</strong>: Dynamic volatility buffer bands</span>
-        </div>
-      </div> */}
     </div>
   );
 }

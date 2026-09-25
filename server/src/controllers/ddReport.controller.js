@@ -1,4 +1,5 @@
 import pool from "../config/mysql.js";
+import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js";
 
 /**
  * DD (DIRECTIONAL DISTRIBUTION / BULLISH DD - BEARISH DD) REPORT CONTROLLER
@@ -180,11 +181,7 @@ export const getDdReport = async (req, res, next) => {
       filterType = "ALL", // 'ALL' | 'BULLISH_DD' | 'BEARISH_DD' | 'ALL_DD'
     } = req.query;
 
-    const normExch = String(exchange || "").toUpperCase();
-    const normInd = String(indice || "").toLowerCase();
-    const tableName = (normExch === "CRYPTO" || normExch === "METALS" || normInd === "crypto" || normInd === "metals")
-      ? "global_assets"
-      : (process.env.MYSQL_HISTORICAL_TABLE || process.env.MYSQL_STOCK_TABLE || "historical_candles");
+    const tableName = resolveMarketTable(exchange, indice);
 
     // 1. Resolve date ceiling
     let targetDate = actionDate;
@@ -195,23 +192,7 @@ export const getDdReport = async (req, res, next) => {
     const targetDateStr = targetDate ? (typeof targetDate === "string" ? targetDate.slice(0, 10) : new Date(targetDate).toISOString().slice(0, 10)) : null;
 
     // 2. Fetch symbols matching exchange & indice
-    let symQuery = `SELECT DISTINCT \`symbol\` FROM \`${tableName}\` WHERE \`symbol\` IS NOT NULL`;
-    const symParams = [];
-
-    if (exchange && String(exchange).toUpperCase() !== "ALL") {
-      symQuery += " AND `exchange` = ?";
-      symParams.push(exchange);
-    }
-    if (indice && String(indice).toUpperCase() !== "ALL") {
-      const cleanIdx = String(indice).trim();
-      if (cleanIdx.toUpperCase() !== "TOP 500") {
-        symQuery += " AND (LOWER(`indice`) = LOWER(?) OR LOWER(`indice`) LIKE LOWER(?))";
-        symParams.push(cleanIdx, `%${cleanIdx}%`);
-      }
-    }
-
-    symQuery += " ORDER BY \`symbol\` ASC";
-    const [symbolRows] = await pool.query(symQuery, symParams);
+    const symbolRows = await getFilteredSymbols({ exchange, indice });
 
     if (!symbolRows || symbolRows.length === 0) {
       return res.status(200).json({

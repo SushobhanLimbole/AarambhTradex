@@ -71,17 +71,17 @@ export async function syncIndianEOD(options = {}) {
     `[EODSync] [${new Date().toISOString()}] Starting Indian Market EOD sync for date: ${targetDateStr}...`
   );
 
-  // 1. Fetch active symbols from symbols_metadata (or historical_candles fallback)
+  // 1. Fetch active symbols from symbols table (or historical_candles fallback)
   let symbols = [];
   try {
-    const [metaRows] = await pool.query(
-      `SELECT symbol, exchange, indice FROM symbols_metadata WHERE exchange IN ('NSE', 'BSE') AND is_active = 1 ORDER BY symbol ASC`
+    const [symbolRows] = await pool.query(
+      `SELECT symbol, exchange FROM symbols WHERE exchange IN ('NSE', 'BSE') ORDER BY symbol ASC`
     );
-    if (metaRows && metaRows.length > 0) {
-      symbols = metaRows;
+    if (symbolRows && symbolRows.length > 0) {
+      symbols = symbolRows;
     } else {
       const [candleSymbols] = await pool.query(
-        `SELECT DISTINCT symbol, exchange, indice FROM historical_candles WHERE exchange IN ('NSE', 'BSE') ORDER BY symbol ASC`
+        `SELECT DISTINCT symbol FROM historical_candles ORDER BY symbol ASC`
       );
       symbols = candleSymbols;
     }
@@ -144,8 +144,6 @@ export async function syncIndianEOD(options = {}) {
           matchedCandle.low !== undefined ? Number(matchedCandle.low.toFixed(4)) : null,
           matchedCandle.close !== undefined ? Number(matchedCandle.close.toFixed(4)) : null,
           matchedCandle.volume !== undefined ? Number(matchedCandle.volume) : 0,
-          symObj.exchange || "NSE",
-          symObj.indice || null,
         ]);
         syncedCount++;
       } else {
@@ -226,8 +224,6 @@ export async function syncIndianEOD(options = {}) {
               matchedCandle.low !== undefined ? Number(matchedCandle.low.toFixed(4)) : null,
               matchedCandle.close !== undefined ? Number(matchedCandle.close.toFixed(4)) : null,
               matchedCandle.volume !== undefined ? Number(matchedCandle.volume) : 0,
-              symObj.exchange || "NSE",
-              symObj.indice || null,
             ]);
             recoveredInPass++;
             totalRecovered++;
@@ -251,21 +247,6 @@ export async function syncIndianEOD(options = {}) {
     console.log(
       `[EODSync] [${new Date().toISOString()}] Retry Pass ${retryPass} completed. Recovered ${recoveredInPass}/${symbolsToRetry.length} symbols.`
     );
-  }
-
-  // Update last_date in symbols_metadata
-  try {
-    await pool.query(
-      `UPDATE symbols_metadata sm
-       JOIN (
-         SELECT symbol, MAX(date) as max_date, COUNT(*) as cnt
-         FROM historical_candles
-         GROUP BY symbol
-       ) hc ON sm.symbol = hc.symbol
-       SET sm.last_date = hc.max_date, sm.total_candles = hc.cnt, sm.updated_at = NOW()`
-    );
-  } catch (updateErr) {
-    console.warn(`[EODSync] Warning updating symbols_metadata summary:`, updateErr.message);
   }
 
   const durationMs = Date.now() - startTime;
@@ -296,16 +277,14 @@ export async function syncIndianEOD(options = {}) {
 async function bulkUpsertHistoricalCandles(records) {
   if (!records || records.length === 0) return;
   const query = `
-    INSERT INTO historical_candles (symbol, date, open, high, low, close, volume, exchange, indice)
+    INSERT INTO historical_candles (symbol, date, open, high, low, close, volume)
     VALUES ?
     ON DUPLICATE KEY UPDATE
       open = VALUES(open),
       high = VALUES(high),
       low = VALUES(low),
       close = VALUES(close),
-      volume = VALUES(volume),
-      exchange = VALUES(exchange),
-      indice = VALUES(indice)
+      volume = VALUES(volume)
   `;
   await pool.query(query, [records]);
 }
@@ -358,8 +337,6 @@ export async function syncGlobalEOD(options = {}) {
               c.close !== undefined ? Number(c.close.toFixed(4)) : null,
               c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
               c.volume !== undefined ? Number(c.volume) : 0,
-              asset.exchange,
-              asset.indice,
             ]);
           }
         }
@@ -450,21 +427,6 @@ export async function syncGlobalEOD(options = {}) {
     );
   }
 
-  // Update symbols_metadata for global assets
-  try {
-    await pool.query(
-      `UPDATE symbols_metadata sm
-       JOIN (
-         SELECT symbol, MAX(date) as max_date, COUNT(*) as cnt
-         FROM global_assets
-         GROUP BY symbol
-       ) ga ON sm.symbol = ga.symbol
-       SET sm.last_date = ga.max_date, sm.total_candles = ga.cnt, sm.updated_at = NOW()`
-    );
-  } catch (updateErr) {
-    console.warn(`[EODSync] Warning updating global symbols_metadata:`, updateErr.message);
-  }
-
   const durationMs = Date.now() - startTime;
   console.log(
     `[EODSync] [${new Date().toISOString()}] Finished Global Assets sync in ${(durationMs / 1000).toFixed(1)}s. Total assets: ${assets.length}, Synced: ${syncedCount} (Recovered: ${totalRecovered}), Failed: ${failedCount}.`
@@ -497,11 +459,11 @@ export async function reconcileHistoricalData(options = {}) {
     `[EODSync] [${new Date().toISOString()}] Starting Weekly Corporate Action & Split Reconciliation (Past ${days} days)...`
   );
 
-  // 1. Fetch all symbols from symbols_metadata
+  // 1. Fetch all symbols from symbols table
   let allSymbols = [];
   try {
     const [rows] = await pool.query(
-      `SELECT symbol, exchange, indice FROM symbols_metadata WHERE is_active = 1 ORDER BY symbol ASC`
+      `SELECT symbol, exchange FROM symbols ORDER BY symbol ASC`
     );
     allSymbols = rows;
   } catch (dbErr) {
@@ -554,8 +516,6 @@ export async function reconcileHistoricalData(options = {}) {
                 c.close !== undefined ? Number(c.close.toFixed(4)) : null,
                 c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
                 c.volume !== undefined ? Number(c.volume) : 0,
-                item.exchange,
-                item.indice,
               ]);
             } else {
               indianBatch.push([
@@ -566,8 +526,6 @@ export async function reconcileHistoricalData(options = {}) {
                 c.low !== undefined ? Number(c.low.toFixed(4)) : null,
                 c.close !== undefined ? Number(c.close.toFixed(4)) : null,
                 c.volume !== undefined ? Number(c.volume) : 0,
-                item.exchange || "NSE",
-                item.indice || null,
               ]);
             }
           }
@@ -650,8 +608,6 @@ export async function reconcileHistoricalData(options = {}) {
                   c.close !== undefined ? Number(c.close.toFixed(4)) : null,
                   c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
                   c.volume !== undefined ? Number(c.volume) : 0,
-                  item.exchange,
-                  item.indice,
                 ]);
               } else {
                 indianBatch.push([
@@ -662,8 +618,6 @@ export async function reconcileHistoricalData(options = {}) {
                   c.low !== undefined ? Number(c.low.toFixed(4)) : null,
                   c.close !== undefined ? Number(c.close.toFixed(4)) : null,
                   c.volume !== undefined ? Number(c.volume) : 0,
-                  item.exchange || "NSE",
-                  item.indice || null,
                 ]);
               }
             }
@@ -712,7 +666,7 @@ export async function reconcileHistoricalData(options = {}) {
 async function bulkUpsertGlobalAssets(records) {
   if (!records || records.length === 0) return;
   const query = `
-    INSERT INTO global_assets (symbol, date, open, high, low, close, adj_close, volume, exchange, indice)
+    INSERT INTO global_assets (symbol, date, open, high, low, close, adj_close, volume)
     VALUES ?
     ON DUPLICATE KEY UPDATE
       open = VALUES(open),
@@ -720,9 +674,7 @@ async function bulkUpsertGlobalAssets(records) {
       low = VALUES(low),
       close = VALUES(close),
       adj_close = VALUES(adj_close),
-      volume = VALUES(volume),
-      exchange = VALUES(exchange),
-      indice = VALUES(indice)
+      volume = VALUES(volume)
   `;
   await pool.query(query, [records]);
 }

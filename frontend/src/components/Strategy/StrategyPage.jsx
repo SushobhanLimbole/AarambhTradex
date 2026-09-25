@@ -158,8 +158,10 @@ const createDefaultStrategyPages = (
   return pages;
 };
 
-export default function StrategyPage({ initialData, onBack, previousTab = "screener" }) {
+export default function StrategyPage({ initialData, onBack, previousTab = "screener", readOnly = false, showTabSelector = true }) {
   const { user } = useAuth();
+  const isReadOnly = Boolean(readOnly || initialData?.isReadOnly);
+  const shouldShowTabSelector = showTabSelector !== false && !initialData?.isReadOnly;
 
   const [scriptName, setScriptName] = useState(initialData?.script ?? "Nifty-50");
   const [timeframe, setTimeframe] = useState(normalizeTimeframe(initialData?.timeframe ?? "Daily"));
@@ -203,7 +205,64 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   const isCustomRange = currentData.isCustomRange;
   const isCustomAverage = currentData.isCustomAverage;
 
+  // Multi-column Paste Handler (Open, High, Low, Close, Average, Range)
+  const handlePaste = (e) => {
+    if (isReadOnly) return;
+    const pasteText = e.clipboardData?.getData("text");
+    if (!pasteText) return;
+
+    const tokens = pasteText
+      .trim()
+      .split(/[\t,\r\n\s]+/)
+      .map((t) => t.replace(/,/g, "").trim())
+      .filter((t) => t.length > 0 && !isNaN(Number(t)));
+
+    if (tokens.length > 1) {
+      e.preventDefault();
+      const [pOpen, pHigh, pLow, pClose, pAvg, pRange] = tokens.map((t) => Number(Number(t).toFixed(2)));
+
+      setTimeframePages((prev) => {
+        const current = prev[timeframe] || {};
+        const next = { ...current };
+        if (pOpen !== undefined && !isNaN(pOpen)) next.open = pOpen;
+        if (pHigh !== undefined && !isNaN(pHigh)) next.high = pHigh;
+        if (pLow !== undefined && !isNaN(pLow)) next.low = pLow;
+        if (pClose !== undefined && !isNaN(pClose)) next.close = pClose;
+
+        const calcRange = (next.high !== undefined && next.low !== undefined) ? Math.max(0, next.high - next.low) : 0;
+        const calcAvg = (next.high !== undefined && next.low !== undefined && next.close !== undefined) ? (next.high + next.low + next.close) / 3 : 0;
+
+        if (pAvg !== undefined && !isNaN(pAvg)) {
+          next.average = pAvg;
+          next.isCustomAverage = true;
+        } else {
+          next.average = Number(calcAvg.toFixed(2));
+          next.isCustomAverage = false;
+        }
+
+        if (pRange !== undefined && !isNaN(pRange)) {
+          next.range = pRange;
+          next.isCustomRange = true;
+        } else {
+          next.range = Number(calcRange.toFixed(2));
+          next.isCustomRange = false;
+        }
+        return { ...prev, [timeframe]: next };
+      });
+      setCopiedText("Pasted OHLC data into fields!");
+      setTimeout(() => setCopiedText(null), 2500);
+    }
+  };
+
+  const format2Dec = (val) => {
+    if (val === null || val === undefined || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num)) return val;
+    return Number(num.toFixed(2));
+  };
+
   const setOpen = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], open: val },
@@ -211,6 +270,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   };
 
   const setHigh = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => {
       const current = prev[timeframe] || {};
       const l = parseFloat(current.low) || 0;
@@ -228,6 +288,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   };
 
   const setLow = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => {
       const current = prev[timeframe] || {};
       const h = parseFloat(current.high) || 0;
@@ -245,6 +306,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   };
 
   const setClose = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => {
       const current = prev[timeframe] || {};
       const h = parseFloat(current.high) || 0;
@@ -259,6 +321,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   };
 
   const setRange = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], range: val, isCustomRange: true },
@@ -266,6 +329,7 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   };
 
   const setAverage = (val) => {
+    if (isReadOnly) return;
     setTimeframePages((prev) => ({
       ...prev,
       [timeframe]: { ...prev[timeframe], average: val, isCustomAverage: true },
@@ -515,54 +579,21 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   return (
     <div className="strategy-page-wrapper">
       {/* HEADER HERO BAR */}
-      {onBack && (
-        <div style={{ marginBottom: 14 }}>
-          <button
-            onClick={onBack}
-            type="button"
-            className="strategy-back-btn"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              borderRadius: "10px",
-              padding: "8px 16px",
-              fontSize: "13.5px",
-              fontWeight: "600",
-              color: "#1e293b",
-              cursor: "pointer",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#f1f5f9";
-              e.currentTarget.style.borderColor = "#94a3b8";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#ffffff";
-              e.currentTarget.style.borderColor = "#cbd5e1";
-            }}
-          >
-            <span style={{ fontSize: 16 }}>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
-          </button>
+      {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
+      {shouldShowTabSelector && (
+        <div className="pointer-timeframe-tab-bar" style={{ marginBottom: 14 }}>
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
+              onClick={() => setTimeframe(tf)}
+            >
+              {tf}
+            </button>
+          ))}
         </div>
       )}
-
-      {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
-      <div className="pointer-timeframe-tab-bar" style={{ marginBottom: 14 }}>
-        {TIMEFRAMES.map((tf) => (
-          <button
-            key={tf}
-            type="button"
-            className={`timeframe-tab-btn ${timeframe === tf ? "active" : ""}`}
-            onClick={() => setTimeframe(tf)}
-          >
-            {tf}
-          </button>
-        ))}
-      </div>
 
       {/* IDENTIFIED POINTER TYPE BANNER ABOVE MATRIX CARD */}
       <div className="strategy-pointer-type-banner">
@@ -838,8 +869,12 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={open}
+                  value={format2Dec(open)}
                   onChange={(e) => setOpen(e.target.value)}
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only OPEN value" : "Click to edit OPEN value (or paste OHLC range row)"}
                 />
               </div>
               <div className="summary-col-val">
@@ -847,8 +882,9 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={high}
+                  value={format2Dec(high)}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     const val = e.target.value;
                     setHigh(val);
                     if (!isCustomRange) {
@@ -858,6 +894,10 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                       setAverage((((parseFloat(val) || 0) + (parseFloat(low) || 0) + (parseFloat(close) || 0)) / 3).toFixed(2));
                     }
                   }}
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only HIGH value" : "Click to edit HIGH value"}
                 />
               </div>
               <div className="summary-col-val">
@@ -865,8 +905,9 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={low}
+                  value={format2Dec(low)}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     const val = e.target.value;
                     setLow(val);
                     if (!isCustomRange) {
@@ -876,6 +917,10 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                       setAverage((((parseFloat(high) || 0) + (parseFloat(val) || 0) + (parseFloat(close) || 0)) / 3).toFixed(2));
                     }
                   }}
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only LOW value" : "Click to edit LOW value"}
                 />
               </div>
               <div className="summary-col-val">
@@ -883,14 +928,19 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={close}
+                  value={format2Dec(close)}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     const val = e.target.value;
                     setClose(val);
                     if (!isCustomAverage) {
                       setAverage((((parseFloat(high) || 0) + (parseFloat(low) || 0) + (parseFloat(val) || 0)) / 3).toFixed(2));
                     }
                   }}
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only CLOSE value" : "Click to edit CLOSE value"}
                 />
               </div>
               <div className="summary-col-val">
@@ -898,12 +948,16 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={average}
+                  value={format2Dec(average)}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     setAverage(e.target.value);
                     setIsCustomAverage(true);
                   }}
-                  title="Average (High + Low + Close) / 3 (Editable - Open not considered)"
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only Average" : "Average (High + Low + Close) / 3 (Editable - Open not considered)"}
                 />
               </div>
               <div className="summary-col-val">
@@ -911,12 +965,16 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
                   type="number"
                   step="any"
                   className="apple-number-input"
-                  value={range}
+                  value={format2Dec(range)}
                   onChange={(e) => {
+                    if (isReadOnly) return;
                     setRange(e.target.value);
                     setIsCustomRange(true);
                   }}
-                  title="Fibonacci Channel Range (Editable)"
+                  onPaste={handlePaste}
+                  readOnly={isReadOnly}
+                  disabled={isReadOnly}
+                  title={isReadOnly ? "Read-only Range" : "Fibonacci Channel Range (Editable)"}
                 />
               </div>
             </div>
