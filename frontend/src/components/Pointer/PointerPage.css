@@ -121,6 +121,35 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.excel-download-pill-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.excel-download-pill-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+}
+
+.excel-download-pill-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 /* Controls bar */
 .pointer-controls-bar {
   display: flex;
@@ -261,6 +290,15 @@
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.pointer-horizontal-channel-bar.falling-bar {
+  margin-top: 18px;
+  margin-bottom: 0;
+  padding-top: 14px;
+  padding-bottom: 0;
+  border-top: 1.5px solid rgba(226, 232, 240, 0.9);
+  border-bottom: none;
 }
 
 .channel-badge-group {

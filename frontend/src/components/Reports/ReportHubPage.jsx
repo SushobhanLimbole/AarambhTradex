@@ -5,7 +5,7 @@ import "./ReportHubPage.css";
 export const REPORT_CARDS = [
   {
     id: "pointer_breakout_report_1",
-    title: "POINTER BREAKOUT REPORT_1",
+    title: "POINTER BREAKOUT REPORT",
     tagline: "Fibonacci Breakout & Directional Momentum",
     tag: "Institutional Signals",
     badge: "Breakouts",
@@ -145,7 +145,7 @@ export default function ReportHubPage({ onSelectReportCard }) {
       </div>
 
       {/* FEATURED NEW TREND SCANNER BANNER */}
-      <div className="featured-trend-banner" onClick={() => onSelectReportCard && onSelectReportCard({ id: "status_report" })}>
+      {/* <div className="featured-trend-banner" onClick={() => onSelectReportCard && onSelectReportCard({ id: "status_report" })}>
         <div className="ftb-left">
           <span className="ftb-badge">LIVE SCANNER</span>
           <h2 className="ftb-title">📈 NEW TREND REPORT (Trend Scanner)</h2>
@@ -154,7 +154,7 @@ export default function ReportHubPage({ onSelectReportCard }) {
         <button type="button" className="ftb-btn">
           Open Live Trend Scanner ➔
         </button>
-      </div>
+      </div> */}
 
       {/* 8 CARDS GRID */}
       <div className="reporthub-grid">

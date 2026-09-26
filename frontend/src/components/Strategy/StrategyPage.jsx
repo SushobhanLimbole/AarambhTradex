@@ -4,6 +4,7 @@ import strategyCalculationService from "../../services/strategyCalculationServic
 import strategyAccessService from "../../services/strategyAccessService.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { screenerService } from "../../services/screenerService.js";
 
 // 9 Fibonacci Ratio Columns
 const FIB_COLUMNS = [14.6, 23.6, 38.2, 61.8, 100, 127.2, 161.8, 261.8, 423.6];
@@ -609,8 +610,58 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
   const apiTriggers = strategyApiData?.triggers;
   const apiScenarios = strategyApiData?.scenarios || [];
 
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+
+  const handleDownloadStrategyExcel = async () => {
+    try {
+      setIsDownloadingExcel(true);
+      await screenerService.downloadStrategyExcel({
+        symbol: scriptName || "Selected_Stock",
+        open,
+        high,
+        low,
+        close,
+        average: calcs.average,
+        range: calcs.range,
+        timeframe,
+        date: new Date().toISOString().slice(0, 10),
+      });
+    } catch (err) {
+      alert("Failed to generate strategy spreadsheet: " + (err.message || "Server error"));
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
   return (
     <div className="strategy-page-wrapper">
+      {/* BACK BUTTON */}
+      {onBack && (
+        <div style={{ marginBottom: "14px", display: "flex", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              color: "#1e293b",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "700",
+              cursor: "pointer",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <span>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
+          </button>
+        </div>
+      )}
+
       {/* HEADER HERO BAR */}
       {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
       {shouldShowTabSelector && (
@@ -641,6 +692,15 @@ export default function StrategyPage({ initialData, onBack, previousTab = "scree
           <span className="meta-item">Symbol: <strong className="highlight-val">{stripSymbolSuffix(scriptName)}</strong></span>
           <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
           <span className="meta-item">Channel: <strong className="highlight-val">{strategyApiData?.conditions?.channel || "RISING"}</strong></span>
+          <button
+            type="button"
+            className="excel-download-pill-btn"
+            onClick={handleDownloadStrategyExcel}
+            disabled={isDownloadingExcel}
+            title="Download full Strategy Spreadsheet (.xlsx) populated with this stock's OHLC values"
+          >
+            {isDownloadingExcel ? "⏳ Generating..." : "📥 Download Strategy Sheet (.xlsx)"}
+          </button>
         </div>
       </div>
 

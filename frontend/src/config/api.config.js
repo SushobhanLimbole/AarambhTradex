@@ -32,6 +32,7 @@ export const ENDPOINTS = {
   },
   SCREENER: {
     RUN: `${API_BASE_URL}/screener`,
+    GENERATE_STRATEGY_SHEET: `${API_BASE_URL}/screener/generate-strategy-sheet`,
   },
   STRATEGY: {
     CALCULATE: `${API_BASE_URL}/strategy/calculate`,

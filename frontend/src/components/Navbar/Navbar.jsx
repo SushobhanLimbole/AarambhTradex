@@ -15,21 +15,6 @@ export default function Navbar({ activeTab, setActiveTab }) {
       </div>
 
       <div className="nav-right">
-        {/* <button
-          className={`nav-btn ${activeTab === "symbols" ? "active" : ""}`}
-          onClick={() => setActiveTab("symbols")}
-        >
-          <span>🏛️</span>
-          <span>Symbols</span>
-        </button> */}
-
-        {/* <button
-          className={`nav-btn ${activeTab === "reports" ? "active" : ""}`}
-          onClick={() => setActiveTab("reports")}
-        >
-          <span>📊</span>
-          <span>Stock Analytics</span>
-        </button> */}
 
         {(user?.isAdmin || user?.hasAccess) && (
           <button
@@ -58,14 +43,6 @@ export default function Navbar({ activeTab, setActiveTab }) {
             <span>Pointer</span>
           </button>
         )}
-
-        {/* <button
-          className={`nav-btn ${activeTab === "screener" ? "active" : ""}`}
-          onClick={() => setActiveTab("screener")}
-        >
-          <span>🚀</span>
-          <span>Screener</span>
-        </button> */}
 
         {user?.isAdmin && (
           <>

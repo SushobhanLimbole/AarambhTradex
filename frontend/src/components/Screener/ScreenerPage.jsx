@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./ScreenerPage.css";
 import screenerService from "../../services/screenerService.js";
 import stockService from "../../services/stockService.js";
@@ -28,7 +28,8 @@ const TRIGGER_GROUPS = [
 
 const ALL_TRIGGERS = TRIGGER_GROUPS.flatMap((g) => g.triggers);
 
-const TIMEFRAMES = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
+const CMP1_TIMEFRAMES = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
+const CMP2_TIMEFRAMES = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "5-YEARLY"];
 
 const PATTERNS = [
   "Table Tennis",
@@ -38,39 +39,195 @@ const PATTERNS = [
   "Upward Rotation",
 ];
 
-export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) {
-  // Default helper dates
+// Helper to format raw date into clean readable display (e.g. 16-Sep-2026)
+const formatDateDisplay = (dateStr) => {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).replace(/ /g, "-");
+  } catch {
+    return String(dateStr);
+  }
+};
+
+/**
+ * Helper to compute CMP2 based on CMP1 according to the 4 comparison templates:
+ * 1) if cmp1 timeframe = DAILY -> start and end date = previous week of the selected cmp1 date, timeframe = WEEKLY
+ * 2) if cmp1 timeframe = WEEKLY -> start and end date = entire previous month, timeframe = MONTHLY
+ * 3) if cmp1 timeframe = MONTHLY -> start and end date = entire previous year, timeframe = YEARLY
+ * 4) if cmp1 timeframe = YEARLY -> start and end date = previous 5 years, timeframe = 5-YEARLY
+ */
+export function computeCmp2FromCmp1(cmp1DateStr, cmp1Tf) {
+  const baseDate = cmp1DateStr ? new Date(cmp1DateStr) : new Date();
+  const validDate = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+  const tf = String(cmp1Tf || "DAILY").toUpperCase();
+
+  const formatDate = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  if (tf === "DAILY") {
+    // 1) DAILY -> previous week (Monday to Friday) with timeframe WEEKLY
+    const day = validDate.getDay(); // 0 is Sun, 1 is Mon, ... 6 is Sat
+    const diffToMonday = (day + 6) % 7;
+    const prevWeekMonday = new Date(validDate);
+    prevWeekMonday.setDate(validDate.getDate() - diffToMonday - 7);
+
+    const prevWeekFriday = new Date(prevWeekMonday);
+    prevWeekFriday.setDate(prevWeekMonday.getDate() + 4);
+
+    return {
+      startDate: formatDate(prevWeekMonday),
+      endDate: formatDate(prevWeekFriday),
+      timeframe: "WEEKLY",
+    };
+  } else if (tf === "WEEKLY") {
+    // 2) WEEKLY -> entire previous month with timeframe MONTHLY
+    const year = validDate.getFullYear();
+    const month = validDate.getMonth(); // 0-indexed current month
+    const prevMonthStart = new Date(year, month - 1, 1);
+    const prevMonthEnd = new Date(year, month, 0);
+
+    return {
+      startDate: formatDate(prevMonthStart),
+      endDate: formatDate(prevMonthEnd),
+      timeframe: "MONTHLY",
+    };
+  } else if (tf === "MONTHLY") {
+    // 3) MONTHLY -> entire previous calendar year with timeframe YEARLY
+    const prevYear = validDate.getFullYear() - 1;
+    const prevYearStart = new Date(prevYear, 0, 1);
+    const prevYearEnd = new Date(prevYear, 11, 31);
+
+    return {
+      startDate: formatDate(prevYearStart),
+      endDate: formatDate(prevYearEnd),
+      timeframe: "YEARLY",
+    };
+  } else if (tf === "YEARLY") {
+    // 4) YEARLY -> previous 5 years with timeframe 5-YEARLY
+    const currentYear = validDate.getFullYear();
+    const startYear = currentYear - 5;
+    const endYear = currentYear - 1;
+    const fiveYearStart = new Date(startYear, 0, 1);
+    const fiveYearEnd = new Date(endYear, 11, 31);
+
+    return {
+      startDate: formatDate(fiveYearStart),
+      endDate: formatDate(fiveYearEnd),
+      timeframe: "5-YEARLY",
+    };
+  }
+
+  return {
+    startDate: formatDate(new Date(Date.now() - 7 * 86400000)),
+    endDate: formatDate(new Date()),
+    timeframe: "WEEKLY",
+  };
+}
+
+export default function ScreenerPage({
+  onOpenStrategy,
+  onOpenPointer,
+  onOpenStockAnalytics,
+  onBack,
+  savedState,
+  onSaveState,
+}) {
+  // Default helper dates: CMP1 defaults to today with Daily timeframe
   const today = new Date().toISOString().slice(0, 10);
-  const oneMonthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const initialCmp2 = computeCmp2FromCmp1(today, "DAILY");
 
   // Market Filters State (Exchange & Index)
-  const [selectedExchange, setSelectedExchange] = useState("NSE");
-  const [selectedIndice, setSelectedIndice] = useState("ALL");
+  const [selectedExchange, setSelectedExchange] = useState(savedState?.selectedExchange || "NSE");
+  const [selectedIndice, setSelectedIndice] = useState(savedState?.selectedIndice || "ALL");
   const [availableExchanges, setAvailableExchanges] = useState(["ALL", "NSE", "BSE", "CRYPTO", "METALS"]);
   const [availableIndices, setAvailableIndices] = useState([]);
 
   // CMP1 (Current Market Period) State
-  const [cmp1StartDate, setCmp1StartDate] = useState(oneMonthAgo);
-  const [cmp1EndDate, setCmp1EndDate] = useState(today);
-  const [cmp1Timeframe, setCmp1Timeframe] = useState("DAILY");
+  const [cmp1StartDate, setCmp1StartDate] = useState(savedState?.cmp1StartDate || today);
+  const [cmp1EndDate, setCmp1EndDate] = useState(savedState?.cmp1EndDate || today);
+  const [cmp1Timeframe, setCmp1Timeframe] = useState(savedState?.cmp1Timeframe || "DAILY");
 
-  // CMP2 (Historical Reference Period) State
-  const [cmp2StartDate, setCmp2StartDate] = useState(threeMonthsAgo);
-  const [cmp2EndDate, setCmp2EndDate] = useState(oneMonthAgo);
-  const [cmp2Timeframe, setCmp2Timeframe] = useState("DAILY");
+  // CMP2 (Historical Reference Period) State (Pre-filled via template and fully editable)
+  const [cmp2StartDate, setCmp2StartDate] = useState(savedState?.cmp2StartDate || initialCmp2.startDate);
+  const [cmp2EndDate, setCmp2EndDate] = useState(savedState?.cmp2EndDate || initialCmp2.endDate);
+  const [cmp2Timeframe, setCmp2Timeframe] = useState(savedState?.cmp2Timeframe || initialCmp2.timeframe);
 
-  // Pattern & Multi-Trigger State (Strictly Table Tennis, Table Top, Rising Jack, Falling Duck, Upward Rotation)
-  const [pattern, setPattern] = useState("Table Top");
-  const [selectedTriggers, setSelectedTriggers] = useState(["Y1"]);
+  // Pattern & Multi-Trigger State
+  const [pattern, setPattern] = useState(savedState?.pattern || "Table Top");
+  const [selectedTriggers, setSelectedTriggers] = useState(savedState?.selectedTriggers || ["Y1"]);
 
   // Results & Execution State
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState(savedState?.results || null);
   const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(savedState?.searchQuery || "");
   const [copiedSymbol, setCopiedSymbol] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
+
+  // Sync state upward to parent (MainLayout) whenever key parameters or results change
+  useEffect(() => {
+    if (onSaveState) {
+      onSaveState({
+        selectedExchange,
+        selectedIndice,
+        cmp1StartDate,
+        cmp1EndDate,
+        cmp1Timeframe,
+        cmp2StartDate,
+        cmp2EndDate,
+        cmp2Timeframe,
+        pattern,
+        selectedTriggers,
+        results,
+        searchQuery,
+      });
+    }
+  }, [
+    selectedExchange,
+    selectedIndice,
+    cmp1StartDate,
+    cmp1EndDate,
+    cmp1Timeframe,
+    cmp2StartDate,
+    cmp2EndDate,
+    cmp2Timeframe,
+    pattern,
+    selectedTriggers,
+    results,
+    searchQuery,
+    onSaveState,
+  ]);
+
+  // Handlers for updating CMP1 and automatically calculating CMP2 template values
+  const handleCmp1TimeframeChange = (newTf) => {
+    setCmp1Timeframe(newTf);
+    const autoCmp2 = computeCmp2FromCmp1(cmp1EndDate || today, newTf);
+    setCmp2StartDate(autoCmp2.startDate);
+    setCmp2EndDate(autoCmp2.endDate);
+    setCmp2Timeframe(autoCmp2.timeframe);
+  };
+
+  const handleCmp1DateChange = (newDate, isEnd = true) => {
+    if (isEnd) {
+      setCmp1EndDate(newDate);
+      const autoCmp2 = computeCmp2FromCmp1(newDate, cmp1Timeframe);
+      setCmp2StartDate(autoCmp2.startDate);
+      setCmp2EndDate(autoCmp2.endDate);
+      setCmp2Timeframe(autoCmp2.timeframe);
+    } else {
+      setCmp1StartDate(newDate);
+    }
+  };
 
   // Fetch metadata filters on mount
   useEffect(() => {
@@ -205,6 +362,31 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
+  const [downloadingExcelSymbol, setDownloadingExcelSymbol] = useState(null);
+
+  const handleDownloadStrategyExcel = async (symbol, detail) => {
+    try {
+      setDownloadingExcelSymbol(symbol);
+      const stockDate = detail?.date || detail?.cmp1Date || cmp1EndDate || today;
+      await screenerService.downloadStrategyExcel({
+        symbol,
+        open: detail?.open,
+        high: detail?.high,
+        low: detail?.low,
+        close: detail?.close || detail?.cmp1Close,
+        average: detail?.average,
+        range: detail?.range,
+        date: stockDate,
+        timeframe: cmp2Timeframe || "Daily",
+      });
+    } catch (err) {
+      console.error("Failed to generate strategy sheet:", err);
+      alert(`Failed to generate strategy spreadsheet for ${symbol}: ${err.message || "Server error"}`);
+    } finally {
+      setDownloadingExcelSymbol(null);
+    }
+  };
+
   // Helper to color-code trigger badges
   const getTriggerClass = (trig) => {
     if (trig.startsWith("Y")) return "trigger-badge-yellow";
@@ -215,20 +397,6 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
   return (
     <div className="screener-page-wrapper">
-      {/* HEADER HERO */}
-      {/* <div className="screener-header-container">
-        <div className="screener-title-area">
-          <div className="screener-badge-pill">
-            <span className="screener-pulsing-dot"></span>
-            <span>BREAKOUT SCANNER ENGINE</span>
-          </div>
-          <h1 className="screener-heading">Stock Market Screener</h1>
-          <p className="screener-subheading">
-            Compare Current Market Period (CMP1) against Historical Reference (CMP2) to screen for institutional mathematical breakout triggers.
-          </p>
-        </div>
-      </div> */}
-
       {onBack && (
         <div style={{ marginBottom: "14px", display: "flex", alignItems: "center" }}>
           <button
@@ -254,110 +422,21 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
       {/* CONTROLS FORM */}
       <form className="screener-form" onSubmit={handleGenerateReport}>
-        
-        {/* TOP SPLIT: CMP1 vs CMP2 CONFIGURATION */}
-        <div className="screener-period-grid">
-          
-          {/* CMP1 CARD */}
-          <div className="screener-card cmp1-card">
-            <div className="card-header-badge cmp1-badge">
-              <span className="badge-icon">📍</span>
-              <span>CMP1 (Current Market Period)</span>
-            </div>
-            
-            <div className="screener-input-group">
-              <label className="input-label">Start Date</label>
-              <input
-                type="date"
-                className="apple-date-input"
-                value={cmp1StartDate}
-                onChange={(e) => setCmp1StartDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="screener-input-group">
-              <label className="input-label">End Date</label>
-              <input
-                type="date"
-                className="apple-date-input"
-                value={cmp1EndDate}
-                onChange={(e) => setCmp1EndDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="screener-input-group">
-              <label className="input-label">Timeframe</label>
-              <select
-                className="apple-select-input"
-                value={cmp1Timeframe}
-                onChange={(e) => setCmp1Timeframe(e.target.value)}
-              >
-                {TIMEFRAMES.map((tf) => (
-                  <option key={`cmp1-${tf}`} value={tf}>
-                    {tf}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* CMP2 CARD */}
-          <div className="screener-card cmp2-card">
-            <div className="card-header-badge cmp2-badge">
-              <span className="badge-icon">🏛️</span>
-              <span>CMP2 (Historical Reference Period)</span>
-            </div>
-
-            <div className="screener-input-group">
-              <label className="input-label">Start Date</label>
-              <input
-                type="date"
-                className="apple-date-input"
-                value={cmp2StartDate}
-                onChange={(e) => setCmp2StartDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="screener-input-group">
-              <label className="input-label">End Date</label>
-              <input
-                type="date"
-                className="apple-date-input"
-                value={cmp2EndDate}
-                onChange={(e) => setCmp2EndDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="screener-input-group">
-              <label className="input-label">Timeframe</label>
-              <select
-                className="apple-select-input"
-                value={cmp2Timeframe}
-                onChange={(e) => setCmp2Timeframe(e.target.value)}
-              >
-                {TIMEFRAMES.map((tf) => (
-                  <option key={`cmp2-${tf}`} value={tf}>
-                    {tf}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-        </div>
-
-        {/* MARKET & PATTERN SETUP CARD */}
+        {/* MARKET & PATTERN SETUP BAR */}
         <div className="screener-card pattern-card">
           <div className="card-header-badge pattern-badge">
             <span className="badge-icon">🌐</span>
-            <span>Market & Pattern Setup</span>
+            <span>Market &amp; Pattern Setup</span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", width: "100%" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "14px",
+              width: "100%",
+            }}
+          >
             <div className="screener-input-group">
               <label className="input-label">Exchange</label>
               <select
@@ -406,120 +485,206 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
           </div>
         </div>
 
-        {/* MULTI-TRIGGER SELECTOR CARD */}
-        <div className="screener-card trigger-card">
-          <div className="trigger-card-header">
-            <div className="card-header-badge trigger-badge">
-              <span className="badge-icon">🎯</span>
-              <span>Trigger Selector (Multiple Breakout Levels for Comparison)</span>
+        {/* SIDE-BY-SIDE 3-COLUMN GRID: CMP1, CMP2, TRIGGER SELECTOR */}
+        <div className="screener-three-column-grid">
+          {/* 1. CMP1 CARD */}
+          <div className="screener-card cmp1-card">
+            <div className="card-header-badge cmp1-badge">
+              <span className="badge-icon">📍</span>
+              <span>CMP1 (Current Market)</span>
             </div>
 
-            {/* Quick Actions Bar */}
-            <div className="trigger-quick-actions">
-              <button
-                type="button"
-                className="quick-action-pill"
-                onClick={handleSelectAllTriggers}
-                title="Select all 17 trigger levels"
+            <div className="screener-input-group">
+              <label className="input-label">Start Date</label>
+              <input
+                type="date"
+                className="apple-date-input"
+                value={cmp1StartDate}
+                onChange={(e) => handleCmp1DateChange(e.target.value, false)}
+                required
+              />
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">End Date</label>
+              <input
+                type="date"
+                className="apple-date-input"
+                value={cmp1EndDate}
+                onChange={(e) => handleCmp1DateChange(e.target.value, true)}
+                required
+              />
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">Timeframe</label>
+              <select
+                className="apple-select-input"
+                value={cmp1Timeframe}
+                onChange={(e) => handleCmp1TimeframeChange(e.target.value)}
               >
-                ✓ Select All (17)
-              </button>
-              <button
-                type="button"
-                className="quick-action-pill yellow-pill-action"
-                onClick={() => handleToggleCategory(["Y1", "Y2", "Y3", "Y4", "Y5", "Y6"])}
-              >
-                + Yellow Group
-              </button>
-              <button
-                type="button"
-                className="quick-action-pill green-pill-action"
-                onClick={() => handleToggleCategory(["G1", "G2", "G3", "G4", "G5", "G6"])}
-              >
-                + Green Group
-              </button>
-              <button
-                type="button"
-                className="quick-action-pill red-pill-action"
-                onClick={() => handleToggleCategory(["R1", "R2", "R3", "R4", "R5"])}
-              >
-                + Red Group
-              </button>
-              <button
-                type="button"
-                className="quick-action-pill reset-pill-action"
-                onClick={handleResetTriggers}
-                title="Reset to default trigger Y1"
-              >
-                ↺ Reset (Y1)
-              </button>
+                {CMP1_TIMEFRAMES.map((tf) => (
+                  <option key={`cmp1-${tf}`} value={tf}>
+                    {tf}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Active Selection Chips Summary */}
-          <div className="trigger-selection-summary">
-            <div className="summary-label-group">
-              <span className="summary-title">Selected for Comparison ({selectedTriggers.length}):</span>
+          {/* 2. CMP2 CARD (Historical Reference) */}
+          <div className="screener-card cmp2-card">
+            <div className="card-header-badge cmp2-badge">
+              <span className="badge-icon">🏛️</span>
+              <span>CMP2 (Historical Ref)</span>
             </div>
-            <div className="selected-chips-list">
-              {selectedTriggers.map((trig) => (
-                <span key={`chip-${trig}`} className={`selected-chip ${getTriggerClass(trig)}`}>
-                  <strong>{trig}</strong>
-                  {selectedTriggers.length > 1 && (
-                    <button
-                      type="button"
-                      className="chip-remove-btn"
-                      onClick={() => handleToggleTrigger(trig)}
-                      title={`Remove ${trig}`}
-                    >
-                      ×
-                    </button>
-                  )}
-                </span>
-              ))}
+
+            <div className="screener-input-group">
+              <label className="input-label">Start Date</label>
+              <input
+                type="date"
+                className="apple-date-input"
+                value={cmp2StartDate}
+                onChange={(e) => setCmp2StartDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">End Date</label>
+              <input
+                type="date"
+                className="apple-date-input"
+                value={cmp2EndDate}
+                onChange={(e) => setCmp2EndDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="screener-input-group">
+              <label className="input-label">Timeframe</label>
+              <select
+                className="apple-select-input"
+                value={cmp2Timeframe}
+                onChange={(e) => setCmp2Timeframe(e.target.value)}
+              >
+                {CMP2_TIMEFRAMES.map((tf) => (
+                  <option key={`cmp2-${tf}`} value={tf}>
+                    {tf}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* TRIGGER GROUPS */}
-          <div className="trigger-groups-wrapper">
-            {TRIGGER_GROUPS.map((group) => {
-              const allCategorySelected = group.triggers.every((t) => selectedTriggers.includes(t));
-              return (
-                <div key={group.category} className={`trigger-category-block ${group.colorKey}-block`}>
-                  <div className="trigger-category-title">
-                    <div className="category-left-info">
+          {/* 3. MULTI-TRIGGER SELECTOR CARD (Side-by-side) */}
+          <div className="screener-card trigger-card">
+            <div className="trigger-card-header">
+              <div className="card-header-badge trigger-badge">
+                <span className="badge-icon">🎯</span>
+                <span>Trigger Breakout Levels</span>
+              </div>
+
+              {/* Quick Actions Bar */}
+              <div className="trigger-quick-actions">
+                <button
+                  type="button"
+                  className="quick-action-pill"
+                  onClick={handleSelectAllTriggers}
+                  title="Select all triggers"
+                >
+                  ✓ All
+                </button>
+                <button
+                  type="button"
+                  className="quick-action-pill yellow-pill-action"
+                  onClick={() => handleToggleCategory(["Y1", "Y2", "Y3", "Y4", "Y5", "Y6"])}
+                >
+                  + Y
+                </button>
+                <button
+                  type="button"
+                  className="quick-action-pill green-pill-action"
+                  onClick={() => handleToggleCategory(["G1", "G2", "G3", "G4", "G5", "G6"])}
+                >
+                  + G
+                </button>
+                <button
+                  type="button"
+                  className="quick-action-pill red-pill-action"
+                  onClick={() => handleToggleCategory(["R1", "R2", "R3", "R4", "R5", "R6"])}
+                >
+                  + R
+                </button>
+                <button
+                  type="button"
+                  className="quick-action-pill reset-pill-action"
+                  onClick={handleResetTriggers}
+                  title="Reset to default trigger Y1"
+                >
+                  ↺ Y1
+                </button>
+              </div>
+            </div>
+
+            {/* Active Selection Chips Summary */}
+            <div className="trigger-selection-summary">
+              <div className="selected-chips-list">
+                {selectedTriggers.map((trig) => (
+                  <span key={`chip-${trig}`} className={`selected-chip ${getTriggerClass(trig)}`}>
+                    <strong>{trig}</strong>
+                    {selectedTriggers.length > 1 && (
+                      <button
+                        type="button"
+                        className="chip-remove-btn"
+                        onClick={() => handleToggleTrigger(trig)}
+                        title={`Remove ${trig}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Compact Trigger Groups */}
+            <div className="trigger-groups-wrapper compact-groups">
+              {TRIGGER_GROUPS.map((group) => {
+                const allCategorySelected = group.triggers.every((t) => selectedTriggers.includes(t));
+                return (
+                  <div key={group.category} className={`trigger-category-block ${group.colorKey}-block`}>
+                    <div className="trigger-category-title">
                       <span className={`cat-pill ${group.colorKey}-pill`}>{group.category}</span>
-                      <span className="cat-desc">{group.desc}</span>
+                      <button
+                        type="button"
+                        className={`cat-toggle-btn ${allCategorySelected ? "cat-active" : ""}`}
+                        onClick={() => handleToggleCategory(group.triggers)}
+                      >
+                        {allCategorySelected ? "Deselect" : "Select"}
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      className={`cat-toggle-btn ${allCategorySelected ? "cat-active" : ""}`}
-                      onClick={() => handleToggleCategory(group.triggers)}
-                    >
-                      {allCategorySelected ? "Deselect Group" : "Select Group"}
-                    </button>
+                    <div className="trigger-buttons-grid">
+                      {group.triggers.map((trig) => {
+                        const isSelected = selectedTriggers.includes(trig);
+                        return (
+                          <button
+                            key={trig}
+                            type="button"
+                            className={`trigger-btn ${group.colorKey}-btn ${isSelected ? "selected" : ""}`}
+                            onClick={() => handleToggleTrigger(trig)}
+                          >
+                            <span className="trigger-name">{trig}</span>
+                            {isSelected && <span className="selected-check">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-
-                  <div className="trigger-buttons-grid">
-                    {group.triggers.map((trig) => {
-                      const isSelected = selectedTriggers.includes(trig);
-                      return (
-                        <button
-                          key={trig}
-                          type="button"
-                          className={`trigger-btn ${group.colorKey}-btn ${isSelected ? "selected" : ""}`}
-                          onClick={() => handleToggleTrigger(trig)}
-                        >
-                          <span className="trigger-name">{trig}</span>
-                          {isSelected && <span className="selected-check">✓</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -547,7 +712,6 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
             )}
           </button>
         </div>
-
       </form>
 
       {/* ERROR BANNER */}
@@ -602,6 +766,7 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
                   <tr>
                     <th className="col-idx">#</th>
                     <th className="col-stock-name">STOCK NAME</th>
+                    <th className="col-date">DATE</th>
                     <th className="col-breakout-triggers">MATCHED BREAKOUT TRIGGERS</th>
                     <th className="col-cmp1-close">CMP1 CLOSE</th>
                     <th className="col-action">QUICK ACTIONS</th>
@@ -612,29 +777,57 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
                     const detail = detailsMap[symbol];
                     const matched = detail?.matchedTriggers || [];
                     const cmp1Close = detail?.cmp1Close;
+                    const stockDate = detail?.date || detail?.cmp1Date || cmp1EndDate;
 
                     return (
                       <tr key={symbol} className="screener-row">
                         <td className="col-idx">{index + 1}</td>
                         <td className="col-stock-name">
-                          <div className="stock-name-cell">
-                            <span className="stock-symbol-badge">{stripSymbolSuffix(symbol)}</span>
+                          <div
+                            className="stock-name-cell clickable-stock"
+                            onClick={() => {
+                              if (onOpenStockAnalytics) {
+                                onOpenStockAnalytics({
+                                  symbol,
+                                  exchange: detail?.exchange || selectedExchange || "ALL",
+                                  indice: detail?.indice || selectedIndice || "ALL",
+                                  timeframe: "Daily",
+                                });
+                              }
+                            }}
+                            title="Click to view Stock Analytics (last 6 months to today)"
+                          >
+                            <span className="stock-symbol-badge link-badge">{stripSymbolSuffix(symbol)}</span>
                             {detail?.exchange && (
-                              <span style={{
-                                fontSize: "10px",
-                                fontWeight: "700",
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                marginLeft: "6px",
-                                background: detail.exchange === "CRYPTO" ? "#ede9fe" : detail.exchange === "METALS" ? "#fef3c7" : "#e0f2fe",
-                                color: detail.exchange === "CRYPTO" ? "#6d28d9" : detail.exchange === "METALS" ? "#92400e" : "#0369a1",
-                                border: "1px solid currentColor",
-                                opacity: 0.9,
-                              }}>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: "700",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  background:
+                                    detail.exchange === "CRYPTO"
+                                      ? "#ede9fe"
+                                      : detail.exchange === "METALS"
+                                      ? "#fef3c7"
+                                      : "#e0f2fe",
+                                  color:
+                                    detail.exchange === "CRYPTO"
+                                      ? "#6d28d9"
+                                      : detail.exchange === "METALS"
+                                      ? "#92400e"
+                                      : "#0369a1",
+                                  border: "1px solid currentColor",
+                                  opacity: 0.9,
+                                }}
+                              >
                                 {detail.exchange}
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="col-date">
+                          <span className="results-date-badge">{formatDateDisplay(stockDate)}</span>
                         </td>
                         <td className="col-breakout-triggers">
                           <div className="matched-triggers-cell">
@@ -673,6 +866,16 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
                               title="Copy symbol to clipboard"
                             >
                               {copiedSymbol === stripSymbolSuffix(symbol) || copiedSymbol === symbol ? "✓ Copied" : "Copy"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="mini-action-btn excel-strategy-btn"
+                              onClick={() => handleDownloadStrategyExcel(symbol, detail)}
+                              disabled={downloadingExcelSymbol === symbol}
+                              title="Generate and Download Strategy Sheet (.xlsx) filled for this stock"
+                            >
+                              {downloadingExcelSymbol === symbol ? "⏳" : "📥 Strategy Sheet"}
                             </button>
 
                             {(onOpenStrategy || onOpenPointer) && (
@@ -733,3 +936,4 @@ export default function ScreenerPage({ onOpenStrategy, onOpenPointer, onBack }) 
     </div>
   );
 }
+

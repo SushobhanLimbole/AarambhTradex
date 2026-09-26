@@ -1,6 +1,13 @@
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import ExcelJS from "exceljs";
 import pool from "../config/mysql.js";
 import { calculateTrigger } from "../services/screenerFormula.js";
 import { calculateStrategyData } from "../services/strategyFormula.service.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Stock Market Screener Controller (Breakout Report)
@@ -44,11 +51,12 @@ function aggregatePeriodCandle(rows) {
   }
 
   const close = Number(rows[rows.length - 1].close) || 0;
+  const date = rows[rows.length - 1].date ? String(rows[rows.length - 1].date).slice(0, 10) : "";
   // Institutional Formula: Range = High - Low; Average = (High + Low + Close) / 3 (Open is strictly NOT included)
   const range = Number((high - low).toFixed(2));
   const average = Number(((high + low + close) / 3).toFixed(2));
 
-  return { open, high, low, close, volume, range, average };
+  return { open, high, low, close, volume, range, average, date };
 }
 
 /**
@@ -257,6 +265,8 @@ export const runBreakoutScreener = async (req, res, next) => {
           const symMeta = cmp2BySymbol[symbol]?.[0] || cmp1BySymbol[symbol]?.[0];
           detailedResults.push({
             symbol,
+            date: cmp1Candle.date || cmp1End,
+            cmp1Date: cmp1Candle.date || cmp1End,
             exchange: symMeta?.exchange || exchange || "NSE",
             indice: symMeta?.indice || indice || "",
             cmp1Close: cmp1Candle.close,
@@ -372,5 +382,93 @@ export const runBreakoutScreener = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * POST /api/screener/generate-strategy-sheet
+ * Injects resultant stock OHLC into base strategy.xlsx template pointer sheet
+ */
+export const generateStrategySheet = async (req, res, next) => {
+  try {
+    const { symbol, open, high, low, close, average, range, date, timeframe } = req.body || {};
+
+    const templateCandidates = [
+      path.resolve(__dirname, "../../../strategy.xlsx"),
+      path.resolve(__dirname, "../../strategy.xlsx"),
+      path.resolve(process.cwd(), "strategy.xlsx"),
+      path.resolve(process.cwd(), "../strategy.xlsx"),
+    ];
+
+    let templatePath = null;
+    for (const candidate of templateCandidates) {
+      if (fs.existsSync(candidate)) {
+        templatePath = candidate;
+        break;
+      }
+    }
+
+    if (!templatePath) {
+      return res.status(404).json({
+        success: false,
+        message: "Base strategy.xlsx template not found on server.",
+      });
+    }
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(templatePath);
+
+    // Get pointer sheet
+    let ws = wb.getWorksheet("pointer") || wb.getWorksheet("POINTER") || wb.worksheets.find(w => w.name.trim().toLowerCase() === "pointer") || wb.worksheets[2];
+    if (!ws) {
+      return res.status(400).json({
+        success: false,
+        message: "Pointer worksheet not found in strategy.xlsx.",
+      });
+    }
+
+    const openVal = Number(open) || 0;
+    const highVal = Number(high) || 0;
+    const lowVal = Number(low) || 0;
+    const closeVal = Number(close) || 0;
+    const avgVal = average !== undefined && average !== null && !isNaN(Number(average))
+      ? Number(average)
+      : Number(((highVal + lowVal + closeVal) / 3).toFixed(2));
+    const rangeVal = range !== undefined && range !== null && !isNaN(Number(range))
+      ? Number(range)
+      : Number((highVal - lowVal).toFixed(2));
+
+    // Put values in row 32 of pointer sheet:
+    // D32 = Open, E32 = High, F32 = Low, G32 = Close, H32 = Average, I32 = Range
+    ws.getCell("D32").value = openVal;
+    ws.getCell("E32").value = highVal;
+    ws.getCell("F32").value = lowVal;
+    ws.getCell("G32").value = closeVal;
+    ws.getCell("H32").value = avgVal;
+    ws.getCell("I32").value = rangeVal;
+
+    // Remove all other sheets (e.g. "IMP POINTS", "VIEW ") so ONLY the pointer page is exported
+    const sheetsToRemove = wb.worksheets.filter(
+      (w) => w.name.trim().toLowerCase() !== "pointer"
+    );
+    for (const sheet of sheetsToRemove) {
+      wb.removeWorksheet(sheet.id);
+    }
+
+    // Optional metadata label cell if present
+    const cleanSym = symbol ? String(symbol).replace(/[^a-zA-Z0-9._-]/g, "_") : "Stock";
+    const filename = `Strategy_${cleanSym}_${date || "Analysis"}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error("Error generating strategy excel sheet:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to generate strategy spreadsheet.",
+    });
   }
 };

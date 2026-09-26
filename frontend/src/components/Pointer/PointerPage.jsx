@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import "./PointerPage.css";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { screenerService } from "../../services/screenerService.js";
 
 // 9 Fibonacci Ratio Columns matching the institutional specification
 const FIB_COLUMNS = [14.6, 23.6, 38.2, 61.8, 100, 127.2, 161.8, 261.8, 423.6];
@@ -443,8 +444,58 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
     setTimeout(() => setCopiedText(null), 2500);
   };
 
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+
+  const handleDownloadStrategyExcel = async () => {
+    try {
+      setIsDownloadingExcel(true);
+      await screenerService.downloadStrategyExcel({
+        symbol: scriptName || "Selected_Stock",
+        open,
+        high,
+        low,
+        close,
+        average: calcs.average,
+        range: calcs.range,
+        timeframe,
+        date: new Date().toISOString().slice(0, 10),
+      });
+    } catch (err) {
+      alert("Failed to generate strategy spreadsheet: " + (err.message || "Server error"));
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
   return (
     <div className="pointer-page-wrapper">
+      {/* BACK BUTTON */}
+      {onBack && (
+        <div style={{ marginBottom: "14px", display: "flex", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #cbd5e1",
+              color: "#1e293b",
+              padding: "7px 16px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <span>←</span> Back to {previousTab === "screener" ? "Screener" : previousTab === "reports" ? "Stock Analytics" : "Previous Page"}
+          </button>
+        </div>
+      )}
+
       {/* HEADER HERO BAR */}
       <div className="pointer-header-container">
         {/* HORIZONTAL TIMEFRAME TAB SELECTOR */}
@@ -476,6 +527,15 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
         <div className="pointer-type-meta">
           <span className="meta-item">Symbol: <strong className="highlight-val">{stripSymbolSuffix(scriptName)}</strong></span>
           <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
+          <button
+            type="button"
+            className="excel-download-pill-btn"
+            onClick={handleDownloadStrategyExcel}
+            disabled={isDownloadingExcel}
+            title="Download full Strategy Spreadsheet (.xlsx) populated with this stock's OHLC values"
+          >
+            {isDownloadingExcel ? "⏳ Generating..." : "📥 Download Strategy Sheet (.xlsx)"}
+          </button>
         </div>
       </div>
 
@@ -489,14 +549,11 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
 
       {/* MAIN CARD CONTAINER */}
       <div className="pointer-matrix-card">
-        {/* HORIZONTAL CHANNEL BADGES BAR */}
+        {/* TOP CHANNEL BAR: RISING CHANNEL ONLY */}
         <div className="pointer-horizontal-channel-bar">
           <div className="channel-badge-group">
             <span className="sidebar-rising-badge">RISING CHANNEL</span>
             <span className="sidebar-timeframe-badge">{timeframe}</span>
-          </div>
-          <div className="channel-badge-group">
-            <span className="sidebar-falling-badge red">FALLING CHANNEL</span>
           </div>
         </div>
 
@@ -996,6 +1053,14 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
                   {fib}
                 </div>
               ))}
+            </div>
+
+            {/* BOTTOM CHANNEL BAR: FALLING CHANNEL (AT THE BOTTOM OF THE MATRIX) */}
+            <div className="pointer-horizontal-channel-bar falling-bar" style={{ marginTop: "12px" }}>
+              <div className="channel-badge-group">
+                <span className="sidebar-falling-badge red">FALLING CHANNEL</span>
+                <span className="sidebar-timeframe-badge">{timeframe}</span>
+              </div>
             </div>
 
           </div>

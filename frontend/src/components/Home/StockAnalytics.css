@@ -157,6 +157,34 @@
   border-color: #93c5fd;
 }
 
+.btn-copy-excel {
+  height: 42px;
+  background: #f0fdf4;
+  color: #16a34a;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-copy-excel:hover:not(:disabled) {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.btn-copy-excel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* BANNER HEADER (MATCHING SCREENSHOT 1) */
 .software-banner {
   background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
@@ -312,6 +340,17 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.apple-table th,
+.apple-table td,
+.apple-table tr,
+.apple-table span,
+.apple-table div {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .apple-table thead {

@@ -108,17 +108,31 @@
 .trigger-badge { background: #f1f5f9; color: #334155; }
 
 /* ------------------------------------------------------------
-   PERIOD GRID (CMP1 vs CMP2)
+   PERIOD & TRIGGER THREE-COLUMN GRID (CMP1 vs CMP2 vs TRIGGERS SIDE-BY-SIDE)
    ------------------------------------------------------------ */
-.screener-period-grid {
+.screener-three-column-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1fr 1fr 1.35fr;
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: stretch;
 }
 
-@media (max-width: 860px) {
-  .screener-period-grid {
+@media (max-width: 1200px) {
+  .screener-three-column-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .screener-three-column-grid .trigger-card {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 800px) {
+  .screener-three-column-grid {
     grid-template-columns: 1fr;
+  }
+  .screener-three-column-grid .trigger-card {
+    grid-column: span 1;
   }
 }
 
@@ -674,6 +688,20 @@
   min-width: 150px;
 }
 
+.col-date {
+  min-width: 110px;
+}
+
+.results-date-badge {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 .col-breakout-triggers {
   min-width: 260px;
 }
@@ -686,6 +714,20 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.stock-name-cell.clickable-stock {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.stock-name-cell.clickable-stock:hover .link-badge {
+  color: #0284c7;
+  text-decoration: underline;
+}
+
+.stock-name-cell.clickable-stock:hover {
+  transform: translateX(2px);
 }
 
 .stock-symbol-badge {
@@ -796,6 +838,27 @@
 
 .mini-action-btn.copy-btn:hover {
   background: #e2e8f0;
+}
+
+.mini-action-btn.excel-strategy-btn {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mini-action-btn.excel-strategy-btn:hover:not(:disabled) {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+}
+
+.mini-action-btn.excel-strategy-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .mini-action-btn.pointer-btn {

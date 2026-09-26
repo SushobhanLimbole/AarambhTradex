@@ -81,6 +81,42 @@ export const screenerService = {
       };
     }
   },
+
+  /**
+   * Request generated strategy spreadsheet for a stock and trigger file download
+   * @param {Object} stockData - { symbol, open, high, low, close, average, range, date, timeframe }
+   */
+  async downloadStrategyExcel(stockData) {
+    try {
+      const response = await fetch(ENDPOINTS.SCREENER.GENERATE_STRATEGY_SHEET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(stockData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate strategy sheet.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const cleanSym = (stockData?.symbol || "Stock").replace(/[^a-zA-Z0-9._-]/g, "_");
+      a.download = `Strategy_${cleanSym}_${stockData?.date || "Analysis"}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      return { success: true };
+    } catch (err) {
+      console.error("Error downloading strategy excel sheet:", err);
+      throw err;
+    }
+  },
 };
 
 export default screenerService;
