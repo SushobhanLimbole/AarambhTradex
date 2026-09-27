@@ -637,11 +637,35 @@
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .action-pill-btn:hover:not(:disabled) {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.action-pill-btn.export-excel-btn {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.12);
+}
+
+.action-pill-btn.export-excel-btn:hover:not(:disabled) {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.2);
+}
+
+.action-pill-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .results-table-wrapper {

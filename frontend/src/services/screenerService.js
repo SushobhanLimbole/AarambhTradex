@@ -117,6 +117,43 @@ export const screenerService = {
       throw err;
     }
   },
+
+  /**
+   * Export all Breakout screener results into an Excel spreadsheet (.xlsx)
+   * Columns: STOCK NAME, DATE, MATCHED BREAKOUT TRIGGERS, CMP1 CLOSE
+   * @param {Object} data - { results, details, date, triggers }
+   */
+  async exportResultsExcel(data) {
+    try {
+      const response = await fetch(ENDPOINTS.SCREENER.EXPORT_RESULTS_EXCEL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to export breakout results.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const fileDate = data?.date || new Date().toISOString().slice(0, 10);
+      a.download = `Breakout_Results_${fileDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      return { success: true };
+    } catch (err) {
+      console.error("Error exporting screener results to excel:", err);
+      throw err;
+    }
+  },
 };
 
 export default screenerService;

@@ -362,6 +362,26 @@ export default function ScreenerPage({
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportResultsExcel = async () => {
+    if (!results?.results || results.results.length === 0) return;
+    try {
+      setIsExportingExcel(true);
+      await screenerService.exportResultsExcel({
+        results: results.results,
+        details: results.details || [],
+        date: cmp1EndDate || today,
+        triggers: selectedTriggers,
+      });
+    } catch (err) {
+      console.error("Failed to export results to excel:", err);
+      alert(`Failed to export breakout results to Excel: ${err.message || "Server error"}`);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const [downloadingExcelSymbol, setDownloadingExcelSymbol] = useState(null);
 
   const handleDownloadStrategyExcel = async (symbol, detail) => {
@@ -749,6 +769,16 @@ export default function ScreenerPage({
 
               <button
                 type="button"
+                className="action-pill-btn export-excel-btn"
+                onClick={handleExportResultsExcel}
+                disabled={isExportingExcel || results.results.length === 0}
+                title="Download Excel sheet containing all results with [STOCK NAME, DATE, MATCHED BREAKOUT TRIGGERS, CMP1 CLOSE]"
+              >
+                {isExportingExcel ? "⏳ Exporting..." : "📥 Download Results (.xlsx)"}
+              </button>
+
+              <button
+                type="button"
                 className="action-pill-btn"
                 onClick={handleCopyAll}
                 disabled={results.results.length === 0}
@@ -868,7 +898,7 @@ export default function ScreenerPage({
                               {copiedSymbol === stripSymbolSuffix(symbol) || copiedSymbol === symbol ? "✓ Copied" : "Copy"}
                             </button>
 
-                            <button
+                            {/* <button
                               type="button"
                               className="mini-action-btn excel-strategy-btn"
                               onClick={() => handleDownloadStrategyExcel(symbol, detail)}
@@ -876,7 +906,7 @@ export default function ScreenerPage({
                               title="Generate and Download Strategy Sheet (.xlsx) filled for this stock"
                             >
                               {downloadingExcelSymbol === symbol ? "⏳" : "📥 Strategy Sheet"}
-                            </button>
+                            </button> */}
 
                             {(onOpenStrategy || onOpenPointer) && (
                               <button

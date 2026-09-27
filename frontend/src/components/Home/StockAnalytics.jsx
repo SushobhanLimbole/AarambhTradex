@@ -383,7 +383,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
       }
 
       // 2. Identify AB TOP (Highest High strictly between HLC HIGHER & HLC LOWER)
-      //    and AB BOTTOM (Lowest Low strictly between HLC LOWER & HLC HIGHER)
+      //    and AB BOTTOM (Lowest Low strictly between HLC LOWER & HLC HIGHER).
+      //    ABS TOP/BOTTOM will ONLY get displayed once the opposite HLC transition has formed.
       for (let e = 1; e < events.length; e++) {
         const prevEv = events[e - 1];
         const currEv = events[e];
@@ -410,40 +411,6 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
             let bestIdx = -1;
             let minLow = Infinity;
             for (let k = prevEv.idx + 1; k < currEv.idx; k++) {
-              const l = parseNum(rowsForSym[k].low);
-              if (l <= minLow) {
-                minLow = l;
-                bestIdx = k;
-              }
-            }
-            if (bestIdx !== -1) {
-              isAbBottomMap.set(bestIdx, true);
-            }
-          }
-        }
-      }
-
-      // 3. For the trailing/running open cycle to the end of data:
-      if (events.length > 0) {
-        const lastEv = events[events.length - 1];
-        if (lastEv.idx + 1 < rowsForSym.length) {
-          if (lastEv.type === "HLC HIGHER") {
-            let bestIdx = -1;
-            let maxHigh = -Infinity;
-            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
-              const h = parseNum(rowsForSym[k].high);
-              if (h >= maxHigh) {
-                maxHigh = h;
-                bestIdx = k;
-              }
-            }
-            if (bestIdx !== -1) {
-              isAbTopMap.set(bestIdx, true);
-            }
-          } else if (lastEv.type === "HLC LOWER") {
-            let bestIdx = -1;
-            let minLow = Infinity;
-            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
               const l = parseNum(rowsForSym[k].low);
               if (l <= minLow) {
                 minLow = l;
@@ -1015,7 +982,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
                     <tr key={`${row.symbol}-${row.rawId || row.rawDate || row.no}`}>
                       <td className="serial-col">{row.no}</td>
                       {visibleCols.symbol && (
-                        <td style={{ fontWeight: 700, color: "#1e293b" }}>
+                        <td style={{ fontWeight: 600, color: "#1e293b" }}>
                           {stripSymbolSuffix(row.symbol)}
                         </td>
                       )}

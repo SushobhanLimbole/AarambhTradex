@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { runBreakoutScreener, generateStrategySheet } from "../controllers/screener.controller.js";
+import {
+  runBreakoutScreener,
+  generateStrategySheet,
+  exportScreenerResultsExcel,
+} from "../controllers/screener.controller.js";
 
 const router = Router();
 
@@ -15,5 +19,11 @@ router.post("/", runBreakoutScreener);
  */
 router.post("/generate-strategy-sheet", generateStrategySheet);
 router.post("/export-strategy-excel", generateStrategySheet);
+
+/**
+ * POST /api/screener/export-results-excel
+ * Exports all breakout screening results with STOCK NAME, DATE, MATCHED BREAKOUT TRIGGERS, CMP1 CLOSE
+ */
+router.post("/export-results-excel", exportScreenerResultsExcel);
 
 export default router;

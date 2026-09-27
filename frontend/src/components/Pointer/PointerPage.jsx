@@ -527,15 +527,6 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
         <div className="pointer-type-meta">
           <span className="meta-item">Symbol: <strong className="highlight-val">{stripSymbolSuffix(scriptName)}</strong></span>
           <span className="meta-item">Timeframe: <strong className="highlight-val">{timeframe}</strong></span>
-          <button
-            type="button"
-            className="excel-download-pill-btn"
-            onClick={handleDownloadStrategyExcel}
-            disabled={isDownloadingExcel}
-            title="Download full Strategy Spreadsheet (.xlsx) populated with this stock's OHLC values"
-          >
-            {isDownloadingExcel ? "⏳ Generating..." : "📥 Download Strategy Sheet (.xlsx)"}
-          </button>
         </div>
       </div>
 
