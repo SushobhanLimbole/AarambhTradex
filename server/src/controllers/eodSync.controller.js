@@ -113,6 +113,51 @@ export const triggerReconciliation = async (req, res, next) => {
 };
 
 /**
+ * POST /api/sync/holidays
+ * Trigger manual sync of annual holiday calendar (NSE, BSE, Metals, Crypto)
+ */
+export const triggerHolidaysSync = async (req, res, next) => {
+  try {
+    console.log(
+      `[EODController] [${new Date().toISOString()}] Manual Holiday calendar sync triggered by user.`
+    );
+
+    jobState.annualHolidays.status = "RUNNING";
+    jobState.annualHolidays.lastRun = new Date().toISOString();
+    jobState.annualHolidays.lastError = null;
+
+    const startTime = Date.now();
+    const { fetchAndSaveHolidays } = await import("../scripts/holidays.js");
+    const { reloadHolidayCache } = await import("../utils/holidayUtils.js");
+
+    const payload = await fetchAndSaveHolidays();
+    reloadHolidayCache();
+
+    const totalCount =
+      (payload?.NSE?.equities?.length || 0) +
+      (payload?.GLOBAL_METALS?.holidays?.length || 0);
+
+    jobState.annualHolidays.status = "COMPLETED";
+    jobState.annualHolidays.recordsUpdated = totalCount;
+    jobState.annualHolidays.durationMs = Date.now() - startTime;
+
+    return res.status(200).json({
+      success: true,
+      message: "Annual Holiday Calendar sync completed successfully",
+      data: {
+        totalEquitiesHolidays: payload?.NSE?.equities?.length || 0,
+        totalMetalsHolidays: payload?.GLOBAL_METALS?.holidays?.length || 0,
+        durationMs: jobState.annualHolidays.durationMs,
+      },
+    });
+  } catch (error) {
+    jobState.annualHolidays.status = "FAILED";
+    jobState.annualHolidays.lastError = error.message || String(error);
+    next(error);
+  }
+};
+
+/**
  * GET /api/sync/status
  * Get current running status, last execution timestamps, and error metrics
  */

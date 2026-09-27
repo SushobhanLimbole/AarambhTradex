@@ -1,0 +1,1786 @@
+{
+  "lastUpdated": "2026-09-27T04:20:48.229Z",
+  "year": 2026,
+  "summary": {
+    "totalIndianEquitiesHolidays": 20,
+    "totalMetalsHolidaysAndEarlyCloses": 11,
+    "cryptoStatus": "24/7/365 Continuous Trading (0 Holidays)",
+    "exchangesCovered": [
+      "NSE",
+      "BSE",
+      "CME_COMEX",
+      "CRYPTO_GLOBAL"
+    ]
+  },
+  "NSE": {
+    "equities": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ],
+    "derivatives": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ],
+    "currency": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-02-19",
+        "tradingDate": "19-Feb-2026",
+        "weekDay": "Thursday",
+        "description": "Chatrapati Shivaji Maharaj Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-19",
+        "tradingDate": "19-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Gudi Padwa",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-04-01",
+        "tradingDate": "01-Apr-2026",
+        "weekDay": "Wednesday",
+        "description": "Annual Bank Closing",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day / Buddha Pournima",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day / Parsi New Year",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-08-26",
+        "tradingDate": "26-Aug-2026",
+        "weekDay": "Wednesday",
+        "description": "Id-E-Milad",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 21,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 22,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 23,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 24,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ],
+    "commodity": [
+      {
+        "srNo": 1,
+        "date": "2026-01-01",
+        "tradingDate": "01-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "New year",
+        "morningSession": "Open",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 3,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 4,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 8,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 9,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 10,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 11,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 12,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 13,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 14,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 15,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 16,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 17,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 18,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      },
+      {
+        "srNo": 19,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 20,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": "Closed",
+        "eveningSession": "Open"
+      },
+      {
+        "srNo": 21,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": "Closed",
+        "eveningSession": "Closed"
+      }
+    ],
+    "rawSegments": [
+      "CBM",
+      "CD",
+      "CM",
+      "CMOT",
+      "COM",
+      "EGR",
+      "FO",
+      "IRD",
+      "MF",
+      "NDM",
+      "NTRP",
+      "SLBS"
+    ]
+  },
+  "BSE": {
+    "equities": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ],
+    "derivatives": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ],
+    "currency": [
+      {
+        "srNo": 1,
+        "date": "2026-01-15",
+        "tradingDate": "15-Jan-2026",
+        "weekDay": "Thursday",
+        "description": "Municipal Corporation Election - Maharashtra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-26",
+        "tradingDate": "26-Jan-2026",
+        "weekDay": "Monday",
+        "description": "Republic Day",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-15",
+        "tradingDate": "15-Feb-2026",
+        "weekDay": "Sunday",
+        "description": "Mahashivratri",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 4,
+        "date": "2026-02-19",
+        "tradingDate": "19-Feb-2026",
+        "weekDay": "Thursday",
+        "description": "Chatrapati Shivaji Maharaj Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 5,
+        "date": "2026-03-03",
+        "tradingDate": "03-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Holi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 6,
+        "date": "2026-03-19",
+        "tradingDate": "19-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Gudi Padwa",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 7,
+        "date": "2026-03-21",
+        "tradingDate": "21-Mar-2026",
+        "weekDay": "Saturday",
+        "description": "Id-Ul-Fitr (Ramadan Eid)",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 8,
+        "date": "2026-03-26",
+        "tradingDate": "26-Mar-2026",
+        "weekDay": "Thursday",
+        "description": "Shri Ram Navami",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 9,
+        "date": "2026-03-31",
+        "tradingDate": "31-Mar-2026",
+        "weekDay": "Tuesday",
+        "description": "Shri Mahavir Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 10,
+        "date": "2026-04-01",
+        "tradingDate": "01-Apr-2026",
+        "weekDay": "Wednesday",
+        "description": "Annual Bank Closing",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 11,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Friday",
+        "description": "Good Friday",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 12,
+        "date": "2026-04-14",
+        "tradingDate": "14-Apr-2026",
+        "weekDay": "Tuesday",
+        "description": "Dr. Baba Saheb Ambedkar Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 13,
+        "date": "2026-05-01",
+        "tradingDate": "01-May-2026",
+        "weekDay": "Friday",
+        "description": "Maharashtra Day / Buddha Pournima",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 14,
+        "date": "2026-05-28",
+        "tradingDate": "28-May-2026",
+        "weekDay": "Thursday",
+        "description": "Bakri Id",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 15,
+        "date": "2026-06-26",
+        "tradingDate": "26-Jun-2026",
+        "weekDay": "Friday",
+        "description": "Muharram",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 16,
+        "date": "2026-08-15",
+        "tradingDate": "15-Aug-2026",
+        "weekDay": "Saturday",
+        "description": "Independence Day / Parsi New Year",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 17,
+        "date": "2026-08-26",
+        "tradingDate": "26-Aug-2026",
+        "weekDay": "Wednesday",
+        "description": "Id-E-Milad",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 18,
+        "date": "2026-09-14",
+        "tradingDate": "14-Sep-2026",
+        "weekDay": "Monday",
+        "description": "Ganesh Chaturthi",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 19,
+        "date": "2026-10-02",
+        "tradingDate": "02-Oct-2026",
+        "weekDay": "Friday",
+        "description": "Mahatma Gandhi Jayanti",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 20,
+        "date": "2026-10-20",
+        "tradingDate": "20-Oct-2026",
+        "weekDay": "Tuesday",
+        "description": "Dussehra",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 21,
+        "date": "2026-11-08",
+        "tradingDate": "08-Nov-2026",
+        "weekDay": "Sunday",
+        "description": "Diwali Laxmi Pujan*",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 22,
+        "date": "2026-11-10",
+        "tradingDate": "10-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Diwali-Balipratipada",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 23,
+        "date": "2026-11-24",
+        "tradingDate": "24-Nov-2026",
+        "weekDay": "Tuesday",
+        "description": "Prakash Gurpurb Sri Guru Nanak Dev",
+        "morningSession": null,
+        "eveningSession": null
+      },
+      {
+        "srNo": 24,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "description": "Christmas",
+        "morningSession": null,
+        "eveningSession": null
+      }
+    ]
+  },
+  "GLOBAL_METALS": {
+    "symbols": [
+      "XAUUSD=X",
+      "XAGUSD=X"
+    ],
+    "market": "CME Globex / COMEX & Global Spot OTC",
+    "tradingHours": "Sunday 18:00 ET - Friday 17:00 ET (Daily break: 17:00 - 18:00 ET)",
+    "holidays": [
+      {
+        "srNo": 1,
+        "date": "2026-01-01",
+        "tradingDate": "01-Jan-2026",
+        "weekDay": "Thursday",
+        "holiday": "New Year's Day",
+        "status": "Full Market Closure",
+        "sessionNotes": "Market closed all day"
+      },
+      {
+        "srNo": 2,
+        "date": "2026-01-19",
+        "tradingDate": "19-Jan-2026",
+        "weekDay": "Monday",
+        "holiday": "Martin Luther King Jr. Day",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 3,
+        "date": "2026-02-16",
+        "tradingDate": "16-Feb-2026",
+        "weekDay": "Monday",
+        "holiday": "Presidents' Day / Washington's Birthday",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 4,
+        "date": "2026-04-03",
+        "tradingDate": "03-Apr-2026",
+        "weekDay": "Good Friday",
+        "holiday": "Good Friday",
+        "status": "Full Market Closure",
+        "sessionNotes": "Market closed all day"
+      },
+      {
+        "srNo": 5,
+        "date": "2026-05-25",
+        "tradingDate": "25-May-2026",
+        "weekDay": "Monday",
+        "holiday": "Memorial Day",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 6,
+        "date": "2026-06-19",
+        "tradingDate": "19-Jun-2026",
+        "weekDay": "Friday",
+        "holiday": "Juneteenth National Independence Day",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 7,
+        "date": "2026-07-03",
+        "tradingDate": "03-Jul-2026",
+        "weekDay": "Friday",
+        "holiday": "US Independence Day (Observed)",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 8,
+        "date": "2026-09-07",
+        "tradingDate": "07-Sep-2026",
+        "weekDay": "Monday",
+        "holiday": "Labor Day",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 9,
+        "date": "2026-11-26",
+        "tradingDate": "26-Nov-2026",
+        "weekDay": "Thursday",
+        "holiday": "Thanksgiving Day",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+      },
+      {
+        "srNo": 10,
+        "date": "2026-11-27",
+        "tradingDate": "27-Nov-2026",
+        "weekDay": "Friday",
+        "holiday": "Day After Thanksgiving",
+        "status": "Early Close",
+        "sessionNotes": "Trading halts early at 12:45 CT / 13:45 ET"
+      },
+      {
+        "srNo": 11,
+        "date": "2026-12-25",
+        "tradingDate": "25-Dec-2026",
+        "weekDay": "Friday",
+        "holiday": "Christmas Day",
+        "status": "Full Market Closure",
+        "sessionNotes": "Market closed all day"
+      }
+    ],
+    "fullClosureDates": [
+      "2026-01-01",
+      "2026-04-03",
+      "2026-12-25"
+    ]
+  },
+  "CRYPTO": {
+    "symbols": [
+      "BTC-USD",
+      "ETH-USD",
+      "SOL-USD",
+      "XRP-USD"
+    ],
+    "tradingHours": "24/7/365 Continuous",
+    "isAlwaysOpen": true,
+    "holidays": [],
+    "note": "Cryptocurrencies (BTC, ETH, SOL, XRP) trade continuously without market holidays or weekend closures."
+  },
+  "symbolHolidayMap": {
+    "XAUUSD=X": {
+      "symbol": "XAUUSD=X",
+      "name": "Gold Spot / US Dollar",
+      "type": "METALS",
+      "market": "CME Globex / LBMA Spot",
+      "is24x7": false,
+      "holidays": [
+        {
+          "srNo": 1,
+          "date": "2026-01-01",
+          "tradingDate": "01-Jan-2026",
+          "weekDay": "Thursday",
+          "holiday": "New Year's Day",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        },
+        {
+          "srNo": 2,
+          "date": "2026-01-19",
+          "tradingDate": "19-Jan-2026",
+          "weekDay": "Monday",
+          "holiday": "Martin Luther King Jr. Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 3,
+          "date": "2026-02-16",
+          "tradingDate": "16-Feb-2026",
+          "weekDay": "Monday",
+          "holiday": "Presidents' Day / Washington's Birthday",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 4,
+          "date": "2026-04-03",
+          "tradingDate": "03-Apr-2026",
+          "weekDay": "Good Friday",
+          "holiday": "Good Friday",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        },
+        {
+          "srNo": 5,
+          "date": "2026-05-25",
+          "tradingDate": "25-May-2026",
+          "weekDay": "Monday",
+          "holiday": "Memorial Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 6,
+          "date": "2026-06-19",
+          "tradingDate": "19-Jun-2026",
+          "weekDay": "Friday",
+          "holiday": "Juneteenth National Independence Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 7,
+          "date": "2026-07-03",
+          "tradingDate": "03-Jul-2026",
+          "weekDay": "Friday",
+          "holiday": "US Independence Day (Observed)",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 8,
+          "date": "2026-09-07",
+          "tradingDate": "07-Sep-2026",
+          "weekDay": "Monday",
+          "holiday": "Labor Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 9,
+          "date": "2026-11-26",
+          "tradingDate": "26-Nov-2026",
+          "weekDay": "Thursday",
+          "holiday": "Thanksgiving Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 10,
+          "date": "2026-11-27",
+          "tradingDate": "27-Nov-2026",
+          "weekDay": "Friday",
+          "holiday": "Day After Thanksgiving",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 12:45 CT / 13:45 ET"
+        },
+        {
+          "srNo": 11,
+          "date": "2026-12-25",
+          "tradingDate": "25-Dec-2026",
+          "weekDay": "Friday",
+          "holiday": "Christmas Day",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        }
+      ]
+    },
+    "XAGUSD=X": {
+      "symbol": "XAGUSD=X",
+      "name": "Silver Spot / US Dollar",
+      "type": "METALS",
+      "market": "CME Globex / LBMA Spot",
+      "is24x7": false,
+      "holidays": [
+        {
+          "srNo": 1,
+          "date": "2026-01-01",
+          "tradingDate": "01-Jan-2026",
+          "weekDay": "Thursday",
+          "holiday": "New Year's Day",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        },
+        {
+          "srNo": 2,
+          "date": "2026-01-19",
+          "tradingDate": "19-Jan-2026",
+          "weekDay": "Monday",
+          "holiday": "Martin Luther King Jr. Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 3,
+          "date": "2026-02-16",
+          "tradingDate": "16-Feb-2026",
+          "weekDay": "Monday",
+          "holiday": "Presidents' Day / Washington's Birthday",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 4,
+          "date": "2026-04-03",
+          "tradingDate": "03-Apr-2026",
+          "weekDay": "Good Friday",
+          "holiday": "Good Friday",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        },
+        {
+          "srNo": 5,
+          "date": "2026-05-25",
+          "tradingDate": "25-May-2026",
+          "weekDay": "Monday",
+          "holiday": "Memorial Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 6,
+          "date": "2026-06-19",
+          "tradingDate": "19-Jun-2026",
+          "weekDay": "Friday",
+          "holiday": "Juneteenth National Independence Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 7,
+          "date": "2026-07-03",
+          "tradingDate": "03-Jul-2026",
+          "weekDay": "Friday",
+          "holiday": "US Independence Day (Observed)",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 8,
+          "date": "2026-09-07",
+          "tradingDate": "07-Sep-2026",
+          "weekDay": "Monday",
+          "holiday": "Labor Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 9,
+          "date": "2026-11-26",
+          "tradingDate": "26-Nov-2026",
+          "weekDay": "Thursday",
+          "holiday": "Thanksgiving Day",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 13:00 CT / 14:30 ET"
+        },
+        {
+          "srNo": 10,
+          "date": "2026-11-27",
+          "tradingDate": "27-Nov-2026",
+          "weekDay": "Friday",
+          "holiday": "Day After Thanksgiving",
+          "status": "Early Close",
+          "sessionNotes": "Trading halts early at 12:45 CT / 13:45 ET"
+        },
+        {
+          "srNo": 11,
+          "date": "2026-12-25",
+          "tradingDate": "25-Dec-2026",
+          "weekDay": "Friday",
+          "holiday": "Christmas Day",
+          "status": "Full Market Closure",
+          "sessionNotes": "Market closed all day"
+        }
+      ]
+    },
+    "BTC-USD": {
+      "symbol": "BTC-USD",
+      "name": "Bitcoin / US Dollar",
+      "type": "CRYPTO",
+      "is24x7": true,
+      "tradingHours": "24/7/365 Continuous",
+      "holidays": []
+    },
+    "ETH-USD": {
+      "symbol": "ETH-USD",
+      "name": "Ethereum / US Dollar",
+      "type": "CRYPTO",
+      "is24x7": true,
+      "tradingHours": "24/7/365 Continuous",
+      "holidays": []
+    },
+    "SOL-USD": {
+      "symbol": "SOL-USD",
+      "name": "Solana / US Dollar",
+      "type": "CRYPTO",
+      "is24x7": true,
+      "tradingHours": "24/7/365 Continuous",
+      "holidays": []
+    },
+    "XRP-USD": {
+      "symbol": "XRP-USD",
+      "name": "XRP / US Dollar",
+      "type": "CRYPTO",
+      "is24x7": true,
+      "tradingHours": "24/7/365 Continuous",
+      "holidays": []
+    }
+  },
+  "equityHolidayDates": [
+    "2026-01-15",
+    "2026-01-26",
+    "2026-02-15",
+    "2026-03-03",
+    "2026-03-21",
+    "2026-03-26",
+    "2026-03-31",
+    "2026-04-03",
+    "2026-04-14",
+    "2026-05-01",
+    "2026-05-28",
+    "2026-06-26",
+    "2026-08-15",
+    "2026-09-14",
+    "2026-10-02",
+    "2026-10-20",
+    "2026-11-08",
+    "2026-11-10",
+    "2026-11-24",
+    "2026-12-25"
+  ]
+}
