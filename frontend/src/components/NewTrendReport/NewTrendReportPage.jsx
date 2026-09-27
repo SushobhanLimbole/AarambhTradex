@@ -274,10 +274,10 @@ export default function NewTrendReportPage({
           </button>
         )}
 
-        <div className="ntr-title-brand">
+        {/* <div className="ntr-title-brand">
           <span className="ntr-logo-icon">📈</span>
           <span className="ntr-brand-text">Trend Scanner &amp; Monthly Pointer</span>
-        </div>
+        </div> */}
 
         {/* EXCHANGE */}
         <div className="ntr-control-item" style={{ minWidth: 110 }}>
