@@ -248,6 +248,7 @@ export default function MainLayout() {
             onBack={handleBack}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
+            onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
         {activeTab === "ab-top-bottom" && (
