@@ -27,6 +27,7 @@ export default function MainLayout() {
   const [tabHistory, setTabHistory] = useState(["symbols"]);
   const [pointerData, setPointerData] = useState(null);
   const [selectedStockParams, setSelectedStockParams] = useState(null);
+  const [screenerCache, setScreenerCache] = useState(null);
 
   // Browser back/forward button synchronization
   useEffect(() => {
@@ -178,6 +179,34 @@ export default function MainLayout() {
     }
   };
 
+  const handleSelectSymbolFromScreener = (stockParams) => {
+    if (!stockParams?.symbol) return;
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const formatDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    setSelectedStockParams({
+      symbol: stockParams.symbol,
+      exchange: stockParams.exchange || "ALL",
+      indice: stockParams.indice || "ALL",
+      fromDate: formatDate(sixMonthsAgo),
+      toDate: formatDate(now),
+      timeframe: stockParams.timeframe || "Daily",
+    });
+    setTabHistory((prev) => [...prev, "reports"]);
+    setActiveTab("reports");
+    try {
+      window.history.pushState({ tab: "reports" }, "", "#reports");
+    } catch (_) {}
+  };
+
   const isReportsTab = activeTab === "reports";
 
   return (
@@ -219,6 +248,7 @@ export default function MainLayout() {
             onBack={handleBack}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "trend-report")}
+            onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
         {activeTab === "ab-top-bottom" && (
@@ -320,8 +350,11 @@ export default function MainLayout() {
         {activeTab === "screener" && (
           <ScreenerPage
             onBack={handleBack}
+            savedState={screenerCache}
+            onSaveState={setScreenerCache}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "screener")}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "screener")}
+            onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
         {activeTab === "requests" && <StrategyAccessRequestsPage onBack={handleBack} />}

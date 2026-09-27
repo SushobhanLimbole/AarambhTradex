@@ -81,17 +81,51 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
   const [toDate, setToDate] = useState(selectedStockParams?.toDate || todayStr);
   const [timeframe, setTimeframe] = useState(selectedStockParams?.timeframe || "Daily");
 
-  // Sync state if selectedStockParams prop changes
+  // Sync state and automatically fetch data if selectedStockParams prop changes
   useEffect(() => {
     if (selectedStockParams?.symbol) {
-      setTicker(selectedStockParams.symbol);
-      if (selectedStockParams.exchange) setExchange(selectedStockParams.exchange);
-      if (selectedStockParams.indice) setIndexVal(selectedStockParams.indice);
-      if (selectedStockParams.fromDate) setFromDate(selectedStockParams.fromDate);
-      if (selectedStockParams.toDate) setToDate(selectedStockParams.toDate);
-      if (selectedStockParams.timeframe) setTimeframe(selectedStockParams.timeframe);
+      const sym = selectedStockParams.symbol;
+      const ex = selectedStockParams.exchange || "ALL";
+      const ind = selectedStockParams.indice || "ALL";
+      const fDate = selectedStockParams.fromDate || todayStr;
+      const tDate = selectedStockParams.toDate || todayStr;
+      const tf = selectedStockParams.timeframe || "Daily";
+
+      setTicker(sym);
+      setExchange(ex);
+      setIndexVal(ind);
+      setFromDate(fDate);
+      setToDate(tDate);
+      setTimeframe(tf);
+
+      const fetchForIncoming = async () => {
+        setLoading(true);
+        setError("");
+        try {
+          const cleanSymbol = sym.split(" ")[0].trim();
+          const response = await stockService.getStockData(cleanSymbol, tf, {
+            startDate: fDate || undefined,
+            endDate: tDate || undefined,
+            limit: "all",
+            order: "DESC",
+          });
+          if (response?.data && Array.isArray(response.data)) {
+            setRawRecords(response.data);
+          } else {
+            setRawRecords([]);
+          }
+        } catch (err) {
+          console.error("Error loading selected stock data:", err);
+          setError(err.message || "Failed to load stock data from server.");
+          setRawRecords([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchForIncoming();
     }
-  }, [selectedStockParams]);
+  }, [selectedStockParams, todayStr]);
 
   // Metadata loaded from /api/symbols/meta
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
@@ -229,11 +263,15 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
     }
   }, [ticker, exchange, indexVal, timeframe, fromDate, toDate, todayStr]);
 
-  // Initial load on mount only
+  // Initial load on mount only (if no symbol preselected)
   useEffect(() => {
-    fetchData();
+    if (!selectedStockParams?.symbol) {
+      fetchData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [copiedTable, setCopiedTable] = useState(false);
 
   const handleClear = () => {
     const today = getTodayDateStr();
@@ -243,6 +281,46 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
     setFromDate(today);
     setToDate(today);
     setTimeframe("Daily");
+  };
+
+  const handleCopyTableToExcel = () => {
+    if (!processedRows || processedRows.length === 0) return;
+
+    const headers = ["SR.NO"];
+    if (visibleCols.symbol) headers.push("SYMBOL");
+    if (visibleCols.day) headers.push("DAY");
+    headers.push("DATE", "OPEN", "HIGH", "LOW", "CLOSE");
+    if (visibleCols.avg) headers.push("AVG");
+    if (visibleCols.range) headers.push("RANGE");
+    if (visibleCols.status) headers.push("STATUS");
+    if (visibleCols.pointer) headers.push("POINTER");
+    if (visibleCols.virgin) headers.push("VIRGIN");
+    if (visibleCols.zone) headers.push("ZONE");
+    if (visibleCols.closure) headers.push("CLOSURE");
+    if (visibleCols.floor) headers.push("FLOOR");
+    if (visibleCols.ceiling) headers.push("CEILING PRICE");
+
+    const rows = processedRows.map((r) => {
+      const line = [r.no];
+      if (visibleCols.symbol) line.push(stripSymbolSuffix(r.symbol));
+      if (visibleCols.day) line.push(r.day);
+      line.push(r.date, r.open, r.high, r.low, r.close);
+      if (visibleCols.avg) line.push(r.avg);
+      if (visibleCols.range) line.push(r.range);
+      if (visibleCols.status) line.push(r.status || "");
+      if (visibleCols.pointer) line.push(r.pointer || "");
+      if (visibleCols.virgin) line.push(r.virgin || "");
+      if (visibleCols.zone) line.push(r.zone || "");
+      if (visibleCols.closure) line.push(r.closure || "");
+      if (visibleCols.floor) line.push(r.floor === "—" ? "" : r.floor);
+      if (visibleCols.ceiling) line.push(r.ceiling === "—" ? "" : r.ceiling);
+      return line.join("\t");
+    });
+
+    const tsvContent = [headers.join("\t"), ...rows].join("\n");
+    navigator.clipboard?.writeText(tsvContent);
+    setCopiedTable(true);
+    setTimeout(() => setCopiedTable(false), 2000);
   };
 
   // 3. Compute calculated analytics columns dynamically from raw records
@@ -305,7 +383,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
       }
 
       // 2. Identify AB TOP (Highest High strictly between HLC HIGHER & HLC LOWER)
-      //    and AB BOTTOM (Lowest Low strictly between HLC LOWER & HLC HIGHER)
+      //    and AB BOTTOM (Lowest Low strictly between HLC LOWER & HLC HIGHER).
+      //    ABS TOP/BOTTOM will ONLY get displayed once the opposite HLC transition has formed.
       for (let e = 1; e < events.length; e++) {
         const prevEv = events[e - 1];
         const currEv = events[e];
@@ -345,39 +424,22 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
         }
       }
 
-      // 3. For the trailing/running open cycle to the end of data:
-      if (events.length > 0) {
-        const lastEv = events[events.length - 1];
-        if (lastEv.idx + 1 < rowsForSym.length) {
-          if (lastEv.type === "HLC HIGHER") {
-            let bestIdx = -1;
-            let maxHigh = -Infinity;
-            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
-              const h = parseNum(rowsForSym[k].high);
-              if (h >= maxHigh) {
-                maxHigh = h;
-                bestIdx = k;
-              }
-            }
-            if (bestIdx !== -1) {
-              isAbTopMap.set(bestIdx, true);
-            }
-          } else if (lastEv.type === "HLC LOWER") {
-            let bestIdx = -1;
-            let minLow = Infinity;
-            for (let k = lastEv.idx + 1; k < rowsForSym.length; k++) {
-              const l = parseNum(rowsForSym[k].low);
-              if (l <= minLow) {
-                minLow = l;
-                bestIdx = k;
-              }
-            }
-            if (bestIdx !== -1) {
-              isAbBottomMap.set(bestIdx, true);
-            }
-          }
+
+
+      // 4. Precompute Monthly Min Low and Monthly Max High for Floor & Ceiling calculation
+      const monthGroups = new Map();
+      rowsForSym.forEach((r) => {
+        const mKey = r.date ? String(r.date).slice(0, 7) : "UNKNOWN"; // YYYY-MM
+        const l = parseNum(r.low);
+        const h = parseNum(r.high);
+        if (!monthGroups.has(mKey)) {
+          monthGroups.set(mKey, { minLow: l, maxHigh: h });
+        } else {
+          const g = monthGroups.get(mKey);
+          if (l < g.minLow) g.minLow = l;
+          if (h > g.maxHigh) g.maxHigh = h;
         }
-      }
+      });
 
       rowsForSym.forEach((row, idx, arr) => {
         const prevRow = idx > 0 ? arr[idx - 1] : null; // Previous candle chronologically
@@ -484,25 +546,19 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
         pointer = pointerResult.pointer;
         pointerType = pointerResult.pointerType;
 
-        // Floor & Ceiling Price based on timeframe
-        let floorPrice = lowVal;
-        let ceilingPrice = highVal;
-        if (prevRow) {
-          const tf = (timeframe || "Daily").toLowerCase();
-          let windowSize = 5; // Daily: approx 1 week
-          if (tf === "weekly") windowSize = 4; // Weekly: approx 1 month
-          else if (tf === "monthly") windowSize = 12; // Monthly: approx 1 year
-          else if (tf === "quarterly") windowSize = 4;
-          else if (tf === "half-yearly" || tf === "halfyearly") windowSize = 2;
-          else if (tf === "yearly") windowSize = 5;
-
-          const prevCandles = arr.slice(Math.max(0, idx - windowSize), idx);
-          if (prevCandles.length > 0) {
-            floorPrice = Math.min(...prevCandles.map((r) => parseNum(r.low)));
-            ceilingPrice = Math.max(...prevCandles.map((r) => parseNum(r.high)));
-          } else {
-            floorPrice = parseNum(prevRow.low);
-            ceilingPrice = parseNum(prevRow.high);
+        // Floor & Ceiling Price:
+        // Takes monthly timeframe OHLC and on the date where daily low matches the lowest low of that month, shows floor price.
+        // On the date where daily high matches highest high of that month, shows ceiling price.
+        const mKey = row.date ? String(row.date).slice(0, 7) : "UNKNOWN";
+        const mGroup = monthGroups.get(mKey);
+        let floorDisplay = "—";
+        let ceilingDisplay = "—";
+        if (mGroup) {
+          if (Math.abs(lowVal - mGroup.minLow) < 0.001) {
+            floorDisplay = formatNum(mGroup.minLow);
+          }
+          if (Math.abs(highVal - mGroup.maxHigh) < 0.001) {
+            ceilingDisplay = formatNum(mGroup.maxHigh);
           }
         }
 
@@ -537,8 +593,8 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
           zoneType,
           closure,
           closureType,
-          floor: formatNum(floorPrice),
-          ceiling: formatNum(ceilingPrice),
+          floor: floorDisplay,
+          ceiling: ceilingDisplay,
         });
       });
     });
@@ -733,6 +789,16 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
             <span>田</span> Columns
           </button>
 
+          <button
+            className="btn-copy-excel"
+            onClick={handleCopyTableToExcel}
+            disabled={loading || processedRows.length === 0}
+            type="button"
+            title="Copy current table data to paste directly into Excel or Google Sheets"
+          >
+            <span>{copiedTable ? "✓" : "📋"}</span> {copiedTable ? "Copied!" : "Copy Table"}
+          </button>
+
           {/* COLUMN VISIBILITY POPOVER */}
           {showColumnsMenu && (
             <div className="columns-menu">
@@ -916,7 +982,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
                     <tr key={`${row.symbol}-${row.rawId || row.rawDate || row.no}`}>
                       <td className="serial-col">{row.no}</td>
                       {visibleCols.symbol && (
-                        <td style={{ fontWeight: 700, color: "#1e293b" }}>
+                        <td style={{ fontWeight: 600, color: "#1e293b" }}>
                           {stripSymbolSuffix(row.symbol)}
                         </td>
                       )}

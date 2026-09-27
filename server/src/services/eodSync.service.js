@@ -1,6 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import pool from "../config/mysql.js";
 import { defaultRateLimiter } from "./rateLimiter.js";
+import { isIndianMarketHoliday, isPhantomOrUnopenedCandle } from "../utils/holidayUtils.js";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["ripHistorical", "yahooSurvey"],
@@ -71,6 +72,29 @@ export async function syncIndianEOD(options = {}) {
     `[EODSync] [${new Date().toISOString()}] Starting Indian Market EOD sync for date: ${targetDateStr}...`
   );
 
+  // Check if target date is an Indian market holiday / weekend closure
+  const holidayCheck = isIndianMarketHoliday(targetDateStr);
+  if (!options.force && holidayCheck.isHoliday) {
+    console.log(
+      `[EODSync] [${new Date().toISOString()}] 🏖️ Target date ${targetDateStr} is a market holiday / closed (${holidayCheck.reason}). Skipping Indian EOD sync.`
+    );
+    return {
+      success: true,
+      market: "INDIAN",
+      targetDate: targetDateStr,
+      skipped: true,
+      reason: holidayCheck.reason,
+      totalSymbols: 0,
+      syncedCount: 0,
+      failedCount: 0,
+      skippedCount: 0,
+      recoveredCount: 0,
+      retryPassesRun: 0,
+      durationMs: Date.now() - startTime,
+      failedSymbols: [],
+    };
+  }
+
   // 1. Fetch active symbols from symbols table (or historical_candles fallback)
   let symbols = [];
   try {
@@ -135,15 +159,18 @@ export async function syncIndianEOD(options = {}) {
         matchedCandle = rawCandles[rawCandles.length - 1];
       }
 
-      if (matchedCandle && matchedCandle.close !== undefined && matchedCandle.close !== null) {
+      // Check if candle is a forward-fill / unopened phantom candle (flat price + 0 volume)
+      if (matchedCandle && !isPhantomOrUnopenedCandle(matchedCandle)) {
         candleBatch.push([
           symObj.symbol,
           formatDateStr(matchedCandle.date),
-          matchedCandle.open !== undefined ? Number(matchedCandle.open.toFixed(4)) : null,
-          matchedCandle.high !== undefined ? Number(matchedCandle.high.toFixed(4)) : null,
-          matchedCandle.low !== undefined ? Number(matchedCandle.low.toFixed(4)) : null,
-          matchedCandle.close !== undefined ? Number(matchedCandle.close.toFixed(4)) : null,
-          matchedCandle.volume !== undefined ? Number(matchedCandle.volume) : 0,
+          Number(matchedCandle.open.toFixed(4)),
+          Number(matchedCandle.high.toFixed(4)),
+          Number(matchedCandle.low.toFixed(4)),
+          Number(matchedCandle.close.toFixed(4)),
+          matchedCandle.volume !== undefined && matchedCandle.volume !== null && !isNaN(Number(matchedCandle.volume))
+            ? Number(matchedCandle.volume)
+            : 0,
         ]);
         syncedCount++;
       } else {
@@ -215,15 +242,17 @@ export async function syncIndianEOD(options = {}) {
             (c) => formatDateStr(c.date) === targetDateStr
           ) || rawCandles[rawCandles.length - 1];
 
-          if (matchedCandle && matchedCandle.close !== undefined && matchedCandle.close !== null) {
+          if (matchedCandle && !isPhantomOrUnopenedCandle(matchedCandle)) {
             candleBatch.push([
               symObj.symbol,
               formatDateStr(matchedCandle.date),
-              matchedCandle.open !== undefined ? Number(matchedCandle.open.toFixed(4)) : null,
-              matchedCandle.high !== undefined ? Number(matchedCandle.high.toFixed(4)) : null,
-              matchedCandle.low !== undefined ? Number(matchedCandle.low.toFixed(4)) : null,
-              matchedCandle.close !== undefined ? Number(matchedCandle.close.toFixed(4)) : null,
-              matchedCandle.volume !== undefined ? Number(matchedCandle.volume) : 0,
+              Number(matchedCandle.open.toFixed(4)),
+              Number(matchedCandle.high.toFixed(4)),
+              Number(matchedCandle.low.toFixed(4)),
+              Number(matchedCandle.close.toFixed(4)),
+              matchedCandle.volume !== undefined && matchedCandle.volume !== null && !isNaN(Number(matchedCandle.volume))
+                ? Number(matchedCandle.volume)
+                : 0,
             ]);
             recoveredInPass++;
             totalRecovered++;
@@ -327,16 +356,16 @@ export async function syncGlobalEOD(options = {}) {
       if (rawCandles && rawCandles.length > 0) {
         // Upsert all fetched recent candles for global assets to ensure continuity
         for (const c of rawCandles) {
-          if (c.close !== undefined && c.close !== null) {
+          if (c && !isPhantomOrUnopenedCandle(c)) {
             candleBatch.push([
               asset.symbol,
               formatDateStr(c.date),
-              c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-              c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-              c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-              c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-              c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-              c.volume !== undefined ? Number(c.volume) : 0,
+              Number(c.open.toFixed(4)),
+              Number(c.high.toFixed(4)),
+              Number(c.low.toFixed(4)),
+              Number(c.close.toFixed(4)),
+              c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+              c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
             ]);
           }
         }
@@ -393,18 +422,16 @@ export async function syncGlobalEOD(options = {}) {
 
         if (rawCandles && rawCandles.length > 0) {
           for (const c of rawCandles) {
-            if (c.close !== undefined && c.close !== null) {
+            if (c && !isPhantomOrUnopenedCandle(c)) {
               candleBatch.push([
                 asset.symbol,
                 formatDateStr(c.date),
-                c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-                c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-                c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-                c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-                c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-                c.volume !== undefined ? Number(c.volume) : 0,
-                asset.exchange,
-                asset.indice,
+                Number(c.open.toFixed(4)),
+                Number(c.high.toFixed(4)),
+                Number(c.low.toFixed(4)),
+                Number(c.close.toFixed(4)),
+                c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+                c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
               ]);
             }
           }
@@ -505,27 +532,27 @@ export async function reconcileHistoricalData(options = {}) {
 
       if (rawCandles && rawCandles.length > 0) {
         for (const c of rawCandles) {
-          if (c.close !== undefined && c.close !== null) {
+          if (c && !isPhantomOrUnopenedCandle(c)) {
             if (isGlobal) {
               globalBatch.push([
                 item.symbol,
                 formatDateStr(c.date),
-                c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-                c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-                c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-                c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-                c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-                c.volume !== undefined ? Number(c.volume) : 0,
+                Number(c.open.toFixed(4)),
+                Number(c.high.toFixed(4)),
+                Number(c.low.toFixed(4)),
+                Number(c.close.toFixed(4)),
+                c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+                c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
               ]);
             } else {
               indianBatch.push([
                 item.symbol,
                 formatDateStr(c.date),
-                c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-                c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-                c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-                c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-                c.volume !== undefined ? Number(c.volume) : 0,
+                Number(c.open.toFixed(4)),
+                Number(c.high.toFixed(4)),
+                Number(c.low.toFixed(4)),
+                Number(c.close.toFixed(4)),
+                c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
               ]);
             }
           }
@@ -597,27 +624,27 @@ export async function reconcileHistoricalData(options = {}) {
 
         if (rawCandles && rawCandles.length > 0) {
           for (const c of rawCandles) {
-            if (c.close !== undefined && c.close !== null) {
+            if (c && !isPhantomOrUnopenedCandle(c)) {
               if (isGlobal) {
                 globalBatch.push([
                   item.symbol,
                   formatDateStr(c.date),
-                  c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-                  c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-                  c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-                  c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-                  c.adjClose !== undefined ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-                  c.volume !== undefined ? Number(c.volume) : 0,
+                  Number(c.open.toFixed(4)),
+                  Number(c.high.toFixed(4)),
+                  Number(c.low.toFixed(4)),
+                  Number(c.close.toFixed(4)),
+                  c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
+                  c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
                 ]);
               } else {
                 indianBatch.push([
                   item.symbol,
                   formatDateStr(c.date),
-                  c.open !== undefined ? Number(c.open.toFixed(4)) : null,
-                  c.high !== undefined ? Number(c.high.toFixed(4)) : null,
-                  c.low !== undefined ? Number(c.low.toFixed(4)) : null,
-                  c.close !== undefined ? Number(c.close.toFixed(4)) : null,
-                  c.volume !== undefined ? Number(c.volume) : 0,
+                  Number(c.open.toFixed(4)),
+                  Number(c.high.toFixed(4)),
+                  Number(c.low.toFixed(4)),
+                  Number(c.close.toFixed(4)),
+                  c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
                 ]);
               }
             }

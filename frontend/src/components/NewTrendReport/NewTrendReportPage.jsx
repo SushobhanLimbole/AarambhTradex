@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./NewTrendReportPage.css";
 import trendReportService from "../../services/trendReportService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { getConditionalActionDate, formatDateDisplay } from "../../utils/dateUtils.js";
 import SearchableSelect from "../Common/SearchableSelect.jsx";
 
 const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"];
 
-// Preset indices matching screenshot exactly with default stock counts
+// Preset indices with stock counts
 const PRESET_INDICES = [
   { value: "COMMODITY-IND", label: "COMMODITY-IND (9 stocks)", count: 9 },
   { value: "CRYPTO", label: "CRYPTO (11 stocks)", count: 11 },
@@ -36,16 +37,46 @@ const PRESET_INDICES = [
   { value: "TOP 500", label: "TOP 500 (500 stocks)", count: 500 },
 ];
 
-export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBack }) {
+const getTriggerClass = (trigger) => {
+  if (!trigger) return "trigger-badge-yellow";
+  const t = String(trigger).toUpperCase();
+  if (t.startsWith("Y")) return "trigger-badge-yellow";
+  if (t.startsWith("G")) return "trigger-badge-green";
+  if (t.startsWith("R")) return "trigger-badge-red";
+  return "trigger-badge-yellow";
+};
+
+const getPointerBadgeColor = (pointer) => {
+  if (!pointer || pointer === "—" || pointer === "FALSE") return "pointer-neutral";
+  const p = String(pointer).toUpperCase();
+  if (p.includes("TABLE TENNIS")) return "pointer-blue";
+  if (p.includes("TABLE TOP")) return "pointer-purple";
+  if (p.includes("UPWARD ROTATION")) return "pointer-cyan";
+  if (p.includes("RISING JACK") || p.includes("BUYING")) return "pointer-emerald";
+  if (p.includes("FALLING DUCK") || p.includes("SELLING")) return "pointer-amber";
+  return "pointer-indigo";
+};
+
+export default function NewTrendReportPage({
+  onOpenStrategy,
+  onOpenPointer,
+  onOpenStockAnalytics,
+  onBack,
+}) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("NIFTY 50");
   const [timeframe, setTimeframe] = useState("Daily");
-  const [actionDate, setActionDate] = useState("");
+
+  // Conditional Date Logic: 6:00 PM or later = today's date; before 6:00 PM = previous working day
+  const [actionDate, setActionDate] = useState(() => getConditionalActionDate());
   const [mode, setMode] = useState("set1"); // 'set1' (RUN) or 'set2' (ADV)
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("date"); // 'date' | 'ticker' | 'status' | 'pointer' | 'price'
+  const [sortOrder, setSortOrder] = useState("desc"); // 'asc' | 'desc' (default newest first)
+
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
-  
+
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +92,6 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
             setAvailableExchanges(res.data.exchanges);
           }
           if (Array.isArray(res.data.indicesWithCounts) && res.data.indicesWithCounts.length > 0) {
-            // Merge live indices with preset indices
             const liveMap = new Map();
             res.data.indicesWithCounts.forEach((item) => {
               const cleanKey = item.name.toUpperCase().replace(/\s+/g, " ").trim();
@@ -81,7 +111,6 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
               return p;
             });
 
-            // Add any extra indices from DB not in presets
             res.data.indicesWithCounts.forEach((item) => {
               const key = item.name.toUpperCase().replace(/\s+/g, " ").trim();
               const exists = merged.some((m) => m.value.toUpperCase() === key);
@@ -95,17 +124,10 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
             });
 
             setIndexOptions(merged);
-          } else if (Array.isArray(res.data.indices) && res.data.indices.length > 0) {
-            const dynamicList = res.data.indices.map((idx) => ({
-              value: idx,
-              label: `${idx.toUpperCase()} (${idx.length * 2} stocks)`,
-              count: 0,
-            }));
-            setIndexOptions(dynamicList);
           }
         }
       } catch (e) {
-        console.warn("Meta load:", e);
+        console.warn("Meta load warning:", e);
       }
     }
     loadMeta();
@@ -154,31 +176,108 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
     }
   }, [exchange, indexVal, timeframe, actionDate, mode]);
 
-  // Load initial scan
+  // Load initial scan on filter change
   useEffect(() => {
     handleRunScan("set1");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exchange, indexVal, timeframe]);
 
+  // Handle column header sort toggle
+  const handleHeaderSort = (columnKey) => {
+    if (sortBy === columnKey) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(columnKey);
+      setSortOrder(columnKey === "date" ? "desc" : "asc");
+    }
+  };
+
+  // Filter and sort data (Default: newest date first)
+  const processedData = useMemo(() => {
+    let list = [...reportData];
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((r) => {
+        const sym = stripSymbolSuffix(r.symbol).toLowerCase();
+        const pointer = String(r.monthlyPointer || "").toLowerCase();
+        const trend = String(r.currTrend || "").toLowerCase();
+        return sym.includes(q) || pointer.includes(q) || trend.includes(q);
+      });
+    }
+
+    // Sort list
+    list.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === "date") {
+        const tA = a.rawTrendDate ? new Date(a.rawTrendDate).getTime() : 0;
+        const tB = b.rawTrendDate ? new Date(b.rawTrendDate).getTime() : 0;
+        comparison = tB - tA; // Newest first
+        if (comparison === 0) {
+          comparison = a.symbol.localeCompare(b.symbol);
+        }
+        return sortOrder === "asc" ? -comparison : comparison;
+      } else if (sortBy === "ticker") {
+        comparison = a.symbol.localeCompare(b.symbol);
+      } else if (sortBy === "status") {
+        comparison = String(a.currTrend || "").localeCompare(String(b.currTrend || ""));
+      } else if (sortBy === "pointer") {
+        comparison = String(a.monthlyPointer || "").localeCompare(String(b.monthlyPointer || ""));
+      } else if (sortBy === "price") {
+        comparison = (Number(a.price) || 0) - (Number(b.price) || 0);
+      }
+
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
+    return list;
+  }, [reportData, searchQuery, sortBy, sortOrder]);
+
+  // Navigation handler to route directly to Data Summary page
+  const handleStockClick = (row) => {
+    const cleanSym = stripSymbolSuffix(row.symbol);
+    if (onOpenStockAnalytics) {
+      onOpenStockAnalytics({
+        symbol: row.symbol,
+        exchange: row.exchange || exchange || "NSE",
+        indice: indexVal || "ALL",
+        timeframe: timeframe || "Daily",
+      });
+    } else if (onOpenStrategy) {
+      onOpenStrategy({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    } else if (onOpenPointer) {
+      onOpenPointer({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    }
+  };
+
   return (
     <div className="new-trend-report-wrapper">
-      {/* TOP CONTROL TOOLBAR (MATCHING SCREENSHOT 1) */}
+      {/* TOP CONTROL TOOLBAR */}
       <div className="ntr-top-toolbar">
         {onBack && (
           <button
             type="button"
             className="ntr-back-btn"
             onClick={onBack}
-            title="Return to 8 Report Cards Hub"
+            title="Return to Report Cards Hub"
           >
             ← Back to Report Cards
           </button>
         )}
 
-        <div className="ntr-title-brand">
+        {/* <div className="ntr-title-brand">
           <span className="ntr-logo-icon">📈</span>
-          <span className="ntr-brand-text">New Trend Scanner</span>
-        </div>
+          <span className="ntr-brand-text">Trend Scanner &amp; Monthly Pointer</span>
+        </div> */}
 
         {/* EXCHANGE */}
         <div className="ntr-control-item" style={{ minWidth: 110 }}>
@@ -191,7 +290,7 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
           />
         </div>
 
-        {/* INDEX WITH EXACT "NAME (X STOCKS)" FORMAT */}
+        {/* INDEX */}
         <div className="ntr-control-item ntr-wide-item" style={{ minWidth: 240 }}>
           <label className="ntr-label">Index</label>
           <SearchableSelect
@@ -213,7 +312,7 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
           />
         </div>
 
-        {/* ACTION DATE */}
+        {/* ACTION DATE (CONDITIONAL DEFAULT APPLIED) */}
         <div className="ntr-control-item">
           <label className="ntr-label">Action Date</label>
           <input
@@ -221,10 +320,11 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
             className="ntr-input"
             value={actionDate}
             onChange={(e) => setActionDate(e.target.value)}
+            title="Defaults to today's date if after 6:00 PM, or previous working day if before 6:00 PM"
           />
         </div>
 
-        {/* ACTION BUTTONS (RUN SET#1 & ADV SET#2) */}
+        {/* ACTION BUTTONS */}
         <div className="ntr-btn-group">
           <button
             type="button"
@@ -233,18 +333,6 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
             disabled={loading}
           >
             <span className="ntr-btn-main">RUN</span>
-            <span className="ntr-btn-sub">SET #1</span>
-          </button>
-
-          <button
-            type="button"
-            className={`ntr-btn ntr-btn-adv ${mode === "set2" ? "active" : ""}`}
-            onClick={() => handleRunScan("set2")}
-            disabled={loading}
-            title="Advanced Multi-Timeframe Trend Alignment Filter"
-          >
-            <span className="ntr-btn-main">ADV</span>
-            <span className="ntr-btn-sub">SET #2</span>
           </button>
         </div>
       </div>
@@ -256,101 +344,130 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
         </div>
       )}
 
-      {/* SUMMARY STATS BAR */}
+      {/* SUMMARY STATS & SEARCH BAR */}
       <div className="ntr-stats-bar">
         <div className="ntr-stat-item">
           <span className="ntr-stat-label">Total Stocks:</span>
           <span className="ntr-stat-val">{stats.total}</span>
         </div>
         <div className="ntr-stat-item">
-          <span className="ntr-stat-label">Up-Trends:</span>
+          <span className="ntr-stat-label">HLC HIGHER:</span>
           <span className="ntr-stat-val text-green">{stats.upTrends}</span>
         </div>
         <div className="ntr-stat-item">
-          <span className="ntr-stat-label">Down-Trends:</span>
+          <span className="ntr-stat-label">HLC LOWER:</span>
           <span className="ntr-stat-val text-red">{stats.downTrends}</span>
         </div>
-        <div className="ntr-stat-item">
-          <span className="ntr-stat-label">High Power:</span>
-          <span className="ntr-stat-val text-blue">{stats.highPower}</span>
+
+        {/* SEARCH BOX */}
+        <div className="ntr-search-wrapper">
+          <input
+            type="text"
+            placeholder="Search symbol, pointer, status..."
+            className="ntr-search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="ntr-search-clear"
+              onClick={() => setSearchQuery("")}
+            >
+              ×
+            </button>
+          )}
         </div>
+
         <div className="ntr-stat-badge">
-          <span>HLC HIGHER / LOWER • FOR ALL TIMEFRAMES</span>
+          <span>HLC HIGHER / LOWER • MONTHLY POINTER &amp; YGR BREAKOUT</span>
         </div>
       </div>
 
-      {/* DATA TABLE (MATCHING SCREENSHOT 1 & 2) */}
+      {/* DATA TABLE */}
       <div className="ntr-table-card">
         <div className="ntr-table-scroll">
           <table className="ntr-table">
             <thead>
               <tr>
                 <th className="th-sr">SR.</th>
-                <th className="th-ticker">TICKER</th>
-                <th className="th-trend">CURR TREND</th>
-                <th className="th-date">TREND DATE</th>
-                <th className="th-area">AREA</th>
-                <th className="th-slot">SLOT</th>
-                <th className="th-power">POWER</th>
-                <th className="th-htrltr">HTR-LTR</th>
-                <th className="th-htftrend">HTF TREND</th>
-                <th className="th-htfdate">HTF TREND DATE</th>
-                <th className="th-htfarea">HTF AREA</th>
+                <th
+                  className="th-ticker sortable-th"
+                  onClick={() => handleHeaderSort("ticker")}
+                  title="Click to sort by ticker"
+                >
+                  TICKER {sortBy === "ticker" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-trend sortable-th"
+                  onClick={() => handleHeaderSort("status")}
+                  title="Click to sort by status"
+                >
+                  CURR STATUS {sortBy === "status" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-date sortable-th"
+                  onClick={() => handleHeaderSort("date")}
+                  title="Click to sort by date (default: newest first)"
+                >
+                  STATUS DATE {sortBy === "date" && (sortOrder === "desc" ? "▼ (Newest)" : "▲ (Oldest)")}
+                </th>
+                <th
+                  className="th-pointer sortable-th"
+                  onClick={() => handleHeaderSort("pointer")}
+                  title="Displays stock's pointer type from the previous month"
+                >
+                  MONTHLY POINTER {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th className="th-ygr" title="Monthly timeframe pointer type values (Y, G, R) compared against today's closing price">
+                  ygr
+                </th>
+                <th
+                  className="th-price sortable-th"
+                  onClick={() => handleHeaderSort("price")}
+                  title="Click to sort by CMP close price"
+                >
+                  CMP CLOSE {sortBy === "price" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="ntr-empty-cell">
+                  <td colSpan={7} className="ntr-empty-cell">
                     <div className="ntr-loading-box">
                       <span className="ntr-spinner">⏳</span>
-                      <span>Calculating HLC Higher &amp; Lower Trend Scanner Matrices...</span>
+                      <span>Calculating Trend Matrices, Monthly Pointers &amp; YGR Comparisons...</span>
                     </div>
                   </td>
                 </tr>
-              ) : reportData.length === 0 ? (
+              ) : processedData.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="ntr-empty-cell">
+                  <td colSpan={7} className="ntr-empty-cell">
                     <div className="ntr-loading-box">
                       <span className="ntr-spinner">📊</span>
-                      <span>No trend records matched the criteria. Click RUN SET #1 to scan all symbols.</span>
+                      <span>No trend records matched the criteria. Click RUN to scan all symbols.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                reportData.map((row, idx) => {
+                processedData.map((row, idx) => {
                   const cleanSym = stripSymbolSuffix(row.symbol);
                   const isUpTrend = row.currTrend === "UP-TREND";
                   const isDownTrend = row.currTrend === "DOWN-TREND";
-
-                  const isHtfUp = row.htfTrend === "UP-TREND";
-                  const isHtfDown = row.htfTrend === "DOWN-TREND";
+                  const pointerBadgeClass = getPointerBadgeColor(row.monthlyPointer);
 
                   return (
                     <tr key={row.symbol || idx} className="ntr-row">
                       {/* SR */}
                       <td className="td-sr">{idx + 1}</td>
 
-                      {/* TICKER */}
+                      {/* TICKER (CLICK ROUTES TO DATA SUMMARY PAGE) */}
                       <td className="td-ticker">
                         <span
                           className="ticker-pill-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            }
-                          }}
-                          title={`Click to open ${cleanSym} Strategy & Pointer matrix`}
+                          onClick={() => handleStockClick(row)}
+                          title={`Click to open ${cleanSym} Data Summary & Analytics`}
                         >
                           {cleanSym}
                         </span>
@@ -358,51 +475,70 @@ export default function NewTrendReportPage({ onOpenStrategy, onOpenPointer, onBa
 
                       {/* CURR TREND */}
                       <td className="td-trend">
-                        {isUpTrend && <div className="trend-badge badge-green">UP-TREND</div>}
-                        {isDownTrend && <div className="trend-badge badge-red">DOWN-TREND</div>}
+                        {isUpTrend && <div className="trend-badge badge-green">HLC HIGHER</div>}
+                        {isDownTrend && <div className="trend-badge badge-red">HLC LOWER</div>}
                         {!isUpTrend && !isDownTrend && <span className="ntr-muted">—</span>}
                       </td>
 
                       {/* TREND DATE */}
                       <td className="td-date">{row.trendDate || "—"}</td>
 
-                      {/* AREA */}
-                      <td className="td-area">
-                        {row.area === "GREEN" && <span className="area-text area-green">GREEN</span>}
-                        {row.area === "RED" && <span className="area-text area-red">RED</span>}
+                      {/* MONTHLY POINTER (PREVIOUS MONTH POINTER TYPE) */}
+                      <td className="td-pointer">
+                        {row.monthlyPointer && row.monthlyPointer !== "—" ? (
+                          <div className="pointer-cell-group">
+                            <span className={`monthly-pointer-badge ${pointerBadgeClass}`}>
+                              {row.monthlyPointer}
+                            </span>
+                            {row.monthlyPointerDate && row.monthlyPointerDate !== "—" && (
+                              <span className="pointer-date-subtext">
+                                ({row.monthlyPointerDate})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="ntr-muted">—</span>
+                        )}
                       </td>
 
-                      {/* SLOT */}
-                      <td className="td-slot">
-                        {row.slot === "HIGHER" && <span className="slot-text slot-higher">HIGHER</span>}
-                        {row.slot === "LOWER" && <span className="slot-text slot-lower">LOWER</span>}
+                      {/* YGR (MONTHLY TIMEFRAME POINTER VALUES COMPARED TO TODAY'S CLOSE) */}
+                      <td className="td-ygr">
+                        <div className="matched-triggers-cell">
+                          {row.ygr && row.ygr.length > 0 ? (
+                            row.ygr.map((item) => {
+                              const trigClass = getTriggerClass(item.trigger);
+                              const isPositive = item.diffPct >= 0;
+                              return (
+                                <span
+                                  key={`${row.symbol}-${item.trigger}`}
+                                  className={`matched-trigger-tag ${trigClass}`}
+                                  title={`Monthly ${item.trigger} Level: ₹${Number(item.triggerPrice).toFixed(2)} (CMP Close: ₹${Number(row.price || 0).toFixed(2)}, ${isPositive ? "+" : ""}${item.diffPct}%)`}
+                                >
+                                  <strong>{item.trigger}</strong>
+                                  {item.triggerPrice !== undefined && (
+                                    <span className="tag-price">@ ₹{Number(item.triggerPrice).toFixed(2)}</span>
+                                  )}
+                                  {item.diffPct !== undefined && (
+                                    <span className="tag-pct">
+                                      {isPositive ? `+${item.diffPct}%` : `${item.diffPct}%`}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="ntr-muted">—</span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* POWER */}
-                      <td className="td-power">
-                        {row.power === "HIGH" && <span className="power-text power-high">HIGH</span>}
-                        {row.power === "LOW" && <span className="power-text power-low">LOW</span>}
-                      </td>
-
-                      {/* HTR-LTR */}
-                      <td className="td-htrltr">
-                        <span className="htrltr-text">{row.htrLtr || "—"}</span>
-                      </td>
-
-                      {/* HTF TREND */}
-                      <td className="td-htftrend">
-                        {isHtfUp && <div className="trend-badge badge-green">UP-TREND</div>}
-                        {isHtfDown && <div className="trend-badge badge-red">DOWN-TREND</div>}
-                        {!isHtfUp && !isHtfDown && <span className="ntr-muted">—</span>}
-                      </td>
-
-                      {/* HTF TREND DATE */}
-                      <td className="td-htfdate">{row.htfTrendDate || "—"}</td>
-
-                      {/* HTF AREA */}
-                      <td className="td-htfarea">
-                        {row.htfArea === "GREEN" && <span className="area-text area-green">GREEN</span>}
-                        {row.htfArea === "RED" && <span className="area-text area-red">RED</span>}
+                      {/* CMP CLOSE PRICE */}
+                      <td className="td-price">
+                        <span className="price-badge">
+                          {row.price !== null && row.price !== undefined
+                            ? `₹${Number(row.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : "—"}
+                        </span>
                       </td>
                     </tr>
                   );

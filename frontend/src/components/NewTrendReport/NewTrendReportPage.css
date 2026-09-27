@@ -1,7 +1,8 @@
 /* ============================================================
    NEW TREND REPORT / SCANNER - APPLE FINANCIAL DESIGN SYSTEM
-   Matches specification: Top control toolbar with RUN/ADV and
-   full table columns with green/red trend blocks.
+   Matches specification: Top control toolbar with RUN/ADV,
+   Monthly Pointer column, YGR trigger breakout badges,
+   and clean interactive data table.
    ============================================================ */
 
 .new-trend-report-wrapper {
@@ -106,7 +107,7 @@
 }
 
 /* ------------------------------------------------------------
-   ACTION BUTTONS (RUN SET#1 & ADV SET#2)
+   ACTION BUTTONS (RUN SET#1)
    ------------------------------------------------------------ */
 .ntr-btn-group {
   display: flex;
@@ -132,22 +133,17 @@
 .ntr-btn-run {
   background: #2563eb;
   color: #ffffff;
+  padding: 8px 18px;
 }
 
-.ntr-btn-run:hover {
+.ntr-btn-run:hover:not(:disabled) {
   background: #1d4ed8;
   transform: translateY(-1px);
 }
 
-.ntr-btn-adv {
-  background: #f59e0b;
-  color: #0f172a;
-}
-
-.ntr-btn-adv:hover {
-  background: #d97706;
-  color: #ffffff;
-  transform: translateY(-1px);
+.ntr-btn-run:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .ntr-btn-main {
@@ -156,19 +152,13 @@
   letter-spacing: 0.5px;
 }
 
-.ntr-btn-sub {
-  font-size: 9.5px;
-  font-weight: 700;
-  opacity: 0.9;
-}
-
 /* ------------------------------------------------------------
-   STATS & SUMMARY BAR
+   STATS & SEARCH BAR
    ------------------------------------------------------------ */
 .ntr-stats-bar {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -199,6 +189,51 @@
 .text-green { color: #16a34a !important; }
 .text-red { color: #dc2626 !important; }
 .text-blue { color: #2563eb !important; }
+
+/* Search Box in Stats Bar */
+.ntr-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ntr-search-input {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  font-family: inherit;
+  width: 220px;
+  transition: all 0.2s ease;
+}
+
+.ntr-search-input:focus {
+  background: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  width: 260px;
+}
+
+.ntr-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.ntr-search-clear:hover {
+  color: #475569;
+}
 
 .ntr-stat-badge {
   margin-left: auto;
@@ -264,6 +299,17 @@
   border-right: none;
 }
 
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease;
+}
+
+.sortable-th:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+}
+
 /* Body Rows */
 .ntr-row {
   border-bottom: 1px solid #f1f5f9;
@@ -279,7 +325,7 @@
 }
 
 .ntr-table td {
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-right: 1px solid #f1f5f9;
   white-space: nowrap;
   vertical-align: middle;
@@ -301,34 +347,39 @@
   font-weight: 800;
   text-align: left;
   padding-left: 14px !important;
+  min-width: 130px;
 }
 
 .ticker-pill-link {
   color: #1d4ed8;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
+  font-weight: 800;
+  font-size: 13px;
   transition: all 0.12s ease;
+  display: inline-block;
 }
 
 .ticker-pill-link:hover {
   background: #eff6ff;
+  color: #0284c7;
   text-decoration: underline;
+  transform: translateX(2px);
 }
 
-/* Trend Badges (Full width solid colors matching screenshot) */
-.td-trend,
-.td-htftrend {
+/* Trend Badges */
+.td-trend {
   padding: 4px 6px !important;
-  min-width: 140px;
+  min-width: 120px;
 }
 
 .trend-badge {
   display: block;
   width: 100%;
-  padding: 6px 0;
+  padding: 5px 0;
   border-radius: 4px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.5px;
   color: #ffffff;
@@ -338,72 +389,163 @@
 }
 
 .badge-green {
-  background: #16a34a; /* Solid Vibrant Green */
+  background: #16a34a;
 }
 
 .badge-red {
-  background: #dc2626; /* Solid Vibrant Red */
+  background: #dc2626;
 }
 
-/* Area Text */
-.area-text {
-  font-weight: 800;
-  font-size: 11.5px;
-  letter-spacing: 0.3px;
-}
-
-.area-green {
-  color: #16a34a;
-}
-
-.area-red {
-  color: #dc2626;
-}
-
-/* Slot Text */
-.slot-text {
-  font-weight: 800;
-  font-size: 11.5px;
-  letter-spacing: 0.3px;
-  color: #0f172a;
-}
-
-.slot-higher {
-  color: #0f172a;
-}
-
-.slot-lower {
-  color: #b91c1c;
-}
-
-/* Power Text */
-.power-text {
-  font-weight: 800;
-  font-size: 11.5px;
-  letter-spacing: 0.3px;
-}
-
-.power-high {
-  color: #0f172a;
-}
-
-.power-low {
-  color: #b91c1c;
-}
-
-/* HTR / LTR */
-.htrltr-text {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #1e293b;
-  font-variant-numeric: tabular-nums;
-}
-
-.td-date,
-.td-htfdate {
-  font-size: 11.5px;
+.td-date {
+  font-size: 12px;
   font-weight: 700;
   color: #475569;
+  min-width: 105px;
+}
+
+/* Monthly Pointer Column */
+.td-pointer {
+  min-width: 160px;
+  text-align: center;
+}
+
+.pointer-cell-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.monthly-pointer-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.pointer-blue {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.pointer-purple {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.pointer-cyan {
+  background: #cffafe;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.pointer-emerald {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.pointer-amber {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.pointer-indigo {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+.pointer-neutral {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.pointer-date-subtext {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* YGR Breakout Column (Matching Pointer Breakout Report Design) */
+.td-ygr {
+  min-width: 280px;
+  text-align: left;
+}
+
+.matched-triggers-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.matched-trigger-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+}
+
+.matched-trigger-tag.trigger-badge-yellow {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+
+.matched-trigger-tag.trigger-badge-green {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.matched-trigger-tag.trigger-badge-red {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.tag-price {
+  font-weight: 700;
+  font-size: 10.5px;
+  opacity: 0.88;
+}
+
+.tag-pct {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 4px;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 4px;
+}
+
+/* CMP Price Column */
+.td-price {
+  min-width: 105px;
+  text-align: right;
+  padding-right: 14px !important;
+}
+
+.price-badge {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #f8fafc;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 }
 
 .ntr-muted {

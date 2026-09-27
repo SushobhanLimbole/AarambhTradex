@@ -157,6 +157,34 @@
   border-color: #93c5fd;
 }
 
+.btn-copy-excel {
+  height: 42px;
+  background: #f0fdf4;
+  color: #16a34a;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-copy-excel:hover:not(:disabled) {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.btn-copy-excel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* BANNER HEADER (MATCHING SCREENSHOT 1) */
 .software-banner {
   background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
@@ -312,6 +340,17 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.apple-table th,
+.apple-table td,
+.apple-table tr,
+.apple-table span,
+.apple-table div {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .apple-table thead {
@@ -324,23 +363,24 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #f8fafc;
+  background: #0f172a;
 }
 
 .apple-table th {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #f8fafc;
-  padding: 13px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #475569;
+  background: #0f172a;
+  padding: 12px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ffffff;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid #e2e8f0;
-  border-right: 1px solid #f1f5f9;
+  border-bottom: 2px solid #1e293b;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap;
-  box-shadow: 0 1px 0 #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  text-transform: uppercase;
 }
 
 .apple-table th:last-child {
@@ -350,6 +390,7 @@
 .apple-table td {
   padding: 14px 16px;
   font-size: 13.5px;
+  font-weight: 600;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
@@ -368,8 +409,20 @@
   background-color: #f1f5f9 !important;
 }
 
+/* Enforce font-weight: 600 across all table elements */
+.apple-table,
+.apple-table th,
+.apple-table td,
+.apple-table tr,
+.apple-table span,
+.apple-table div,
+.apple-table b,
+.apple-table strong {
+  font-weight: 600 !important;
+}
+
 .serial-col {
-  font-weight: 700;
+  font-weight: 600;
   color: #64748b;
 }
 
@@ -390,7 +443,7 @@
   justify-content: center;
   padding: 4px 10px;
   border-radius: 8px;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.2px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -425,7 +478,7 @@
   padding: 5px 12px;
   border-radius: 8px;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.3px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -467,7 +520,7 @@
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.3px;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -481,13 +534,13 @@
 .pointer-code {
   display: inline-block;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 1px 5px;
   border-radius: 4px;
 }
 
 .pointer-name {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .pointer-arrow {
@@ -549,7 +602,7 @@
   padding: 3px 9px;
   border-radius: 6px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.3px;
   text-align: center;
   white-space: nowrap;
@@ -614,15 +667,15 @@
 
 /* FLOOR & CEILING columns */
 .metric-col.floor-val {
-  font-weight: 700;
-  color: #b91c1c;
-  background: rgba(254, 226, 226, 0.25);
+  font-weight: 600;
+  color: #15803d;
+  background: rgba(220, 252, 231, 0.25);
 }
 
 .metric-col.ceiling-val {
-  font-weight: 700;
-  color: #15803d;
-  background: rgba(220, 252, 231, 0.25);
+  font-weight: 600;
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.25);
 }
 
 .legend-pill.virgin-pill {

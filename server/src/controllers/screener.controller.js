@@ -1,6 +1,13 @@
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import ExcelJS from "exceljs";
 import pool from "../config/mysql.js";
 import { calculateTrigger } from "../services/screenerFormula.js";
 import { calculateStrategyData } from "../services/strategyFormula.service.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Stock Market Screener Controller (Breakout Report)
@@ -44,11 +51,12 @@ function aggregatePeriodCandle(rows) {
   }
 
   const close = Number(rows[rows.length - 1].close) || 0;
+  const date = rows[rows.length - 1].date ? String(rows[rows.length - 1].date).slice(0, 10) : "";
   // Institutional Formula: Range = High - Low; Average = (High + Low + Close) / 3 (Open is strictly NOT included)
   const range = Number((high - low).toFixed(2));
   const average = Number(((high + low + close) / 3).toFixed(2));
 
-  return { open, high, low, close, volume, range, average };
+  return { open, high, low, close, volume, range, average, date };
 }
 
 /**
@@ -257,6 +265,8 @@ export const runBreakoutScreener = async (req, res, next) => {
           const symMeta = cmp2BySymbol[symbol]?.[0] || cmp1BySymbol[symbol]?.[0];
           detailedResults.push({
             symbol,
+            date: cmp1Candle.date || cmp1End,
+            cmp1Date: cmp1Candle.date || cmp1End,
             exchange: symMeta?.exchange || exchange || "NSE",
             indice: symMeta?.indice || indice || "",
             cmp1Close: cmp1Candle.close,
@@ -372,5 +382,279 @@ export const runBreakoutScreener = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * POST /api/screener/generate-strategy-sheet
+ * Injects resultant stock OHLC into base pointer.xlsx / strategy.xlsx template pointer sheet.
+ * Retains only the Pointer Matrix and OHLCAR table (removing right table and bottom 5 rows).
+ */
+export const generateStrategySheet = async (req, res, next) => {
+  try {
+    const { symbol, open, high, low, close, average, range, date, timeframe } = req.body || {};
+
+    const templateCandidates = [
+      path.resolve(__dirname, "../data/pointer.xlsx"),
+      path.resolve(__dirname, "../data/strategy.xlsx"),
+      path.resolve(__dirname, "../../../pointer.xlsx"),
+      path.resolve(__dirname, "../../../strategy.xlsx"),
+      path.resolve(__dirname, "../../pointer.xlsx"),
+      path.resolve(__dirname, "../../strategy.xlsx"),
+      path.resolve(process.cwd(), "pointer.xlsx"),
+      path.resolve(process.cwd(), "strategy.xlsx"),
+      path.resolve(process.cwd(), "../pointer.xlsx"),
+      path.resolve(process.cwd(), "../strategy.xlsx"),
+      "/Users/sushobhanlimbole/Projects/mern/aarambh_tradex/pointer.xlsx",
+      "/Users/sushobhanlimbole/Projects/mern/aarambh_tradex/strategy.xlsx",
+    ];
+
+    let templatePath = null;
+    for (const candidate of templateCandidates) {
+      if (fs.existsSync(candidate)) {
+        templatePath = candidate;
+        break;
+      }
+    }
+
+    if (!templatePath) {
+      return res.status(404).json({
+        success: false,
+        message: "Base pointer.xlsx / strategy.xlsx template not found on server.",
+      });
+    }
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(templatePath);
+
+    // Get pointer sheet
+    let ws =
+      wb.getWorksheet("pointer") ||
+      wb.getWorksheet("POINTER") ||
+      wb.worksheets.find((w) => w.name.trim().toLowerCase() === "pointer") ||
+      wb.worksheets[2] ||
+      wb.worksheets[0];
+
+    if (!ws) {
+      return res.status(400).json({
+        success: false,
+        message: "Pointer worksheet not found in template.",
+      });
+    }
+
+    const openVal = Number(open) || 0;
+    const highVal = Number(high) || 0;
+    const lowVal = Number(low) || 0;
+    const closeVal = Number(close) || 0;
+    const avgVal =
+      average !== undefined && average !== null && !isNaN(Number(average))
+        ? Number(average)
+        : Number(((highVal + lowVal + closeVal) / 3).toFixed(2));
+    const rangeVal =
+      range !== undefined && range !== null && !isNaN(Number(range))
+        ? Number(range)
+        : Number((highVal - lowVal).toFixed(2));
+
+    // Put values in row 32 of pointer sheet:
+    // D32 = Open, E32 = High, F32 = Low, G32 = Close, H32 = Average, I32 = Range
+    ws.getCell("D32").value = openVal;
+    ws.getCell("E32").value = highVal;
+    ws.getCell("F32").value = lowVal;
+    ws.getCell("G32").value = closeVal;
+    ws.getCell("H32").value = avgVal;
+    ws.getCell("I32").value = rangeVal;
+
+    // Remove the right table and the bottom 5 rows (Columns M [13] onwards)
+    // 1. Unmerge any merges touching columns >= 13 (Column M onwards)
+    if (ws._merges) {
+      const merges = Object.values(ws._merges);
+      for (const m of merges) {
+        if (m.model && (m.model.left >= 13 || m.model.right >= 13)) {
+          try {
+            ws.unmergeCells(m.model.range);
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 2. Clear values and styling from Column M (13) to column 40 across all rows
+    const maxRow = Math.max(ws.rowCount || 0, 100);
+    for (let r = 1; r <= maxRow; r++) {
+      const row = ws.getRow(r);
+      for (let c = 13; c <= 40; c++) {
+        const cell = row.getCell(c);
+        cell.value = null;
+        cell.style = {};
+      }
+    }
+
+    // 3. Remove all other worksheets (e.g. "IMP POINTS", "VIEW ") so ONLY the pointer page is exported
+    const sheetsToRemove = wb.worksheets.filter(
+      (w) => w.name.trim().toLowerCase() !== "pointer"
+    );
+    for (const sheet of sheetsToRemove) {
+      wb.removeWorksheet(sheet.id);
+    }
+
+    // Optional metadata label cell if present
+    const cleanSym = symbol ? String(symbol).replace(/[^a-zA-Z0-9._-]/g, "_") : "Stock";
+    const filename = `Strategy_${cleanSym}_${date || "Analysis"}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error("Error generating strategy excel sheet:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to generate strategy spreadsheet.",
+    });
+  }
+};
+
+/**
+ * POST /api/screener/export-results-excel
+ * Generates an Excel workbook containing all qualifying breakout stocks with columns:
+ * [STOCK NAME, DATE, MATCHED BREAKOUT TRIGGERS, CMP1 CLOSE]
+ */
+export const exportScreenerResultsExcel = async (req, res, next) => {
+  try {
+    const { results, details, date, triggers } = req.body || {};
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Aarambh Tradex";
+    wb.lastModifiedBy = "Aarambh Tradex";
+    wb.created = new Date();
+    wb.modified = new Date();
+
+    const ws = wb.addWorksheet("Breakout Results", {
+      views: [{ showGridLines: true }],
+    });
+
+    // Define the exact 4 requested columns
+    ws.columns = [
+      { header: "STOCK NAME", key: "stockName", width: 22 },
+      { header: "DATE", key: "date", width: 16 },
+      { header: "MATCHED BREAKOUT TRIGGERS", key: "matchedTriggers", width: 34 },
+      { header: "CMP1 CLOSE", key: "cmp1Close", width: 18 },
+    ];
+
+    // Style Header Row (Row 1)
+    const headerRow = ws.getRow(1);
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF0F172A" }, // Dark Slate
+      };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF334155" } },
+        left: { style: "thin", color: { argb: "FF334155" } },
+        bottom: { style: "medium", color: { argb: "FF1E293B" } },
+        right: { style: "thin", color: { argb: "FF334155" } },
+      };
+    });
+
+    const items = Array.isArray(details) && details.length > 0
+      ? details
+      : Array.isArray(results)
+      ? results.map((s) => ({ symbol: s }))
+      : [];
+
+    items.forEach((item, idx) => {
+      const cleanStockName = item.symbol
+        ? String(item.symbol).replace(/\.(NS|BO)$/i, "")
+        : item.stockName || "—";
+      const dateVal = item.date || item.cmp1Date || date || "—";
+
+      let matchedStr = "";
+      if (Array.isArray(item.matchedTriggers) && item.matchedTriggers.length > 0) {
+        matchedStr = item.matchedTriggers
+          .map((m) => {
+            if (m.triggerPrice && m.pctBreakout !== undefined) {
+              return `${m.trigger} (@ ₹${m.triggerPrice}, +${m.pctBreakout}%)`;
+            }
+            return m.trigger || m;
+          })
+          .join(", ");
+      } else if (item.matchedTriggers) {
+        matchedStr = String(item.matchedTriggers);
+      } else if (Array.isArray(triggers) && triggers.length > 0) {
+        matchedStr = triggers.join(", ");
+      } else {
+        matchedStr = "Breakout Match";
+      }
+
+      const cmp1CloseVal =
+        item.cmp1Close !== undefined && item.cmp1Close !== null && !isNaN(Number(item.cmp1Close))
+          ? Number(Number(item.cmp1Close).toFixed(2))
+          : item.close !== undefined && item.close !== null && !isNaN(Number(item.close))
+          ? Number(Number(item.close).toFixed(2))
+          : "—";
+
+      const row = ws.addRow({
+        stockName: cleanStockName,
+        date: dateVal,
+        matchedTriggers: matchedStr,
+        cmp1Close: cmp1CloseVal,
+      });
+
+      row.height = 22;
+      const isEven = idx % 2 === 0;
+
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: "Calibri", size: 10.5, bold: colNumber === 1 };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isEven ? "FFFFFFFF" : "FFF8FAFC" },
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } },
+        };
+
+        if (colNumber === 1) {
+          cell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+        } else if (colNumber === 2) {
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        } else if (colNumber === 3) {
+          cell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+        } else if (colNumber === 4) {
+          cell.alignment = { vertical: "middle", horizontal: "right" };
+          if (typeof cell.value === "number") {
+            cell.numFmt = "#,##0.00";
+          }
+        }
+      });
+    });
+
+    const fileDate = date || new Date().toISOString().slice(0, 10);
+    const filename = `Breakout_Results_${fileDate}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error("Error exporting screener results to excel:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to export breakout results.",
+    });
   }
 };
