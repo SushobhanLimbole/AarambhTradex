@@ -1,12 +1,15 @@
 import pool from "../config/mysql.js";
 import { StockDataModel } from "../models/stockData.model.js";
 import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js";
+import { calculateStrategyData } from "../services/strategyFormula.service.js";
 
 /**
  * Controller for New Trend Report (Trend Scanner)
  * Computes:
  * - Current Trend (UP-TREND / DOWN-TREND) based on HLC HIGHER / LOWER
  * - Trend Date (When current trend was established)
+ * - Monthly Pointer (Previous Month's Pointer Type, e.g., for Sep 2026 record, August 2026 pointer)
+ * - YGR Comparison (Comparison of monthly timeframe Y, G, R levels against today's closing price)
  * - Area (GREEN / RED)
  * - Slot (HIGHER / LOWER)
  * - Power (HIGH / LOW)
@@ -41,6 +44,49 @@ const formatDateOutput = (dStr) => {
 };
 
 /**
+ * Map monthly pointer scenario to corresponding Y, G, R trigger codes and levels
+ */
+function getYgrTriggersForScenario(scenario, triggers) {
+  const norm = String(scenario || "").trim().toUpperCase();
+  const yList = triggers?.yellow || {};
+  const gList = triggers?.green || {};
+  const rList = triggers?.red || {};
+
+  let yCode = "Y1", yVal = yList.Y1;
+  let gCode = "G1", gVal = gList.G1;
+  let rCode = "R1", rVal = rList.R1;
+
+  if (norm === "TABLE TENNIS") {
+    yCode = "Y2"; yVal = yList.Y2;
+    gCode = "G2"; gVal = gList.G2;
+    rCode = "R2"; rVal = rList.R2;
+  } else if (norm === "BUYING POINTER" || norm === "RISING JACK") {
+    yCode = "Y3"; yVal = yList.Y3;
+    gCode = "G3"; gVal = gList.G3;
+    rCode = "R3"; rVal = rList.R3;
+  } else if (norm === "TABLE TOP") {
+    yCode = "Y4"; yVal = yList.Y4 || yList.Y1;
+    gCode = "G2"; gVal = gList.G2;
+    rCode = "R4"; rVal = rList.R4 || rList.R2;
+  } else if (norm === "SELLING POINTER" || norm === "FALLING DUCK" || norm === "UPWARD ROTATION") {
+    yCode = "Y1"; yVal = yList.Y1;
+    gCode = "G1"; gVal = gList.G1;
+    rCode = "R1"; rVal = rList.R1;
+  } else {
+    // Default fallback
+    yCode = "Y1"; yVal = yList.Y1;
+    gCode = "G1"; gVal = gList.G1;
+    rCode = "R2"; rVal = rList.R2 || rList.R1;
+  }
+
+  return [
+    { trigger: yCode, triggerPrice: Number(yVal) || 0, colorKey: "yellow" },
+    { trigger: gCode, triggerPrice: Number(gVal) || 0, colorKey: "green" },
+    { trigger: rCode, triggerPrice: Number(rVal) || 0, colorKey: "red" },
+  ];
+}
+
+/**
  * Evaluates HLC trend sequence on an array of ascending candles
  */
 function evaluateTrendSequence(candles) {
@@ -48,6 +94,7 @@ function evaluateTrendSequence(candles) {
     return {
       trend: "—",
       trendDate: "—",
+      rawTrendDate: null,
       area: "",
       slot: "",
       power: "",
@@ -209,14 +256,18 @@ export const getNewTrendReport = async (req, res, next) => {
     }
 
     const matchedSymbols = symbolRows.map((r) => r.symbol);
+    const symbolExchangeMap = new Map();
+    symbolRows.forEach((r) => {
+      symbolExchangeMap.set(r.symbol, r.exchange || exchange || "NSE");
+    });
 
-    // 3. Query historical records for matched symbols (up to past 365 days to calculate trend)
+    // 3. Query historical records for matched symbols (up to past 400 days to calculate trend & monthly pointer)
     const placeholders = matchedSymbols.map(() => "?").join(",");
     let dateCondition = "";
     const queryParams = [...matchedSymbols];
 
     if (targetDateStr) {
-      dateCondition = "AND `date` >= DATE_SUB(?, INTERVAL 365 DAY) AND `date` <= ?";
+      dateCondition = "AND `date` >= DATE_SUB(?, INTERVAL 400 DAY) AND `date` <= ?";
       queryParams.push(targetDateStr, targetDateStr);
     }
 
@@ -246,6 +297,10 @@ export const getNewTrendReport = async (req, res, next) => {
       const symDaily = candlesBySymbol.get(sym);
       if (!symDaily || symDaily.length < 2) continue;
 
+      const lastDaily = symDaily[symDaily.length - 1];
+      const lastDailyClose = Number(lastDaily.close) || 0;
+      const lastDateStr = typeof lastDaily.date === "string" ? lastDaily.date.slice(0, 10) : new Date(lastDaily.date).toISOString().slice(0, 10);
+
       // Resample for Current Timeframe
       let currCandles = symDaily;
       if (String(timeframe).toLowerCase() !== "daily") {
@@ -265,16 +320,80 @@ export const getNewTrendReport = async (req, res, next) => {
 
       const htrLtrStr = formatHtrLtr(currEval.htr, currEval.ltr, currEval.trend);
 
-      // Filter for ADV / SET #2 mode if requested (e.g. only stocks where Curr Trend matches HTF Trend or high power)
+      // Filter for ADV / SET #2 mode if requested
       if (mode === "set2" && currEval.trend !== htfEval.trend && !currEval.power) {
         continue;
       }
 
+      // -------------------------------------------------------------
+      // Calculate Previous Month Pointer & YGR Comparison
+      // -------------------------------------------------------------
+      const monthlyCandles = StockDataModel.resampleCandles(symDaily, "Monthly");
+      let monthlyPointer = "—";
+      let monthlyPointerDate = "—";
+      let ygr = [];
+
+      if (monthlyCandles && monthlyCandles.length > 0) {
+        const [yrStr, moStr] = lastDateStr.split("-");
+        const yr = parseInt(yrStr, 10);
+        const mo = parseInt(moStr, 10);
+
+        let prevYr = yr;
+        let prevMo = mo - 1;
+        if (prevMo === 0) {
+          prevMo = 12;
+          prevYr -= 1;
+        }
+        const prevMonthKey = `${prevYr}-${String(prevMo).padStart(2, "0")}`;
+
+        // Find the monthly candle for the previous calendar month
+        let prevMonthCandle = monthlyCandles.find(
+          (c) => c.bucketKey === prevMonthKey || (c.date && String(c.date).startsWith(prevMonthKey))
+        );
+
+        if (!prevMonthCandle && monthlyCandles.length >= 2) {
+          const lastMonth = monthlyCandles[monthlyCandles.length - 1];
+          if (lastMonth.bucketKey === `${yrStr}-${moStr}`) {
+            prevMonthCandle = monthlyCandles[monthlyCandles.length - 2];
+          } else {
+            prevMonthCandle = lastMonth;
+          }
+        }
+
+        if (prevMonthCandle) {
+          const prevStrategy = calculateStrategyData(prevMonthCandle);
+          const scenario = prevStrategy.conditions?.scenario;
+          if (scenario && scenario !== "FALSE") {
+            monthlyPointer = scenario;
+          }
+          monthlyPointerDate = formatDateOutput(prevMonthCandle.date || prevMonthCandle.endDate);
+
+          // Calculate YGR comparison against today's closing price
+          const ygrTriggers = getYgrTriggersForScenario(monthlyPointer, prevStrategy.triggers);
+          ygr = ygrTriggers.map((t) => {
+            const triggerPrice = Number(t.triggerPrice) || 0;
+            const diffPct = triggerPrice > 0
+              ? Number((((lastDailyClose - triggerPrice) / triggerPrice) * 100).toFixed(2))
+              : 0;
+            return {
+              trigger: t.trigger,
+              triggerPrice,
+              diffPct,
+              colorKey: t.colorKey,
+            };
+          });
+        }
+      }
+
       results.push({
         symbol: sym,
+        exchange: symbolExchangeMap.get(sym) || exchange || "NSE",
         currTrend: currEval.trend,
         trendDate: currEval.trendDate,
         rawTrendDate: currEval.rawTrendDate,
+        monthlyPointer,
+        monthlyPointerDate,
+        ygr,
         area: currEval.area,
         slot: currEval.slot,
         power: currEval.power,
@@ -283,9 +402,19 @@ export const getNewTrendReport = async (req, res, next) => {
         htfTrendDate: htfEval.trendDate,
         rawHtfTrendDate: htfEval.rawTrendDate,
         htfArea: htfEval.area,
-        price: currEval.lastCandle ? Number(currEval.lastCandle.close) : null,
+        price: currEval.lastCandle ? Number(currEval.lastCandle.close) : lastDailyClose,
       });
     }
+
+    // Default Sorting: Filter stocks by date, ordering newest first
+    results.sort((a, b) => {
+      const timeA = a.rawTrendDate ? new Date(a.rawTrendDate).getTime() : 0;
+      const timeB = b.rawTrendDate ? new Date(b.rawTrendDate).getTime() : 0;
+      if (timeB !== timeA) {
+        return timeB - timeA; // Newest first
+      }
+      return a.symbol.localeCompare(b.symbol);
+    });
 
     return res.status(200).json({
       success: true,
