@@ -102,7 +102,13 @@ export const strategyCalculationService = {
       };
 
       const highCond = evalBand(h);
-      const lowCond = evalBand(l);
+      let adjC = c;
+      if (Math.abs(h - c) < 0.0001) {
+        adjC = c - 0.05;
+      } else if (Math.abs(l - c) < 0.0001) {
+        adjC = c + 0.05;
+      }
+
       const evalScenario = (hVal, lVal, cVal) => {
         const rVal = Math.max(0, hVal - lVal);
         const rm14 = cVal + rVal * 0.146;
@@ -122,10 +128,7 @@ export const strategyCalculationService = {
         return "FALSE";
       };
 
-      let detectedScenario = evalScenario(h, l, c);
-      if (detectedScenario === "FALSE") {
-        detectedScenario = evalScenario(h + 0.05, l + 0.05, c);
-      }
+      let detectedScenario = evalScenario(h, l, adjC);
 
       return {
         success: true,

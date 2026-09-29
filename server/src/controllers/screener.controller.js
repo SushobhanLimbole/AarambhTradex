@@ -3,7 +3,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import ExcelJS from "exceljs";
 import pool from "../config/mysql.js";
-import { calculateTrigger } from "../services/screenerFormula.js";
+import { calculateTrigger, evaluateScreenerTrigger } from "../services/screenerFormula.js";
 import { calculateStrategyData } from "../services/strategyFormula.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -247,16 +247,15 @@ export const runBreakoutScreener = async (req, res, next) => {
           }
         }
 
-        // 3. Check breakout above selected trigger levels
+        // 3. Check trigger qualification according to institutional rules:
+        // Y group: stocks qualify if CMP1 Close > Y trigger level
+        // R group: stocks qualify if CMP1 Close < R trigger level
+        // G group: stocks qualify if CMP1 Close is between corresponding Y and R group thresholds (R <= CMP1 Close <= Y)
         const matchedTriggers = [];
         for (const trig of triggerList) {
-          const triggerPrice = calculateTrigger(cmp2Candle, pattern, trig);
-          if (triggerPrice !== null && cmp1Candle.close > triggerPrice) {
-            matchedTriggers.push({
-              trigger: trig,
-              triggerPrice,
-              pctBreakout: Number((((cmp1Candle.close - triggerPrice) / triggerPrice) * 100).toFixed(2)),
-            });
+          const matchResult = evaluateScreenerTrigger(cmp1Candle, cmp2Candle, pattern, trig);
+          if (matchResult) {
+            matchedTriggers.push(matchResult);
           }
         }
 
@@ -288,18 +287,18 @@ export const runBreakoutScreener = async (req, res, next) => {
     } else {
       // Fallback / Demo Screener Results if database is empty/offline
       const DEMO_UNIVERSE = [
-        { symbol: "RELIANCE.NS", cmp1Close: 3020.50, cmp2High: 2950.00, cmp2Low: 2880.00 },
-        { symbol: "TCS.NS", cmp1Close: 4210.00, cmp2High: 4120.00, cmp2Low: 4050.00 },
-        { symbol: "HDFCBANK.NS", cmp1Close: 1680.00, cmp2High: 1640.00, cmp2Low: 1590.00 },
-        { symbol: "INFY.NS", cmp1Close: 1890.25, cmp2High: 1830.00, cmp2Low: 1770.00 },
-        { symbol: "ICICIBANK.NS", cmp1Close: 1240.00, cmp2High: 1210.00, cmp2Low: 1175.00 },
-        { symbol: "BHARTIARTL.NS", cmp1Close: 1560.00, cmp2High: 1505.00, cmp2Low: 1470.00 },
-        { symbol: "SBIN.NS", cmp1Close: 840.50, cmp2High: 815.00, cmp2Low: 790.00 },
-        { symbol: "LT.NS", cmp1Close: 3780.00, cmp2High: 3690.00, cmp2Low: 3580.00 },
-        { symbol: "TATAMOTORS.NS", cmp1Close: 1084.20, cmp2High: 1040.00, cmp2Low: 990.00 },
-        { symbol: "SUNPHARMA.NS", cmp1Close: 1840.00, cmp2High: 1790.00, cmp2Low: 1740.00 },
-        { symbol: "BAJFINANCE.NS", cmp1Close: 7450.00, cmp2High: 7300.00, cmp2Low: 7120.00 },
-        { symbol: "M&M.NS", cmp1Close: 2940.00, cmp2High: 2860.00, cmp2Low: 2780.00 },
+        { symbol: "RELIANCE.NS", cmp1Close: 3020.50, cmp2High: 2950.00, cmp2Low: 2880.00 }, // Y Breakout
+        { symbol: "TCS.NS", cmp1Close: 4085.00, cmp2High: 4120.00, cmp2Low: 4050.00 }, // G Consolidation
+        { symbol: "HDFCBANK.NS", cmp1Close: 1570.00, cmp2High: 1640.00, cmp2Low: 1590.00 }, // R Breakdown
+        { symbol: "INFY.NS", cmp1Close: 1890.25, cmp2High: 1830.00, cmp2Low: 1770.00 }, // Y Breakout
+        { symbol: "ICICIBANK.NS", cmp1Close: 1195.00, cmp2High: 1210.00, cmp2Low: 1175.00 }, // G Consolidation
+        { symbol: "BHARTIARTL.NS", cmp1Close: 1450.00, cmp2High: 1505.00, cmp2Low: 1470.00 }, // R Breakdown
+        { symbol: "SBIN.NS", cmp1Close: 840.50, cmp2High: 815.00, cmp2Low: 790.00 }, // Y Breakout
+        { symbol: "LT.NS", cmp1Close: 3635.00, cmp2High: 3690.00, cmp2Low: 3580.00 }, // G Consolidation
+        { symbol: "TATAMOTORS.NS", cmp1Close: 975.00, cmp2High: 1040.00, cmp2Low: 990.00 }, // R Breakdown
+        { symbol: "SUNPHARMA.NS", cmp1Close: 1840.00, cmp2High: 1790.00, cmp2Low: 1740.00 }, // Y Breakout
+        { symbol: "BAJFINANCE.NS", cmp1Close: 7210.00, cmp2High: 7300.00, cmp2Low: 7120.00 }, // G Consolidation
+        { symbol: "M&M.NS", cmp1Close: 2750.00, cmp2High: 2860.00, cmp2Low: 2780.00 }, // R Breakdown
       ];
 
       for (const item of DEMO_UNIVERSE) {
@@ -307,9 +306,9 @@ export const runBreakoutScreener = async (req, res, next) => {
           open: (item.cmp2High + item.cmp2Low) / 2,
           high: item.cmp2High,
           low: item.cmp2Low,
-          close: item.cmp2High - 10,
+          close: (item.cmp2High + item.cmp2Low) / 2,
           range: item.cmp2High - item.cmp2Low,
-          average: (item.cmp2High + item.cmp2Low + (item.cmp2High - 10)) / 3,
+          average: (item.cmp2High + item.cmp2Low) / 2,
           volume: 1000000,
         };
 
@@ -333,13 +332,9 @@ export const runBreakoutScreener = async (req, res, next) => {
 
         const matchedTriggers = [];
         for (const trig of triggerList) {
-          const triggerPrice = calculateTrigger(dummyCmp2, pattern, trig);
-          if (triggerPrice !== null && item.cmp1Close > triggerPrice) {
-            matchedTriggers.push({
-              trigger: trig,
-              triggerPrice,
-              pctBreakout: Number((((item.cmp1Close - triggerPrice) / triggerPrice) * 100).toFixed(2)),
-            });
+          const matchResult = evaluateScreenerTrigger({ close: item.cmp1Close }, dummyCmp2, pattern, trig);
+          if (matchResult) {
+            matchedTriggers.push(matchResult);
           }
         }
 
@@ -580,7 +575,8 @@ export const exportScreenerResultsExcel = async (req, res, next) => {
         matchedStr = item.matchedTriggers
           .map((m) => {
             if (m.triggerPrice && m.pctBreakout !== undefined) {
-              return `${m.trigger} (@ ₹${m.triggerPrice}, +${m.pctBreakout}%)`;
+              const sign = m.pctBreakout > 0 ? "+" : "";
+              return `${m.trigger} (@ ₹${m.triggerPrice}, ${sign}${m.pctBreakout}%)`;
             }
             return m.trigger || m;
           })

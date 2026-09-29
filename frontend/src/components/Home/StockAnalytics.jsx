@@ -512,6 +512,13 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
           }
         }
 
+        let adjCloseVal = closeVal;
+        if (Math.abs(highVal - closeVal) < 0.0001) {
+          adjCloseVal = closeVal - 0.05;
+        } else if (Math.abs(lowVal - closeVal) < 0.0001) {
+          adjCloseVal = closeVal + 0.05;
+        }
+
         const evalPointer = (hV, lV, cV) => {
           const rV = Math.max(0, hV - lV);
           const rm14 = cV + rV * 0.146;
@@ -537,12 +544,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
           return { pointer: "FALSE", pointerType: "neutral" };
         };
 
-        let pointerResult = evalPointer(highVal, lowVal, closeVal);
-        // If FALSE, adjust high and low by +0.05 to resolve edge boundary
-        if (pointerResult.pointer === "FALSE") {
-          pointerResult = evalPointer(highVal + 0.05, lowVal + 0.05, closeVal);
-        }
-
+        const pointerResult = evalPointer(highVal, lowVal, adjCloseVal);
         pointer = pointerResult.pointer;
         pointerType = pointerResult.pointerType;
 

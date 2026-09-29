@@ -280,12 +280,18 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
     return Number(num.toFixed(2));
   };
 
-  // Pointer Type Calculation using Exact Excel Formula (with +0.05 fallback if FALSE)
+  // Pointer Type Calculation using Exact Excel Formula
   const pointerType = useMemo(() => {
     const o = parseFloat(open) || 0;
     const h = parseFloat(high) || 0;
     const l = parseFloat(low) || 0;
-    const c = parseFloat(close) || 0;
+    let c = parseFloat(close) || 0;
+
+    if (Math.abs(h - c) < 0.0001) {
+      c = c - 0.05;
+    } else if (Math.abs(l - c) < 0.0001) {
+      c = c + 0.05;
+    }
 
     const evalP = (hV, lV, cV) => {
       const r = Math.max(0, hV - lV);
@@ -306,11 +312,7 @@ export default function PointerPage({ initialData, onBack, previousTab = "report
       return "FALSE";
     };
 
-    let res = evalP(h, l, c);
-    if (res === "FALSE") {
-      res = evalP(h + 0.05, l + 0.05, c);
-    }
-    return res;
+    return evalP(h, l, c);
   }, [open, high, low, close]);
 
   // Formatting helper
