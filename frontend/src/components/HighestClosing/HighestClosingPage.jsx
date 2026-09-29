@@ -181,6 +181,33 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
     }, 2000);
   };
 
+  // Open stock analytics data summary page in a new tab with last 6 months data
+  const handleOpenStockAnalyticsInNewTab = (row) => {
+    const fullSym = row.symbol || row.cleanSymbol;
+    if (!fullSym) return;
+
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const formatDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const fromDate = formatDate(sixMonthsAgo);
+    const toDate = formatDate(now);
+    const ex = exchange || "NSE";
+    const ind = indexVal || "ALL";
+    const tf = "Daily";
+
+    const url = `${window.location.origin}${window.location.pathname}?tab=reports&symbol=${encodeURIComponent(fullSym)}&exchange=${encodeURIComponent(ex)}&indice=${encodeURIComponent(ind)}&fromDate=${fromDate}&toDate=${toDate}&timeframe=${tf}#reports`;
+
+    window.open(url, "_blank");
+  };
+
   // CSV Export
   const handleExportCSV = () => {
     if (!filteredData.length) return;
@@ -526,22 +553,8 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
                         <div className="ticker-cell">
                           <span
                             className="ticker-badge-link"
-                            onClick={() => {
-                              if (onOpenStrategy) {
-                                onOpenStrategy({
-                                  symbol: row.symbol,
-                                  script: cleanSym,
-                                  timeframe: "Daily",
-                                });
-                              } else if (onOpenPointer) {
-                                onOpenPointer({
-                                  symbol: row.symbol,
-                                  script: cleanSym,
-                                  timeframe: "Daily",
-                                });
-                              }
-                            }}
-                            title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
+                            onClick={() => handleOpenStockAnalyticsInNewTab(row)}
+                            title={`Open ${cleanSym} Data Summary (Last 6 Months) in New Tab`}
                           >
                             {cleanSym}
                           </span>
@@ -604,6 +617,15 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
                       {/* 8. ACTIONS */}
                       <td className="td-actions">
                         <div className="row-action-btns">
+                          <button
+                            type="button"
+                            className="mini-action-btn analytics-btn"
+                            onClick={() => handleOpenStockAnalyticsInNewTab(row)}
+                            title="Open Stock Data Summary in New Tab (Last 6 Months)"
+                          >
+                            Analyze ↗
+                          </button>
+
                           <button
                             type="button"
                             className="mini-action-btn copy-btn"

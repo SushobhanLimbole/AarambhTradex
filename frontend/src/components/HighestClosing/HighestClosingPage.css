@@ -647,6 +647,18 @@
   transition: all 0.15s ease;
 }
 
+.mini-action-btn.analytics-btn {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.mini-action-btn.analytics-btn:hover {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+}
+
 .mini-action-btn.copy-btn {
   background: #f1f5f9;
   color: #475569;

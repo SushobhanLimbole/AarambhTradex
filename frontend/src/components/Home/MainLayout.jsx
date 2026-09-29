@@ -23,10 +23,55 @@ export default function MainLayout() {
   const isAdmin = Boolean(user?.isAdmin);
   const canAccessReports = Boolean(user?.isAdmin || user?.hasAccess);
 
-  const [activeTab, setActiveTab] = useState("symbols");
-  const [tabHistory, setTabHistory] = useState(["symbols"]);
+  // Parse URL search parameters on initial mount to support new tab deep links
+  const initialUrlState = React.useMemo(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const symbol = urlParams.get("symbol");
+      const tabParam = urlParams.get("tab") || window.location.hash.replace("#", "");
+
+      if (symbol) {
+        const now = new Date();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const formatDate = (d) => {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const fromDate = urlParams.get("fromDate") || formatDate(sixMonthsAgo);
+        const toDate = urlParams.get("toDate") || formatDate(now);
+        const exchange = urlParams.get("exchange") || "ALL";
+        const indice = urlParams.get("indice") || "ALL";
+        const timeframe = urlParams.get("timeframe") || "Daily";
+
+        return {
+          tab: "reports",
+          stockParams: {
+            symbol,
+            exchange,
+            indice,
+            fromDate,
+            toDate,
+            timeframe,
+          },
+        };
+      }
+
+      if (tabParam) {
+        return { tab: tabParam, stockParams: null };
+      }
+    } catch (_) {}
+    return { tab: "symbols", stockParams: null };
+  }, []);
+
+  const [activeTab, setActiveTab] = useState(initialUrlState.tab || "symbols");
+  const [tabHistory, setTabHistory] = useState([initialUrlState.tab || "symbols"]);
   const [pointerData, setPointerData] = useState(null);
-  const [selectedStockParams, setSelectedStockParams] = useState(null);
+  const [selectedStockParams, setSelectedStockParams] = useState(initialUrlState.stockParams || null);
   const [screenerCache, setScreenerCache] = useState(null);
 
   // Browser back/forward button synchronization
