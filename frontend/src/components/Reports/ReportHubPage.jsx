@@ -83,7 +83,7 @@ export const REPORT_CARDS = [
   },
   {
     id: "dd",
-    title: "DD",
+    title: "Twin Tower Report",
     tagline: "Daily Directional Bias & Drawdown Distribution",
     tag: "Risk & Direction",
     badge: "Drawdown Risk",

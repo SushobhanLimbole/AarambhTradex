@@ -66,40 +66,58 @@ export function evaluatePriceBand(price, channels) {
  * Strictly maps to: Table Tennis, Table Top, Upward Rotation, Rising Jack, Falling Duck
  * If no match, returns "FALSE"
  */
-export function determineScenario(h, l, channels, highCond, lowCond) {
-  if (channels && channels.risingMain && channels.fallingMain && h !== undefined && l !== undefined && typeof h === "number" && typeof l === "number") {
+export function determineScenario(h, l, channels, highCond, lowCond, c) {
+  const hVal = parseFloat(h) || 0;
+  const lVal = parseFloat(l) || 0;
+  let cVal = parseFloat(c);
+
+  // If close is available, adjust close by -0.05 if high==close or +0.05 if low==close
+  if (!isNaN(cVal)) {
+    let adjC = cVal;
+    if (Math.abs(hVal - cVal) < 0.0001) {
+      adjC = cVal - 0.05;
+    } else if (Math.abs(lVal - cVal) < 0.0001) {
+      adjC = cVal + 0.05;
+    }
+
+    const evalP = (highP, lowP, closeP) => {
+      const r = Math.max(0, highP - lowP);
+      const rm14 = closeP + r * 0.146;
+      const rm38 = closeP + r * 0.382;
+      const rm61 = closeP + r * 0.618;
+      const rm100 = closeP + r * 1.0;
+      const fm14 = closeP - r * 0.146;
+      const fm38 = closeP - r * 0.382;
+      const fm61 = closeP - r * 0.618;
+      const fm100 = closeP - r * 1.0;
+
+      if (highP > rm61 && highP < rm100 && lowP < fm14 && lowP > fm38) return "Rising Jack";
+      if (highP > rm38 && highP < rm61 && lowP < fm38 && lowP > fm61) return "Table Tennis";
+      if (highP > rm14 && highP < rm38 && lowP < fm61 && lowP > fm100) return "Table Top";
+      if (highP > fm14 && highP < rm14 && lowP > fm100 && lowP < fm61) return "Upward Rotation";
+      if (highP > rm61 && highP < rm100 && lowP > fm14 && lowP < rm14) return "Falling Duck";
+      return "FALSE";
+    };
+
+    let res = evalP(hVal, lVal, adjC);
+    if (res !== "FALSE") return res;
+  }
+
+  // Fallback if channels provided
+  if (channels && channels.risingMain && channels.fallingMain && typeof h === "number" && typeof l === "number") {
     const rm = channels.risingMain;
     const fm = channels.fallingMain;
 
     const evalP = (highVal, lowVal) => {
-      // 1. RISING JACK: High in (RC 61.8 - RC 100), Low in (FC 38.2 - FC 14.6)
-      if (highVal > rm[61.8] && highVal < rm[100] && lowVal < fm[14.6] && lowVal > fm[38.2]) {
-        return "Rising Jack";
-      }
-      // 2. TABLE TENNIS: High in (RC 38.2 - RC 61.8), Low in (FC 61.8 - FC 38.2)
-      if (highVal > rm[38.2] && highVal < rm[61.8] && lowVal < fm[38.2] && lowVal > fm[61.8]) {
-        return "Table Tennis";
-      }
-      // 3. TABLE TOP: High in (RC 14.6 - RC 38.2), Low in (FC 100 - FC 61.8)
-      if (highVal > rm[14.6] && highVal < rm[38.2] && lowVal < fm[61.8] && lowVal > fm[100]) {
-        return "Table Top";
-      }
-      // 4. UPWARD ROTATION: High in (FC 14.6 - RC 14.6), Low in (FC 100 - FC 61.8)
-      if (highVal > fm[14.6] && highVal < rm[14.6] && lowVal > fm[100] && lowVal < fm[61.8]) {
-        return "Upward Rotation";
-      }
-      // 5. FALLING DUCK: High in (RC 61.8 - RC 100), Low in (FC 14.6 - RC 14.6)
-      if (highVal > rm[61.8] && highVal < rm[100] && lowVal > fm[14.6] && lowVal < rm[14.6]) {
-        return "Falling Duck";
-      }
+      if (highVal > rm[61.8] && highVal < rm[100] && lowVal < fm[14.6] && lowVal > fm[38.2]) return "Rising Jack";
+      if (highVal > rm[38.2] && highVal < rm[61.8] && lowVal < fm[38.2] && lowVal > fm[61.8]) return "Table Tennis";
+      if (highVal > rm[14.6] && highVal < rm[38.2] && lowVal < fm[61.8] && lowVal > fm[100]) return "Table Top";
+      if (highVal > fm[14.6] && highVal < rm[14.6] && lowVal > fm[100] && lowVal < fm[61.8]) return "Upward Rotation";
+      if (highVal > rm[61.8] && highVal < rm[100] && lowVal > fm[14.6] && lowVal < rm[14.6]) return "Falling Duck";
       return "FALSE";
     };
 
-    let res = evalP(parseFloat(h) || 0, parseFloat(l) || 0);
-    if (res === "FALSE") {
-      res = evalP((parseFloat(h) || 0) + 0.05, (parseFloat(l) || 0) + 0.05);
-    }
-
+    let res = evalP(hVal, lVal);
     return res;
   }
 

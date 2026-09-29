@@ -2,19 +2,22 @@ import pool from "../config/mysql.js";
 import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js";
 
 /**
- * DD (DIRECTIONAL DISTRIBUTION / BULLISH DD - BEARISH DD) REPORT CONTROLLER
+ * TWIN TOWER (DIRECTIONAL SHIFT) REPORT CONTROLLER
  * 
  * Exact formulation matching specification:
- * 1. BULLISH DD:
- *    - DAY 1: HLC LOWER (compared to Day 0)
- *    - DAY 2: HLC HIGHER (compared to Day 1)
+ * 1. BULLISH Twin Tower:
+ *    - The previous HLC status event was HLC LOWER (Day 1 event)
+ *    - On the current action date, the stock formed HLC HIGHER (Day 2 event)
+ *    - The status events occur back-to-back in the institutional state machine.
  * 
- * 2. BEARISH DD:
- *    - DAY 1: HLC HIGHER (compared to Day 0)
- *    - DAY 2: HLC LOWER (compared to Day 1)
+ * 2. BEARISH Twin Tower:
+ *    - The previous HLC status event was HLC HIGHER (Day 1 event)
+ *    - On the current action date, the stock formed HLC LOWER (Day 2 event)
+ *    - The status events occur back-to-back in the institutional state machine.
  * 
- * 3. SCOPE:
- *    - FOR ALL TIME FRAME (Daily, Weekly, Monthly, Quarterly, Half-Yearly, Yearly)
+ * 3. WEEKLY STATUS:
+ *    - Evaluated across historical weekly candles to determine in which running HLC status
+ *      (HLC HIGHER / HLC LOWER / NEUTRAL) the stock is currently operating.
  * 
  * HLC Higher Rule:
  * High > Prev High AND Low > Prev Low AND Close > Prev Close AND Close > Prev High
@@ -22,6 +25,10 @@ import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js
  * HLC Lower Rule:
  * High < Prev High AND Low < Prev Low AND Close < Prev Close AND Close < Prev Low
  */
+
+// In-memory cache for rapid response
+const cache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const formatDateOutput = (dStr) => {
   if (!dStr) return "—";
@@ -38,138 +45,157 @@ const formatDateOutput = (dStr) => {
 };
 
 /**
- * Aggregate daily candles into higher timeframes (Weekly, Monthly, Quarterly, Half-Yearly, Yearly)
+ * Evaluates Twin Tower formation:
+ * Using the exact state machine from StockAnalytics (which produces the table's STATUS column):
+ * 1. Iterates chronologically through candles.
+ * 2. Whenever a candle satisfies HLC HIGHER and currentMode !== "HLC HIGHER", mode switches to "HLC HIGHER" and status badge is recorded on that candle index.
+ * 3. Whenever a candle satisfies HLC LOWER and currentMode !== "HLC LOWER", mode switches to "HLC LOWER" and status badge is recorded on that candle index.
+ * 4. On the target date (Day T, index = candles.length - 1), a STATUS badge MUST have been recorded on Day T (index N-1) AND on Day T-1 (index N-2) strictly back-to-back.
  */
-function aggregateCandles(dailyCandles, timeframe) {
-  if (!dailyCandles || dailyCandles.length === 0) return [];
-  if (timeframe === "Daily") return dailyCandles;
+function evaluateTwinTower(candles, targetDateStr) {
+  if (!candles || candles.length < 3) return null;
 
-  const tfMap = new Map();
+  const lastCandle = candles[candles.length - 1];
+  const lastDate = typeof lastCandle.date === "string"
+    ? lastCandle.date.slice(0, 10)
+    : new Date(lastCandle.date).toISOString().slice(0, 10);
 
+  if (lastDate !== targetDateStr) return null;
+
+  const statusMap = new Map(); // idx -> 'HLC HIGHER' | 'HLC LOWER'
+  let currentMode = null;
+
+  for (let i = 1; i < candles.length; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+    const cHigh = Number(curr.high) || 0;
+    const cLow = Number(curr.low) || 0;
+    const cClose = Number(curr.close) || 0;
+
+    const pHigh = Number(prev.high) || 0;
+    const pLow = Number(prev.low) || 0;
+    const pClose = Number(prev.close) || 0;
+
+    const isHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+    const isHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
+
+    if (isHlcHigher) {
+      if (currentMode !== "HLC HIGHER") {
+        currentMode = "HLC HIGHER";
+        statusMap.set(i, "HLC HIGHER");
+      }
+    } else if (isHlcLower) {
+      if (currentMode !== "HLC LOWER") {
+        currentMode = "HLC LOWER";
+        statusMap.set(i, "HLC LOWER");
+      }
+    }
+  }
+
+  const lastIdx = candles.length - 1;
+  const prevIdx = candles.length - 2;
+
+  const stateToday = statusMap.get(lastIdx);
+  const stateYesterday = statusMap.get(prevIdx);
+
+  // Both days MUST have a visible STATUS badge (i.e. status transition) directly on Day T-1 and Day T
+  if (!stateToday || !stateYesterday) return null;
+
+  const prevCandle = candles[prevIdx];
+  const prevDate = typeof prevCandle.date === "string"
+    ? prevCandle.date.slice(0, 10)
+    : new Date(prevCandle.date).toISOString().slice(0, 10);
+
+  // Strictly back-to-back consecutive trading days
+  if (stateYesterday === "HLC LOWER" && stateToday === "HLC HIGHER") {
+    return {
+      type: "BULLISH",
+      twinTower: "BULLISH Twin Tower",
+      isBullishTwinTower: true,
+      isBearishTwinTower: false,
+      day1State: "HLC LOWER",
+      day2State: "HLC HIGHER",
+      day1Date: formatDateOutput(prevDate),
+      day2Date: formatDateOutput(lastDate),
+    };
+  } else if (stateYesterday === "HLC HIGHER" && stateToday === "HLC LOWER") {
+    return {
+      type: "BEARISH",
+      twinTower: "BEARISH Twin Tower",
+      isBullishTwinTower: false,
+      isBearishTwinTower: true,
+      day1State: "HLC HIGHER",
+      day2State: "HLC LOWER",
+      day1Date: formatDateOutput(prevDate),
+      day2Date: formatDateOutput(lastDate),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Computes running Weekly Status from historical daily candles
+ */
+function computeWeeklyRunningStatus(dailyCandles) {
+  if (!dailyCandles || dailyCandles.length < 2) return "NEUTRAL";
+
+  const weekMap = new Map();
   for (const c of dailyCandles) {
     const d = new Date(c.date);
     if (isNaN(d.getTime())) continue;
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    const weekKey = `${d.getFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 
-    let periodKey = "";
-    const year = d.getFullYear();
-    const month = d.getMonth(); // 0-11
-
-    if (timeframe === "Weekly") {
-      const startOfYear = new Date(year, 0, 1);
-      const weekNo = Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
-      periodKey = `${year}-W${String(weekNo).padStart(2, "0")}`;
-    } else if (timeframe === "Monthly") {
-      periodKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-    } else if (timeframe === "Quarterly") {
-      const q = Math.floor(month / 3) + 1;
-      periodKey = `${year}-Q${q}`;
-    } else if (timeframe === "Half-Yearly") {
-      const h = month < 6 ? "H1" : "H2";
-      periodKey = `${year}-${h}`;
-    } else if (timeframe === "Yearly") {
-      periodKey = `${year}`;
-    } else {
-      periodKey = c.date;
-    }
-
-    if (!tfMap.has(periodKey)) {
-      tfMap.set(periodKey, {
-        symbol: c.symbol,
+    if (!weekMap.has(weekKey)) {
+      weekMap.set(weekKey, {
         date: c.date,
-        periodKey,
         open: Number(c.open) || 0,
         high: Number(c.high) || 0,
         low: Number(c.low) || 0,
         close: Number(c.close) || 0,
-        volume: Number(c.volume) || 0,
       });
     } else {
-      const agg = tfMap.get(periodKey);
-      agg.high = Math.max(agg.high, Number(c.high) || 0);
-      agg.low = Math.min(agg.low, Number(c.low) || 0);
-      agg.close = Number(c.close) || 0; // last close in period
-      agg.volume += Number(c.volume) || 0;
-      agg.date = c.date; // latest date in period
+      const w = weekMap.get(weekKey);
+      w.high = Math.max(w.high, Number(c.high) || 0);
+      w.low = Math.min(w.low, Number(c.low) || 0);
+      w.close = Number(c.close) || 0;
+      w.date = c.date;
     }
   }
 
-  return Array.from(tfMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-}
+  const weeklyList = Array.from(weekMap.values());
+  if (weeklyList.length < 2) return "NEUTRAL";
 
-/**
- * Evaluates HLC Status on candle curr compared to prev
- */
-function evaluateHlcState(curr, prev) {
-  if (!curr || !prev) return "NONE";
+  let runningStatus = "NEUTRAL";
+  for (let i = 1; i < weeklyList.length; i++) {
+    const curr = weeklyList[i];
+    const prev = weeklyList[i - 1];
+    const cHigh = Number(curr.high) || 0;
+    const cLow = Number(curr.low) || 0;
+    const cClose = Number(curr.close) || 0;
 
-  const cHigh = Number(curr.high) || 0;
-  const cLow = Number(curr.low) || 0;
-  const cClose = Number(curr.close) || 0;
+    const pHigh = Number(prev.high) || 0;
+    const pLow = Number(prev.low) || 0;
+    const pClose = Number(prev.close) || 0;
 
-  const pHigh = Number(prev.high) || 0;
-  const pLow = Number(prev.low) || 0;
-  const pClose = Number(prev.close) || 0;
+    const isHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+    const isLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
 
-  const isHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
-  const isHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
-
-  if (isHlcHigher) return "HLC HIGHER";
-  if (isHlcLower) return "HLC LOWER";
-  return "NEUTRAL";
-}
-
-/**
- * Evaluate Bullish DD / Bearish DD across 3 consecutive candles (Day 0, Day 1, Day 2)
- */
-function evaluateDdPattern(day0, day1, day2) {
-  if (!day0 || !day1 || !day2) return null;
-
-  const day1State = evaluateHlcState(day1, day0);
-  const day2State = evaluateHlcState(day2, day1);
-
-  const isBullishDd = day1State === "HLC LOWER" && day2State === "HLC HIGHER";
-  const isBearishDd = day1State === "HLC HIGHER" && day2State === "HLC LOWER";
-
-  if (!isBullishDd && !isBearishDd) {
-    return {
-      isDd: false,
-      ddType: "NONE",
-      category: "none",
-      day1State,
-      day2State,
-      day0,
-      day1,
-      day2,
-    };
+    if (isHigher) {
+      if (runningStatus !== "HLC HIGHER") runningStatus = "HLC HIGHER";
+    } else if (isLower) {
+      if (runningStatus !== "HLC LOWER") runningStatus = "HLC LOWER";
+    }
   }
 
-  const d2Close = Number(day2.close) || 0;
-  const d1High = Number(day1.high) || 0;
-  const d1Low = Number(day1.low) || 0;
-
-  // Margin %
-  const margin = isBullishDd
-    ? Number((((d2Close - d1High) / (d1High || 1)) * 100).toFixed(2))
-    : Number((((d1Low - d2Close) / (d1Low || 1)) * 100).toFixed(2));
-
-  return {
-    isDd: true,
-    isBullishDd,
-    isBearishDd,
-    ddType: isBullishDd ? "BULLISH DD" : "BEARISH DD",
-    category: isBullishDd ? "bullish_dd" : "bearish_dd",
-    day1State,
-    day2State,
-    margin,
-    day0,
-    day1,
-    day2,
-  };
+  return runningStatus;
 }
 
 /**
  * GET /api/dd-report
- * Run Bullish DD & Bearish DD Institutional Scanner
+ * Run Bullish & Bearish Twin Tower Scanner
  */
 export const getDdReport = async (req, res, next) => {
   try {
@@ -178,133 +204,163 @@ export const getDdReport = async (req, res, next) => {
       indice = "ALL",
       timeframe = "Daily",
       actionDate,
-      filterType = "ALL", // 'ALL' | 'BULLISH_DD' | 'BEARISH_DD' | 'ALL_DD'
+      filterType = "ALL", // 'ALL' | 'BULLISH' | 'BEARISH'
     } = req.query;
 
     const tableName = resolveMarketTable(exchange, indice);
 
     // 1. Resolve date ceiling
-    let targetDate = actionDate;
-    if (!targetDate) {
+    let targetDate = null;
+    if (actionDate && typeof actionDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(actionDate)) {
+      targetDate = actionDate;
+    } else {
       const [maxRes] = await pool.query(`SELECT MAX(\`date\`) as maxDate FROM \`${tableName}\``);
       targetDate = maxRes[0]?.maxDate;
     }
-    const targetDateStr = targetDate ? (typeof targetDate === "string" ? targetDate.slice(0, 10) : new Date(targetDate).toISOString().slice(0, 10)) : null;
 
-    // 2. Fetch symbols matching exchange & indice
-    const symbolRows = await getFilteredSymbols({ exchange, indice });
+    const targetDateStr = targetDate
+      ? typeof targetDate === "string"
+        ? targetDate.slice(0, 10)
+        : new Date(targetDate).toISOString().slice(0, 10)
+      : null;
 
-    if (!symbolRows || symbolRows.length === 0) {
+    if (!targetDateStr) {
       return res.status(200).json({
         success: true,
-        summary: {
-          bullishDdCount: 0,
-          bearishDdCount: 0,
-          totalDdCount: 0,
-          totalScanned: 0,
-        },
-        actionDate: targetDateStr,
-        timeframe,
+        summary: { bullishCount: 0, bearishCount: 0, totalMatched: 0, totalScanned: 0 },
+        actionDate: "—",
+        rawActionDate: "",
+        timeframe: "Daily",
         count: 0,
         data: [],
       });
     }
 
-    const matchedSymbolsSet = new Set(symbolRows.map((r) => r.symbol));
+    // Check cache
+    const cacheKey = `${exchange}_${indice}_${targetDateStr}`;
+    const cachedEntry = cache.get(cacheKey);
+    let allCalculatedRecords = null;
+    let baseSummary = null;
 
-    // 3. High-Speed Date-Indexed Query (exact tight window needed to form 3 bars)
-    const intervalDays = timeframe === "Yearly" ? 1150 : timeframe === "Half-Yearly" ? 580 : timeframe === "Quarterly" ? 280 : timeframe === "Monthly" ? 95 : timeframe === "Weekly" ? 35 : 15;
-
-    const [allCandleRows] = await pool.query(
-      `
-      SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-      FROM \`${tableName}\`
-      WHERE \`date\` >= DATE_SUB(?, INTERVAL ${intervalDays} DAY) AND \`date\` <= ?
-      ORDER BY \`symbol\` ASC, \`date\` ASC
-      `,
-      [targetDateStr, targetDateStr]
-    );
-
-    // Group candles by symbol in-memory
-    const candlesBySymbol = new Map();
-    for (const c of allCandleRows) {
-      if (!matchedSymbolsSet.has(c.symbol)) continue;
-      if (!candlesBySymbol.has(c.symbol)) {
-        candlesBySymbol.set(c.symbol, []);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+      allCalculatedRecords = cachedEntry.records;
+      baseSummary = cachedEntry.summary;
+    } else {
+      // 2. Fetch symbols matching exchange & indice
+      const symbolRows = await getFilteredSymbols({ exchange, indice });
+      if (!symbolRows || symbolRows.length === 0) {
+        return res.status(200).json({
+          success: true,
+          summary: { bullishCount: 0, bearishCount: 0, totalMatched: 0, totalScanned: 0 },
+          actionDate: formatDateOutput(targetDateStr),
+          rawActionDate: targetDateStr,
+          timeframe: "Daily",
+          count: 0,
+          data: [],
+        });
       }
-      candlesBySymbol.get(c.symbol).push(c);
-    }
 
-    const reportRecords = [];
-    let bullishDdCount = 0;
-    let bearishDdCount = 0;
+      const matchedSymbols = symbolRows.map((r) => r.symbol);
+      const matchedSymbolsSet = new Set(matchedSymbols);
 
-    for (const sym of matchedSymbolsSet) {
-      const rawList = candlesBySymbol.get(sym) || [];
-      if (rawList.length < 3) continue;
+      // 3. Query historical candles window (last 180 days is sufficient to evaluate state transitions & weekly status)
+      const [allCandleRows] = await pool.query(
+        `
+        SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
+        FROM \`${tableName}\`
+        WHERE \`date\` >= DATE_SUB(?, INTERVAL 180 DAY) AND \`date\` <= ?
+        ORDER BY \`symbol\` ASC, \`date\` ASC
+        `,
+        [targetDateStr, targetDateStr]
+      );
 
-      const candles = aggregateCandles(rawList, timeframe);
-      if (candles.length < 3) continue;
+      const candlesBySymbol = new Map();
+      for (const c of allCandleRows) {
+        if (!matchedSymbolsSet.has(c.symbol)) continue;
+        if (!candlesBySymbol.has(c.symbol)) {
+          candlesBySymbol.set(c.symbol, []);
+        }
+        candlesBySymbol.get(c.symbol).push(c);
+      }
 
-      const day2 = candles[candles.length - 1]; // Current (Day 2)
-      const day1 = candles[candles.length - 2]; // Previous (Day 1)
-      const day0 = candles[candles.length - 3]; // Base (Day 0)
+      allCalculatedRecords = [];
+      let bullishCount = 0;
+      let bearishCount = 0;
 
-      const evalRes = evaluateDdPattern(day0, day1, day2);
-      if (!evalRes) continue;
+      for (const sym of matchedSymbols) {
+        const cList = candlesBySymbol.get(sym) || [];
+        if (cList.length < 2) continue;
 
-      if (evalRes.isBullishDd) bullishDdCount++;
-      if (evalRes.isBearishDd) bearishDdCount++;
+        const ttRes = evaluateTwinTower(cList, targetDateStr);
+        if (!ttRes) continue;
 
-      // Filter by requested category
-      if (filterType === "BULLISH_DD" && !evalRes.isBullishDd) continue;
-      if (filterType === "BEARISH_DD" && !evalRes.isBearishDd) continue;
-      if (filterType === "ALL_DD" && !evalRes.isBullishDd && !evalRes.isBearishDd) continue;
+        if (ttRes.isBullishTwinTower) bullishCount++;
+        if (ttRes.isBearishTwinTower) bearishCount++;
 
-      reportRecords.push({
-        symbol: sym,
-        price: Number(day2.close) || 0,
-        open: Number(day2.open) || 0,
-        high: Number(day2.high) || 0,
-        low: Number(day2.low) || 0,
-        volume: Number(day2.volume) || 0,
-        ddType: evalRes.ddType,
-        category: evalRes.category,
-        isBullishDd: !!evalRes.isBullishDd,
-        isBearishDd: !!evalRes.isBearishDd,
-        day1State: evalRes.day1State,
-        day2State: evalRes.day2State,
-        margin: evalRes.margin || 0,
-        // Day 1 candle details
-        day1Close: Number(day1.close) || 0,
-        day1High: Number(day1.high) || 0,
-        day1Low: Number(day1.low) || 0,
-        day1Date: formatDateOutput(day1.date),
-        // Day 0 candle details
-        day0Close: Number(day0.close) || 0,
-        day0High: Number(day0.high) || 0,
-        day0Low: Number(day0.low) || 0,
-        date: formatDateOutput(day2.date),
-        rawDate: day2.date,
+        const weeklyStatus = computeWeeklyRunningStatus(cList);
+        const cleanSym = String(sym).replace(/\.(NS|BO)$/i, "");
+        const latestCandle = cList[cList.length - 1];
+
+        allCalculatedRecords.push({
+          symbol: sym,
+          cleanSymbol: cleanSym,
+          date: formatDateOutput(targetDateStr),
+          rawDate: targetDateStr,
+          price: Number(latestCandle.close) || 0,
+          open: Number(latestCandle.open) || 0,
+          high: Number(latestCandle.high) || 0,
+          low: Number(latestCandle.low) || 0,
+          volume: Number(latestCandle.volume) || 0,
+          weeklyStatus,
+          twinTower: ttRes.twinTower,
+          type: ttRes.type,
+          isBullishTwinTower: ttRes.isBullishTwinTower,
+          isBearishTwinTower: ttRes.isBearishTwinTower,
+          day1State: ttRes.day1State,
+          day2State: ttRes.day2State,
+          day1Date: ttRes.day1Date,
+          day2Date: ttRes.day2Date,
+        });
+      }
+
+      baseSummary = {
+        bullishCount,
+        bearishCount,
+        totalMatched: allCalculatedRecords.length,
+        totalScanned: matchedSymbols.length,
+      };
+
+      cache.set(cacheKey, {
+        records: allCalculatedRecords,
+        summary: baseSummary,
+        timestamp: Date.now(),
       });
     }
 
+    // Filter by requested category
+    let filteredRecords = allCalculatedRecords;
+    const normFilter = String(filterType).toUpperCase();
+    if (normFilter === "BULLISH" || normFilter === "BULLISH_DD" || normFilter === "BULLISH_TWIN_TOWER") {
+      filteredRecords = allCalculatedRecords.filter((r) => r.isBullishTwinTower);
+    } else if (normFilter === "BEARISH" || normFilter === "BEARISH_DD" || normFilter === "BEARISH_TWIN_TOWER") {
+      filteredRecords = allCalculatedRecords.filter((r) => r.isBearishTwinTower);
+    }
+
+    filteredRecords.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
     return res.status(200).json({
       success: true,
-      summary: {
-        bullishDdCount,
-        bearishDdCount,
-        totalDdCount: bullishDdCount + bearishDdCount,
-        totalScanned: matchedSymbolsSet.size,
-      },
+      summary: baseSummary,
       actionDate: formatDateOutput(targetDateStr),
       rawActionDate: targetDateStr,
-      timeframe,
+      timeframe: "Daily",
       filterType,
-      count: reportRecords.length,
-      data: reportRecords,
+      count: filteredRecords.length,
+      data: filteredRecords,
     });
   } catch (error) {
     next(error);
   }
 };
+
+export default getDdReport;

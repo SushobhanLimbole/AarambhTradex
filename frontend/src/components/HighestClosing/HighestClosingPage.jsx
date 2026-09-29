@@ -37,22 +37,26 @@ const PRESET_INDICES = [
 export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBack }) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
-  const [timeframe, setTimeframe] = useState("Daily");
+  const [timeframe] = useState("Daily");
   const [actionDate, setActionDate] = useState("");
-  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'LIFETIME' | 'FROM_1_JAN_2026' | 'NEAR_HIGH'
+  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'ATH' | 'ATL' | 'CYATH' | 'CYATL' | 'TYPE1' | 'TYPE2'
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedSymbol, setCopiedSymbol] = useState(null);
 
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
 
   const [reportData, setReportData] = useState([]);
   const [summary, setSummary] = useState({
-    lifetimeAthCount: 0,
-    ytdHighestCount: 0,
-    nearHighCount: 0,
+    athCount: 0,
+    atlCount: 0,
+    cyathCount: 0,
+    cyatlCount: 0,
+    totalQualified: 0,
     totalScanned: 0,
   });
 
+  const [hasScanned, setHasScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -107,9 +111,10 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
     loadMeta();
   }, []);
 
-  // 2. Fetch Report
+  // 2. Fetch Report (Triggered strictly on clicking RUN SCANNER)
   const handleFetchReport = useCallback(async () => {
     setLoading(true);
+    setHasScanned(true);
     setError("");
     try {
       const res = await highestClosingService.getHighestClosingReport({
@@ -117,8 +122,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
         indice: indexVal,
         timeframe: "Daily", // strictly Daily
         actionDate: actionDate || undefined,
-        filterType,
-        ytdStartDate: "2026-01-01",
+        filterType: "ALL",
       });
 
       if (res?.data && Array.isArray(res.data)) {
@@ -139,56 +143,110 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
     } finally {
       setLoading(false);
     }
-  }, [exchange, indexVal, actionDate, filterType]);
-
-  useEffect(() => {
-    handleFetchReport();
-  }, [handleFetchReport]);
+  }, [exchange, indexVal, actionDate]);
 
   const filteredData = useMemo(() => {
-    return reportData.filter((row) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
+    let list = reportData;
+    const norm = String(filterType).toUpperCase();
+    if (norm === "ATH") {
+      list = list.filter((r) => r.isAthToday);
+    } else if (norm === "ATL") {
+      list = list.filter((r) => r.isAtlToday);
+    } else if (norm === "CYATH") {
+      list = list.filter((r) => r.isCyathToday);
+    } else if (norm === "CYATL") {
+      list = list.filter((r) => r.isCyatlToday);
+    } else if (norm === "TYPE1") {
+      list = list.filter((r) => r.isAthToday || r.isAtlToday);
+    } else if (norm === "TYPE2") {
+      list = list.filter((r) => r.isCyathToday || r.isCyatlToday);
+    }
+
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter((row) => {
       const sym = (row.symbol || "").toLowerCase();
-      const cat = (row.recordType || "").toLowerCase();
-      const badge = (row.badgeLabel || "").toLowerCase();
-      return sym.includes(q) || cat.includes(q) || badge.includes(q);
+      const cleanSym = (row.cleanSymbol || "").toLowerCase();
+      return sym.includes(q) || cleanSym.includes(q);
     });
-  }, [reportData, searchQuery]);
+  }, [reportData, filterType, searchQuery]);
+
+  // Copy symbol helper
+  const handleCopySymbol = (sym) => {
+    if (!sym) return;
+    navigator.clipboard.writeText(sym);
+    setCopiedSymbol(sym);
+    setTimeout(() => {
+      setCopiedSymbol(null);
+    }, 2000);
+  };
+
+  // Open stock analytics data summary page in a new tab with last 6 months data
+  const handleOpenStockAnalyticsInNewTab = (row) => {
+    const fullSym = row.symbol || row.cleanSymbol;
+    if (!fullSym) return;
+
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const formatDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const fromDate = formatDate(sixMonthsAgo);
+    const toDate = formatDate(now);
+    const ex = exchange || "NSE";
+    const ind = indexVal || "ALL";
+    const tf = "Daily";
+
+    const url = `${window.location.origin}${window.location.pathname}?tab=reports&symbol=${encodeURIComponent(fullSym)}&exchange=${encodeURIComponent(ex)}&indice=${encodeURIComponent(ind)}&fromDate=${fromDate}&toDate=${toDate}&timeframe=${tf}#reports`;
+
+    window.open(url, "_blank");
+  };
 
   // CSV Export
   const handleExportCSV = () => {
     if (!filteredData.length) return;
     const headers = [
-      "SR",
-      "Symbol",
-      "Price",
-      "High",
-      "Low",
-      "Classification",
-      "Lifetime Max Close",
-      "Lifetime Max Date",
-      "Delta from ATH %",
-      "2026 YTD Max Close",
-      "2026 YTD Max Date",
-      "Delta from 2026 %",
-      "Candle Date",
+      "SR.NO",
+      "DATE",
+      "TICKER NAME",
+      "PRICE",
+      "ATH VALUE",
+      "ATH COUNT",
+      "IS ATH TODAY",
+      "ATL VALUE",
+      "ATL COUNT",
+      "IS ATL TODAY",
+      "CYATH VALUE",
+      "CYATH COUNT",
+      "IS CYATH TODAY",
+      "CYATL VALUE",
+      "CYATL COUNT",
+      "IS CYATL TODAY",
     ];
 
     const rows = filteredData.map((r, i) => [
       i + 1,
-      r.symbol,
-      r.price,
-      r.high,
-      r.low,
-      `"${r.recordType}"`,
-      r.lifetimeMaxClose,
-      r.lifetimeMaxDate,
-      `${r.deltaFromAthPercent}%`,
-      r.ytdMaxClose,
-      r.ytdMaxDate,
-      `${r.deltaFromYtdPercent}%`,
       r.date,
+      r.cleanSymbol || r.symbol,
+      r.price,
+      r.ath?.value ?? "—",
+      r.ath?.count ?? 0,
+      r.isAthToday ? "YES" : "NO",
+      r.atl?.value ?? "—",
+      r.atl?.count ?? 0,
+      r.isAtlToday ? "YES" : "NO",
+      r.cyath?.value ?? "—",
+      r.cyath?.count ?? 0,
+      r.isCyathToday ? "YES" : "NO",
+      r.cyatl?.value ?? "—",
+      r.cyatl?.count ?? 0,
+      r.isCyatlToday ? "YES" : "NO",
     ]);
 
     const csvContent =
@@ -205,57 +263,60 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
 
   return (
     <div className="hc-report-wrapper">
-      {/* 1. EXCEL SPECIFICATION MATRIX HEADER (MATCHING USER IMAGE PRECISELY) */}
+      {/* 1. EXCEL SPECIFICATION MATRIX HEADER */}
       <div className="hc-matrix-card">
-        {/* Top Types Banner */}
         <div className="hc-types-grid">
-          {/* Type 1 Box */}
-          <div className="hc-type-box type-1-box">
-            <div className="hc-type-tag">type 1</div>
-            <div className="hc-type-title">highest closing from 1 jan 2026</div>
-            <div className="hc-type-sub">
-              Current closing price is greater than or equal to all daily closes recorded since <strong>01-Jan-2026</strong>.
+          {/* Type 1 Box: ATH Report */}
+          <div
+            className={`hc-type-box type-2-box ${filterType === "ATH" || filterType === "TYPE1" ? "active-type-box" : ""}`}
+            onClick={() => setFilterType(filterType === "ATH" ? "ALL" : "ATH")}
+          >
+            <div className="hc-type-header-row">
+              <span className="hc-type-tag tag-gold">Type 1: ATH Report</span>
+              <span className="hc-filter-click-hint">Click to filter</span>
             </div>
-            <div className="hc-type-stat">
-              <span className="hc-stat-label">Matching Stocks:</span>
-              <span className="hc-stat-value val-cyan">{summary.ytdHighestCount || 0}</span>
+            <div className="hc-type-title">All-Time High Report</div>
+            <div className="hc-type-sub">
+              Baseline established across the <strong>first 6 months</strong> of stock history. Compares every subsequent trading day against the rolling Lifetime ATH &amp; ATL closing thresholds.
+            </div>
+            <div className="hc-type-stats-row">
+              <div className="hc-stat-pill stat-gold">
+                <span className="stat-icon">👑</span>
+                <span>ATH Today:</span>
+                <strong>{summary.athCount || 0}</strong>
+              </div>
+              <div className="hc-stat-pill stat-red">
+                <span className="stat-icon">🔻</span>
+                <span>ATL Today:</span>
+                <strong>{summary.atlCount || 0}</strong>
+              </div>
             </div>
           </div>
 
-          {/* Type 2 Box */}
-          <div className="hc-type-box type-2-box">
-            <div className="hc-type-tag tag-gold">type 2</div>
-            <div className="hc-type-title">highest closing from life time</div>
+          {/* Type 2 Box: CYATH Report */}
+          <div
+            className={`hc-type-box type-1-box ${filterType === "CYATH" || filterType === "TYPE2" ? "active-type-box" : ""}`}
+            onClick={() => setFilterType(filterType === "CYATH" ? "ALL" : "CYATH")}
+          >
+            <div className="hc-type-header-row">
+              <span className="hc-type-tag tag-cyan">Type 2: CYATH Report</span>
+              <span className="hc-filter-click-hint">Click to filter</span>
+            </div>
+            <div className="hc-type-title">Current Year All-Time High Report</div>
             <div className="hc-type-sub">
-              Current closing price is at an <strong>All-Time High (ATH)</strong> across the entire lifetime dataset.
+              Baseline established across <strong>first 6 months of current year (Jan 1 – Jun 30)</strong>. Compares each subsequent day from Jul 1 onwards against the Current Year ATH &amp; ATL closing thresholds.
             </div>
-            <div className="hc-type-stat">
-              <span className="hc-stat-label">Matching Stocks:</span>
-              <span className="hc-stat-value val-gold">{summary.lifetimeAthCount || 0}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* GOLD RIBBON: ONLY DAILY TIME FRAME */}
-        <div className="hc-gold-ribbon">
-          <div className="hc-ribbon-content">
-            <span className="hc-ribbon-badge">ONLY DAILY TIME FRAME</span>
-            <span className="hc-ribbon-desc">
-              Institutional benchmark closing scanner evaluated exclusively across End-of-Day (EOD) daily candle closes.
-            </span>
-          </div>
-          <div className="hc-ribbon-stats">
-            <div className="hc-stat-chip">
-              <span className="chip-label">👑 Lifetime ATH Closes:</span>
-              <span className="chip-val text-gold">{summary.lifetimeAthCount || 0}</span>
-            </div>
-            <div className="hc-stat-chip">
-              <span className="chip-label">🌟 2026 Peak Closes:</span>
-              <span className="chip-val text-cyan">{summary.ytdHighestCount || 0}</span>
-            </div>
-            <div className="hc-stat-chip">
-              <span className="chip-label">⚡ Within 3% of Peak:</span>
-              <span className="chip-val text-yellow">{summary.nearHighCount || 0}</span>
+            <div className="hc-type-stats-row">
+              <div className="hc-stat-pill stat-cyan">
+                <span className="stat-icon">🌟</span>
+                <span>CYATH Today:</span>
+                <strong>{summary.cyathCount || 0}</strong>
+              </div>
+              <div className="hc-stat-pill stat-amber">
+                <span className="stat-icon">🔻</span>
+                <span>CYATL Today:</span>
+                <strong>{summary.cyatlCount || 0}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -307,14 +368,14 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
           </select>
         </div>
 
-        {/* Timeframe (Locked to Daily as specified) */}
+        {/* Timeframe (Locked to Daily) */}
         <div className="hc-control-group">
           <label className="hc-label">Timeframe</label>
           <select
             className="hc-select locked-select"
             value={timeframe}
             disabled
-            title="Highest Closing Report is restricted to ONLY DAILY TIME FRAME"
+            title="Highest Closing Report is evaluated exclusively on Daily timeframe"
           >
             <option value="Daily">Daily (Locked)</option>
           </select>
@@ -338,28 +399,39 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
             className={`hc-pill-btn ${filterType === "ALL" ? "active" : ""}`}
             onClick={() => setFilterType("ALL")}
           >
-            All Stocks ({summary.totalScanned})
+            All Breakouts ({summary.totalQualified || 0})
           </button>
+
           <button
             type="button"
-            className={`hc-pill-btn pill-gold ${filterType === "LIFETIME" ? "active" : ""}`}
-            onClick={() => setFilterType("LIFETIME")}
+            className={`hc-pill-btn pill-gold ${filterType === "ATH" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "ATH" ? "ALL" : "ATH")}
           >
-            👑 Lifetime ATH ({summary.lifetimeAthCount})
+            👑 ATH ({summary.athCount || 0})
           </button>
+
           <button
             type="button"
-            className={`hc-pill-btn pill-cyan ${filterType === "FROM_1_JAN_2026" ? "active" : ""}`}
-            onClick={() => setFilterType("FROM_1_JAN_2026")}
+            className={`hc-pill-btn pill-red ${filterType === "ATL" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "ATL" ? "ALL" : "ATL")}
           >
-            🌟 From 1 Jan 2026 ({summary.ytdHighestCount})
+            🔻 ATL ({summary.atlCount || 0})
           </button>
+
           <button
             type="button"
-            className={`hc-pill-btn pill-near ${filterType === "NEAR_HIGH" ? "active" : ""}`}
-            onClick={() => setFilterType("NEAR_HIGH")}
+            className={`hc-pill-btn pill-cyan ${filterType === "CYATH" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "CYATH" ? "ALL" : "CYATH")}
           >
-            ⚡ Near Peak &lt;3% ({summary.nearHighCount})
+            🌟 CYATH ({summary.cyathCount || 0})
+          </button>
+
+          <button
+            type="button"
+            className={`hc-pill-btn pill-amber ${filterType === "CYATL" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "CYATL" ? "ALL" : "CYATL")}
+          >
+            🔻 CYATL ({summary.cyatlCount || 0})
           </button>
         </div>
 
@@ -411,157 +483,176 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
 
         <div className="hc-table-counts">
           <span>
-            Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> stocks
+            Showing <strong>{filteredData.length}</strong> qualifying stocks for <strong>{actionDate || "Action Date"}</strong> (Scanned {summary.totalScanned || 0} stocks)
           </span>
         </div>
       </div>
 
-      {/* 4. LIVE REPORT DATA TABLE */}
+      {/* 4. LIVE REPORT DATA TABLE (Columns: SR.NO, DATE, TICKER NAME, ATH, ATL, CYATH, CYATL, ACTIONS) */}
       <div className="hc-table-card">
         <div className="hc-table-scroll">
           <table className="hc-table">
             <thead>
               <tr>
-                <th className="th-sr">SR.</th>
-                <th className="th-sym">TICKER</th>
-                <th className="th-price">PRICE (CLOSE)</th>
-                <th className="th-hl">DAY HIGH / LOW</th>
-                <th className="th-type">RECORD TYPE</th>
-                <th className="th-lt-max">LIFETIME MAX CLOSE</th>
-                <th className="th-lt-delta">DELTA FROM ATH</th>
-                <th className="th-ytd-max">2026 PEAK CLOSE</th>
-                <th className="th-ytd-delta">DELTA FROM 2026</th>
+                <th className="th-sr">SR.NO</th>
                 <th className="th-date">DATE</th>
+                <th className="th-sym">TICKER NAME</th>
+                <th className="th-ath">ATH</th>
+                <th className="th-atl">ATL</th>
+                <th className="th-cyath">CYATH</th>
+                <th className="th-cyatl">CYATL</th>
+                <th className="th-actions">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="hc-empty-cell">
+                  <td colSpan={8} className="hc-empty-cell">
                     <div className="hc-loading-box">
                       <span className="hc-spinner">⏳</span>
-                      <span>Calculating Lifetime &amp; 2026 YTD Highest Closing Matrices...</span>
+                      <span>Calculating 6-Month Baseline &amp; Threshold Crossers...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : !hasScanned ? (
+                <tr>
+                  <td colSpan={8} className="hc-empty-cell">
+                    <div className="hc-loading-box">
+                      <span className="hc-spinner">⚡</span>
+                      <span>Select filters above and click <strong>&quot;RUN SCANNER&quot;</strong> to analyze stocks.</span>
                     </div>
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="hc-empty-cell">
+                  <td colSpan={8} className="hc-empty-cell">
                     <div className="hc-loading-box">
                       <span className="hc-spinner">📊</span>
-                      <span>No stocks matched the selected Highest Closing criteria.</span>
+                      <span>No stocks crossed an ATH, ATL, CYATH, or CYATL threshold on {actionDate || "this date"}.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredData.map((row, idx) => {
-                  const cleanSym = stripSymbolSuffix(row.symbol);
+                  const cleanSym = row.cleanSymbol || stripSymbolSuffix(row.symbol);
                   return (
-                    <tr key={row.symbol || idx} className={`hc-row ${row.isLifetimeAth ? "row-lifetime" : row.isYtdHighest ? "row-ytd" : ""}`}>
+                    <tr
+                      key={row.symbol || idx}
+                      className={`hc-row ${row.isAthToday ? "row-ath-today" : row.isCyathToday ? "row-cyath-today" : ""}`}
+                    >
+                      {/* 1. SR.NO */}
                       <td className="td-sr">{idx + 1}</td>
 
-                      {/* Ticker */}
+                      {/* 2. DATE */}
+                      <td className="td-date">
+                        <span className="date-badge">{row.date}</span>
+                      </td>
+
+                      {/* 3. TICKER NAME */}
                       <td className="td-sym">
-                        <span
-                          className="ticker-badge-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe: "Daily",
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe: "Daily",
-                              });
-                            }
-                          }}
-                          title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
-                        >
-                          {cleanSym}
-                        </span>
-                      </td>
-
-                      {/* Price */}
-                      <td className="td-price">
-                        <strong>₹{Number(row.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                      </td>
-
-                      {/* High / Low */}
-                      <td className="td-hl">
-                        <div className="hl-box">
-                          <span className="high-val">H: ₹{Number(row.high || 0).toFixed(2)}</span>
-                          <span className="low-val">L: ₹{Number(row.low || 0).toFixed(2)}</span>
+                        <div className="ticker-cell">
+                          <span
+                            className="ticker-badge-link"
+                            onClick={() => handleOpenStockAnalyticsInNewTab(row)}
+                            title={`Open ${cleanSym} Data Summary (Last 6 Months) in New Tab`}
+                          >
+                            {cleanSym}
+                          </span>
+                          <span className="price-sub">₹{Number(row.price || 0).toFixed(2)}</span>
                         </div>
                       </td>
 
-                      {/* Record Type */}
-                      <td className="td-type">
-                        {row.isLifetimeAth && (
-                          <span className="hc-badge badge-lifetime">
-                            👑 TYPE 2: LIFETIME ATH
-                          </span>
-                        )}
-                        {!row.isLifetimeAth && row.isYtdHighest && (
-                          <span className="hc-badge badge-ytd">
-                            🌟 TYPE 1: 1 JAN 2026 PEAK
-                          </span>
-                        )}
-                        {!row.isLifetimeAth && !row.isYtdHighest && row.isNearHigh && (
-                          <span className="hc-badge badge-near">
-                            ⚡ WITHIN 3% OF PEAK
-                          </span>
-                        )}
-                        {!row.isLifetimeAth && !row.isYtdHighest && !row.isNearHigh && (
-                          <span className="hc-badge badge-standard">
-                            REGULAR CLOSE
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Lifetime Max Close */}
-                      <td className="td-lt-max">
-                        <div className="max-box">
-                          <span className="max-price">₹{Number(row.lifetimeMaxClose || 0).toFixed(2)}</span>
-                          <span className="max-date">{row.lifetimeMaxDate || "—"}</span>
-                        </div>
-                      </td>
-
-                      {/* Delta From ATH */}
-                      <td className="td-lt-delta">
-                        {row.deltaFromAthPercent >= 0 ? (
-                          <span className="delta-tag tag-ath">ATH (0.00%)</span>
+                      {/* 4. ATH (Lifetime All Time High) */}
+                      <td className="td-ath">
+                        {row.ath?.value ? (
+                          <div className={`threshold-badge ${row.isAthToday ? "badge-today badge-gold" : "badge-inactive"}`}>
+                            {row.isAthToday && <span className="today-icon">👑</span>}
+                            <span className="threshold-val">₹{Number(row.ath.value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            <span className="count-pill">Count: {row.ath.count}</span>
+                          </div>
                         ) : (
-                          <span className={`delta-tag ${Math.abs(row.deltaFromAthPercent) <= 3 ? "tag-near" : "tag-neg"}`}>
-                            {row.deltaFromAthPercent}%
-                          </span>
+                          <span className="empty-dash">—</span>
                         )}
                       </td>
 
-                      {/* 2026 Max Close */}
-                      <td className="td-ytd-max">
-                        <div className="max-box">
-                          <span className="max-price">₹{Number(row.ytdMaxClose || 0).toFixed(2)}</span>
-                          <span className="max-date">{row.ytdMaxDate || "—"}</span>
+                      {/* 5. ATL (Lifetime All Time Low) */}
+                      <td className="td-atl">
+                        {row.atl?.value ? (
+                          <div className={`threshold-badge ${row.isAtlToday ? "badge-today badge-red" : "badge-inactive"}`}>
+                            {row.isAtlToday && <span className="today-icon">🔻</span>}
+                            <span className="threshold-val">₹{Number(row.atl.value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            <span className="count-pill">Count: {row.atl.count}</span>
+                          </div>
+                        ) : (
+                          <span className="empty-dash">—</span>
+                        )}
+                      </td>
+
+                      {/* 6. CYATH (Current Year All Time High) */}
+                      <td className="td-cyath">
+                        {row.cyath?.value ? (
+                          <div className={`threshold-badge ${row.isCyathToday ? "badge-today badge-cyan" : "badge-inactive"}`}>
+                            {row.isCyathToday && <span className="today-icon">🌟</span>}
+                            <span className="threshold-val">₹{Number(row.cyath.value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            <span className="count-pill">Count: {row.cyath.count}</span>
+                          </div>
+                        ) : (
+                          <span className="empty-dash">—</span>
+                        )}
+                      </td>
+
+                      {/* 7. CYATL (Current Year All Time Low) */}
+                      <td className="td-cyatl">
+                        {row.cyatl?.value ? (
+                          <div className={`threshold-badge ${row.isCyatlToday ? "badge-today badge-amber" : "badge-inactive"}`}>
+                            {row.isCyatlToday && <span className="today-icon">🔻</span>}
+                            <span className="threshold-val">₹{Number(row.cyatl.value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                            <span className="count-pill">Count: {row.cyatl.count}</span>
+                          </div>
+                        ) : (
+                          <span className="empty-dash">—</span>
+                        )}
+                      </td>
+
+                      {/* 8. ACTIONS */}
+                      <td className="td-actions">
+                        <div className="row-action-btns">
+                          <button
+                            type="button"
+                            className="mini-action-btn analytics-btn"
+                            onClick={() => handleOpenStockAnalyticsInNewTab(row)}
+                            title="Open Stock Data Summary in New Tab (Last 6 Months)"
+                          >
+                            Analyze ↗
+                          </button>
+
+                          <button
+                            type="button"
+                            className="mini-action-btn copy-btn"
+                            onClick={() => handleCopySymbol(cleanSym)}
+                            title="Copy symbol to clipboard"
+                          >
+                            {copiedSymbol === cleanSym ? "✓ Copied" : "Copy"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="mini-action-btn strat-btn"
+                            onClick={() => {
+                              if (onOpenStrategy) {
+                                onOpenStrategy({
+                                  symbol: row.symbol,
+                                  script: cleanSym,
+                                  timeframe: "Daily",
+                                });
+                              }
+                            }}
+                            title="Open Strategy Decision Matrix"
+                          >
+                            Strategy
+                          </button>
                         </div>
                       </td>
-
-                      {/* Delta From YTD */}
-                      <td className="td-ytd-delta">
-                        {row.deltaFromYtdPercent >= 0 ? (
-                          <span className="delta-tag tag-ytd-peak">PEAK (0.00%)</span>
-                        ) : (
-                          <span className={`delta-tag ${Math.abs(row.deltaFromYtdPercent) <= 3 ? "tag-near" : "tag-neg"}`}>
-                            {row.deltaFromYtdPercent}%
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Date */}
-                      <td className="td-date">{row.date || "—"}</td>
                     </tr>
                   );
                 })

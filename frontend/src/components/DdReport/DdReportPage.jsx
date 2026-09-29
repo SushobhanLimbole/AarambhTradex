@@ -3,8 +3,7 @@ import "./DdReportPage.css";
 import ddReportService from "../../services/ddReportService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
-
-const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"];
+import { getConditionalActionDate } from "../../utils/dateUtils.js";
 
 // Preset indices matching system standard
 const PRESET_INDICES = [
@@ -39,22 +38,23 @@ const PRESET_INDICES = [
 export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
-  const [timeframe, setTimeframe] = useState("Daily");
-  const [actionDate, setActionDate] = useState("");
-  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'BULLISH_DD' | 'BEARISH_DD' | 'ALL_DD'
+  const [actionDate, setActionDate] = useState(() => getConditionalActionDate());
+  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'BULLISH' | 'BEARISH'
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedSymbol, setCopiedSymbol] = useState(null);
 
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
 
   const [reportData, setReportData] = useState([]);
   const [summary, setSummary] = useState({
-    bullishDdCount: 0,
-    bearishDdCount: 0,
-    totalDdCount: 0,
+    bullishCount: 0,
+    bearishCount: 0,
+    totalMatched: 0,
     totalScanned: 0,
   });
 
+  const [hasScanned, setHasScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -109,17 +109,19 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     loadMeta();
   }, []);
 
-  // 2. Fetch Report
-  const handleFetchReport = useCallback(async () => {
+  // 2. Fetch Report (Triggered on mount for initial conditional date, and subsequently on clicking RUN)
+  const handleFetchReport = useCallback(async (customDate) => {
+    const targetDate = typeof customDate === "string" ? customDate : actionDate;
     setLoading(true);
+    setHasScanned(true);
     setError("");
     try {
       const res = await ddReportService.getDdReport({
         exchange,
         indice: indexVal,
-        timeframe,
-        actionDate: actionDate || undefined,
-        filterType,
+        timeframe: "Daily",
+        actionDate: targetDate || undefined,
+        filterType: "ALL",
       });
 
       if (res?.data && Array.isArray(res.data)) {
@@ -127,67 +129,107 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         if (res.summary) {
           setSummary(res.summary);
         }
-        if (res.rawActionDate && !actionDate) {
+        if (res.rawActionDate && !targetDate) {
           setActionDate(res.rawActionDate);
         }
       } else {
         setReportData([]);
       }
     } catch (err) {
-      console.error("DD Report Error:", err);
-      setError(err.message || "Failed to load DD report.");
+      console.error("Twin Tower Report Error:", err);
+      setError(err.message || "Failed to load Twin Tower report.");
       setReportData([]);
     } finally {
       setLoading(false);
     }
-  }, [exchange, indexVal, timeframe, actionDate, filterType]);
+  }, [exchange, indexVal, actionDate]);
 
+  // Initial load on mount using getConditionalActionDate()
   useEffect(() => {
-    handleFetchReport();
-  }, [handleFetchReport]);
+    const initDate = getConditionalActionDate();
+    handleFetchReport(initDate);
+  }, []);
 
+  // Instant in-memory filter
   const filteredData = useMemo(() => {
-    return reportData.filter((row) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
+    let list = reportData;
+    const norm = String(filterType).toUpperCase();
+    if (norm === "BULLISH" || norm === "BULLISH_DD") {
+      list = list.filter((r) => r.isBullishTwinTower || r.type === "BULLISH");
+    } else if (norm === "BEARISH" || norm === "BEARISH_DD") {
+      list = list.filter((r) => r.isBearishTwinTower || r.type === "BEARISH");
+    }
+
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter((row) => {
       const sym = (row.symbol || "").toLowerCase();
-      const type = (row.ddType || "").toLowerCase();
-      const d1 = (row.day1State || "").toLowerCase();
-      const d2 = (row.day2State || "").toLowerCase();
-      return sym.includes(q) || type.includes(q) || d1.includes(q) || d2.includes(q);
+      const cleanSym = (row.cleanSymbol || "").toLowerCase();
+      const weekly = (row.weeklyStatus || "").toLowerCase();
+      const tt = (row.twinTower || "").toLowerCase();
+      return sym.includes(q) || cleanSym.includes(q) || weekly.includes(q) || tt.includes(q);
     });
-  }, [reportData, searchQuery]);
+  }, [reportData, filterType, searchQuery]);
+
+  // Copy symbol helper
+  const handleCopySymbol = (sym) => {
+    if (!sym) return;
+    navigator.clipboard.writeText(sym);
+    setCopiedSymbol(sym);
+    setTimeout(() => {
+      setCopiedSymbol(null);
+    }, 2000);
+  };
+
+  // Open stock analytics data summary page in a new tab with last 6 months data
+  const handleOpenStockAnalyticsInNewTab = (row) => {
+    const fullSym = row.symbol || row.cleanSymbol;
+    if (!fullSym) return;
+
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const formatDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const fromDate = formatDate(sixMonthsAgo);
+    const toDate = formatDate(now);
+    const ex = exchange || "NSE";
+    const ind = indexVal || "ALL";
+    const tf = "Daily";
+
+    const url = `${window.location.origin}${window.location.pathname}?tab=reports&symbol=${encodeURIComponent(fullSym)}&exchange=${encodeURIComponent(ex)}&indice=${encodeURIComponent(ind)}&fromDate=${fromDate}&toDate=${toDate}&timeframe=${tf}#reports`;
+
+    window.open(url, "_blank");
+  };
 
   // CSV Export
   const handleExportCSV = () => {
     if (!filteredData.length) return;
     const headers = [
-      "SR",
-      "Symbol",
-      "Price",
-      "DD Classification",
-      "Day 1 State",
-      "Day 2 State",
-      "Margin %",
-      "Day 2 High",
-      "Day 2 Low",
-      "Day 1 Date",
-      "Day 1 Close",
-      "Action Date",
+      "SR.NO",
+      "TICKER NAME",
+      "PRICE",
+      "WEEKLY STATUS",
+      "TWIN TOWER",
+      "DAY 1 FORMATION",
+      "DAY 2 FORMATION",
+      "DATE",
     ];
 
     const rows = filteredData.map((r, i) => [
       i + 1,
-      r.symbol,
+      r.cleanSymbol || r.symbol,
       r.price,
-      `"${r.ddType}"`,
+      `"${r.weeklyStatus}"`,
+      `"${r.twinTower}"`,
       `"${r.day1State}"`,
       `"${r.day2State}"`,
-      `${r.margin}%`,
-      r.high,
-      r.low,
-      r.day1Date,
-      r.day1Close,
       r.date,
     ]);
 
@@ -197,7 +239,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `dd_report_${timeframe}_${actionDate || "latest"}.csv`);
+    link.setAttribute("download", `twin_tower_report_${actionDate || "latest"}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -205,14 +247,17 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
   return (
     <div className="dd-report-wrapper">
-      {/* 1. EXCEL SPECIFICATION MATRIX HEADER (MATCHING USER SCREENSHOT PRECISELY) */}
+      {/* 1. EXCEL SPECIFICATION MATRIX HEADER */}
       <div className="dd-matrix-card">
         <div className="dd-matrix-grid">
-          {/* BULLISH DD SECTION */}
-          <div className="dd-section-box section-bullish">
+          {/* BULLISH TWIN TOWER SECTION */}
+          <div
+            className={`dd-section-box section-bullish ${filterType === "BULLISH" ? "active-box" : ""}`}
+            onClick={() => setFilterType(filterType === "BULLISH" ? "ALL" : "BULLISH")}
+          >
             <div className="dd-section-header">
               <span className="dd-badge-kicker kicker-green">DIRECTIONAL SHIFT</span>
-              <h2 className="dd-sec-title title-green">BULLISH DD</h2>
+              <h2 className="dd-sec-title title-green">BULLISH Twin Tower</h2>
             </div>
 
             <div className="dd-steps-container">
@@ -230,18 +275,20 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
             </div>
 
             <div className="dd-section-footer">
-              <span className="dd-scope-pill">FOR ALL TIME FRAME</span>
               <div className="dd-counter-badge counter-green">
-                <span>Matched: <strong>{summary.bullishDdCount || 0}</strong> stocks</span>
+                <span>Matched: <strong>{summary.bullishCount || 0}</strong> stocks</span>
               </div>
             </div>
           </div>
 
-          {/* BEARISH DD SECTION */}
-          <div className="dd-section-box section-bearish">
+          {/* BEARISH TWIN TOWER SECTION */}
+          <div
+            className={`dd-section-box section-bearish ${filterType === "BEARISH" ? "active-box" : ""}`}
+            onClick={() => setFilterType(filterType === "BEARISH" ? "ALL" : "BEARISH")}
+          >
             <div className="dd-section-header">
               <span className="dd-badge-kicker kicker-red">DIRECTIONAL SHIFT</span>
-              <h2 className="dd-sec-title title-red">BEARISH DD</h2>
+              <h2 className="dd-sec-title title-red">BEARISH Twin Tower</h2>
             </div>
 
             <div className="dd-steps-container">
@@ -259,9 +306,8 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
             </div>
 
             <div className="dd-section-footer">
-              <span className="dd-scope-pill">FOR ALL TIME FRAME</span>
               <div className="dd-counter-badge counter-red">
-                <span>Matched: <strong>{summary.bearishDdCount || 0}</strong> stocks</span>
+                <span>Matched: <strong>{summary.bearishCount || 0}</strong> stocks</span>
               </div>
             </div>
           </div>
@@ -271,20 +317,20 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         <div className="dd-summary-ribbon">
           <div className="dd-ribbon-left">
             <span className="ribbon-icon">⚡</span>
-            <span className="ribbon-title">INSTITUTIONAL DIRECTIONAL DISTRIBUTION (DD) ENGINE</span>
+            <span className="ribbon-title">INSTITUTIONAL TWIN TOWER DIRECTIONAL SHIFT ENGINE</span>
           </div>
           <div className="dd-ribbon-stats">
             <div className="dd-stat-pill">
-              <span className="lbl">Total DD Flips:</span>
-              <span className="val highlight">{summary.totalDdCount || 0}</span>
+              <span className="lbl">Total Formations:</span>
+              <span className="val highlight">{summary.totalMatched || 0}</span>
             </div>
             <div className="dd-stat-pill">
-              <span className="lbl">🟢 Bullish DD:</span>
-              <span className="val text-bull">{summary.bullishDdCount || 0}</span>
+              <span className="lbl">🟢 Bullish Twin Tower:</span>
+              <span className="val text-bull">{summary.bullishCount || 0}</span>
             </div>
             <div className="dd-stat-pill">
-              <span className="lbl">🔴 Bearish DD:</span>
-              <span className="val text-bear">{summary.bearishDdCount || 0}</span>
+              <span className="lbl">🔴 Bearish Twin Tower:</span>
+              <span className="val text-bear">{summary.bearishCount || 0}</span>
             </div>
             <div className="dd-stat-pill">
               <span className="lbl">Total Evaluated:</span>
@@ -340,22 +386,6 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
           </select>
         </div>
 
-        {/* Timeframe */}
-        <div className="dd-control-group">
-          <label className="dd-label">Timeframe</label>
-          <select
-            className="dd-select"
-            value={timeframe}
-            onChange={(e) => setTimeframe(e.target.value)}
-          >
-            {TIMEFRAMES.map((tf) => (
-              <option key={tf} value={tf}>
-                {tf}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Action Date */}
         <div className="dd-control-group">
           <label className="dd-label">Action Date</label>
@@ -374,28 +404,21 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
             className={`dd-pill-btn ${filterType === "ALL" ? "active" : ""}`}
             onClick={() => setFilterType("ALL")}
           >
-            All Stocks ({summary.totalScanned})
+            All Stocks ({summary.totalMatched || 0})
           </button>
           <button
             type="button"
-            className={`dd-pill-btn pill-flips ${filterType === "ALL_DD" ? "active" : ""}`}
-            onClick={() => setFilterType("ALL_DD")}
+            className={`dd-pill-btn pill-bullish ${filterType === "BULLISH" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "BULLISH" ? "ALL" : "BULLISH")}
           >
-            ⚡ All DD Flips ({summary.totalDdCount})
+            🟢 Bullish Twin Tower ({summary.bullishCount || 0})
           </button>
           <button
             type="button"
-            className={`dd-pill-btn pill-bullish ${filterType === "BULLISH_DD" ? "active" : ""}`}
-            onClick={() => setFilterType("BULLISH_DD")}
+            className={`dd-pill-btn pill-bearish ${filterType === "BEARISH" ? "active" : ""}`}
+            onClick={() => setFilterType(filterType === "BEARISH" ? "ALL" : "BEARISH")}
           >
-            🟢 Bullish DD ({summary.bullishDdCount})
-          </button>
-          <button
-            type="button"
-            className={`dd-pill-btn pill-bearish ${filterType === "BEARISH_DD" ? "active" : ""}`}
-            onClick={() => setFilterType("BEARISH_DD")}
-          >
-            🔴 Bearish DD ({summary.bearishDdCount})
+            🔴 Bearish Twin Tower ({summary.bearishCount || 0})
           </button>
         </div>
 
@@ -403,10 +426,10 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         <button
           type="button"
           className="dd-run-btn"
-          onClick={handleFetchReport}
+          onClick={() => handleFetchReport()}
           disabled={loading}
         >
-          {loading ? "Scanning..." : "RUN SCANNER"}
+          {loading ? "Scanning..." : "RUN"}
         </button>
 
         <button
@@ -447,182 +470,143 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
         <div className="dd-table-counts">
           <span>
-            Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> stocks
+            Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> matched stocks for <strong>{actionDate || "Action Date"}</strong>
           </span>
         </div>
       </div>
 
-      {/* 4. LIVE REPORT DATA TABLE */}
+      {/* 4. LIVE REPORT DATA TABLE (Columns: SR.NO, TICKER NAME, WEEKLY STATUS, TWIN TOWER, ACTIONS) */}
       <div className="dd-table-card">
         <div className="dd-table-scroll">
           <table className="dd-table">
             <thead>
               <tr>
-                <th className="th-sr">SR.</th>
-                <th className="th-sym">TICKER</th>
-                <th className="th-price">PRICE (CLOSE)</th>
-                <th className="th-type">DD CLASSIFICATION</th>
-                <th className="th-d1">DAY 1 FORMATION</th>
-                <th className="th-d2">DAY 2 FORMATION</th>
-                <th className="th-margin">FLIP MARGIN %</th>
-                <th className="th-hl">DAY 2 HIGH / LOW</th>
-                <th className="th-d1-details">DAY 1 (CLOSE / DATE)</th>
-                <th className="th-date">DATE</th>
+                <th className="th-sr">SR.NO</th>
+                <th className="th-sym">TICKER NAME</th>
+                <th className="th-weekly">WEEKLY STATUS</th>
+                <th className="th-twintower">TWIN TOWER</th>
+                <th className="th-actions">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="dd-empty-cell">
+                  <td colSpan={5} className="dd-empty-cell">
                     <div className="dd-loading-box">
                       <span className="dd-spinner">⏳</span>
-                      <span>Calculating Bullish DD &amp; Bearish DD Structural Shifts...</span>
+                      <span>Calculating Bullish &amp; Bearish Twin Tower Formations...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : !hasScanned ? (
+                <tr>
+                  <td colSpan={5} className="dd-empty-cell">
+                    <div className="dd-loading-box">
+                      <span className="dd-spinner">⚡</span>
+                      <span>Select filters above and click <strong>&quot;RUN SCANNER&quot;</strong> to find Twin Tower formations.</span>
                     </div>
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="dd-empty-cell">
+                  <td colSpan={5} className="dd-empty-cell">
                     <div className="dd-loading-box">
                       <span className="dd-spinner">📊</span>
-                      <span>No stocks matched the selected DD pattern criteria.</span>
+                      <span>No stocks formed a Twin Tower pattern on {actionDate || "this date"}.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredData.map((row, idx) => {
-                  const cleanSym = stripSymbolSuffix(row.symbol);
+                  const cleanSym = row.cleanSymbol || stripSymbolSuffix(row.symbol);
                   return (
                     <tr
                       key={row.symbol || idx}
-                      className={`dd-row ${row.isBullishDd ? "row-bullish" : row.isBearishDd ? "row-bearish" : ""}`}
+                      className={`dd-row ${row.isBullishTwinTower ? "row-bullish" : row.isBearishTwinTower ? "row-bearish" : ""}`}
                     >
+                      {/* 1. SR.NO */}
                       <td className="td-sr">{idx + 1}</td>
 
-                      {/* Ticker */}
+                      {/* 2. TICKER NAME */}
                       <td className="td-sym">
-                        <span
-                          className="ticker-badge-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            }
-                          }}
-                          title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
-                        >
-                          {cleanSym}
-                        </span>
-                      </td>
-
-                      {/* Price */}
-                      <td className="td-price">
-                        <strong>
-                          ₹
-                          {Number(row.price || 0).toLocaleString("en-IN", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </strong>
-                      </td>
-
-                      {/* DD Classification */}
-                      <td className="td-type">
-                        {row.isBullishDd && (
-                          <span className="dd-badge badge-bullish">
-                            🟢 BULLISH DD
+                        <div className="ticker-cell">
+                          <span
+                            className="ticker-badge-link"
+                            onClick={() => handleOpenStockAnalyticsInNewTab(row)}
+                            title={`Open ${cleanSym} Data Summary (Last 6 Months) in New Tab`}
+                          >
+                            {cleanSym}
                           </span>
-                        )}
-                        {row.isBearishDd && (
-                          <span className="dd-badge badge-bearish">
-                            🔴 BEARISH DD
-                          </span>
-                        )}
-                        {!row.isBullishDd && !row.isBearishDd && (
-                          <span className="dd-badge badge-neutral">
-                            NO DD FLIP
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Day 1 Formation */}
-                      <td className="td-d1">
-                        {row.day1State === "HLC LOWER" && (
-                          <span className="state-tag tag-lower">
-                            🔴 HLC LOWER
-                          </span>
-                        )}
-                        {row.day1State === "HLC HIGHER" && (
-                          <span className="state-tag tag-higher">
-                            🟢 HLC HIGHER
-                          </span>
-                        )}
-                        {row.day1State === "NEUTRAL" && (
-                          <span className="state-tag tag-neutral">NEUTRAL</span>
-                        )}
-                      </td>
-
-                      {/* Day 2 Formation */}
-                      <td className="td-d2">
-                        {row.day2State === "HLC HIGHER" && (
-                          <span className="state-tag tag-higher">
-                            🟢 HLC HIGHER
-                          </span>
-                        )}
-                        {row.day2State === "HLC LOWER" && (
-                          <span className="state-tag tag-lower">
-                            🔴 HLC LOWER
-                          </span>
-                        )}
-                        {row.day2State === "NEUTRAL" && (
-                          <span className="state-tag tag-neutral">NEUTRAL</span>
-                        )}
-                      </td>
-
-                      {/* Flip Margin % */}
-                      <td className="td-margin">
-                        {row.isBullishDd && (
-                          <span className="margin-pill pill-bull">
-                            +{row.margin}%
-                          </span>
-                        )}
-                        {row.isBearishDd && (
-                          <span className="margin-pill pill-bear">
-                            -{row.margin}%
-                          </span>
-                        )}
-                        {!row.isBullishDd && !row.isBearishDd && (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-
-                      {/* Day 2 High / Low */}
-                      <td className="td-hl">
-                        <div className="hl-stack">
-                          <span className="high-txt">H: ₹{Number(row.high || 0).toFixed(2)}</span>
-                          <span className="low-txt">L: ₹{Number(row.low || 0).toFixed(2)}</span>
+                          <span className="price-sub">₹{Number(row.price || 0).toFixed(2)}</span>
                         </div>
                       </td>
 
-                      {/* Day 1 (Close / Date) */}
-                      <td className="td-d1-details">
-                        <div className="d1-stack">
-                          <span className="d1-close">₹{Number(row.day1Close || 0).toFixed(2)}</span>
-                          <span className="d1-date">{row.day1Date || "—"}</span>
-                        </div>
+                      {/* 3. WEEKLY STATUS */}
+                      <td className="td-weekly">
+                        {row.weeklyStatus === "HLC HIGHER" ? (
+                          <span className="weekly-badge badge-hlc-higher">
+                            🟢 HLC HIGHER
+                          </span>
+                        ) : row.weeklyStatus === "HLC LOWER" ? (
+                          <span className="weekly-badge badge-hlc-lower">
+                            🔴 HLC LOWER
+                          </span>
+                        ) : (
+                          <span className="weekly-badge badge-neutral">
+                            ⚪ NEUTRAL
+                          </span>
+                        )}
                       </td>
 
-                      {/* Date */}
-                      <td className="td-date">{row.date || "—"}</td>
+                      {/* 4. TWIN TOWER */}
+                      <td className="td-twintower">
+                        {row.isBullishTwinTower ? (
+                          <div className="twintower-badge-box badge-bullish-box">
+                            <span className="tt-icon">🟢</span>
+                            <span className="tt-name">BULLISH Twin Tower</span>
+                            <span className="tt-sub-steps">(D1: Lower → D2: Higher)</span>
+                          </div>
+                        ) : row.isBearishTwinTower ? (
+                          <div className="twintower-badge-box badge-bearish-box">
+                            <span className="tt-icon">🔴</span>
+                            <span className="tt-name">BEARISH Twin Tower</span>
+                            <span className="tt-sub-steps">(D1: Higher → D2: Lower)</span>
+                          </div>
+                        ) : (
+                          <span className="empty-dash">—</span>
+                        )}
+                      </td>
+
+                      {/* 5. ACTIONS */}
+                      <td className="td-actions">
+                        <div className="row-action-btns">
+                          <button
+                            type="button"
+                            className="mini-action-btn copy-btn"
+                            onClick={() => handleCopySymbol(cleanSym)}
+                            title="Copy symbol to clipboard"
+                          >
+                            {copiedSymbol === cleanSym ? "✓ Copied" : "Copy"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="mini-action-btn strat-btn"
+                            onClick={() => {
+                              if (onOpenStrategy) {
+                                onOpenStrategy({
+                                  symbol: row.symbol,
+                                  script: cleanSym,
+                                  timeframe: "Daily",
+                                });
+                              }
+                            }}
+                            title="Open Strategy Decision Matrix"
+                          >
+                            Strategy
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })

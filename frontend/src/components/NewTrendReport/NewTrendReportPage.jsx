@@ -201,7 +201,7 @@ export default function NewTrendReportPage({
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((r) => {
         const sym = stripSymbolSuffix(r.symbol).toLowerCase();
-        const pointer = String(r.monthlyPointer || "").toLowerCase();
+        const pointer = String(r.pointer || r.monthlyPointer || "").toLowerCase();
         const trend = String(r.currTrend || "").toLowerCase();
         return sym.includes(q) || pointer.includes(q) || trend.includes(q);
       });
@@ -223,7 +223,7 @@ export default function NewTrendReportPage({
       } else if (sortBy === "status") {
         comparison = String(a.currTrend || "").localeCompare(String(b.currTrend || ""));
       } else if (sortBy === "pointer") {
-        comparison = String(a.monthlyPointer || "").localeCompare(String(b.monthlyPointer || ""));
+        comparison = String(a.pointer || a.monthlyPointer || "").localeCompare(String(b.pointer || b.monthlyPointer || ""));
       } else if (sortBy === "price") {
         comparison = (Number(a.price) || 0) - (Number(b.price) || 0);
       }
@@ -380,7 +380,7 @@ export default function NewTrendReportPage({
         </div>
 
         <div className="ntr-stat-badge">
-          <span>HLC HIGHER / LOWER • MONTHLY POINTER &amp; YGR BREAKOUT</span>
+          <span>HLC HIGHER / LOWER • {timeframe === "Daily" ? "POINTER" : `${timeframe.toUpperCase()} POINTER`} &amp; YGR BREAKOUT</span>
         </div>
       </div>
 
@@ -415,11 +415,11 @@ export default function NewTrendReportPage({
                 <th
                   className="th-pointer sortable-th"
                   onClick={() => handleHeaderSort("pointer")}
-                  title="Displays stock's pointer type from the previous month"
+                  title={`Displays stock's pointer type for the selected ${timeframe} timeframe`}
                 >
-                  MONTHLY POINTER {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
+                  {timeframe === "Daily" ? "POINTER" : `${timeframe.toUpperCase()} POINTER`} {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th className="th-ygr" title="Monthly timeframe pointer type values (Y, G, R) compared against today's closing price">
+                <th className="th-ygr" title="Pointer trigger values (Y, G, R) compared against today's closing price">
                   ygr
                 </th>
                 <th
@@ -437,7 +437,7 @@ export default function NewTrendReportPage({
                   <td colSpan={7} className="ntr-empty-cell">
                     <div className="ntr-loading-box">
                       <span className="ntr-spinner">⏳</span>
-                      <span>Calculating Trend Matrices, Monthly Pointers &amp; YGR Comparisons...</span>
+                      <span>Calculating Trend Matrices, Pointers &amp; YGR Comparisons...</span>
                     </div>
                   </td>
                 </tr>
@@ -455,7 +455,9 @@ export default function NewTrendReportPage({
                   const cleanSym = stripSymbolSuffix(row.symbol);
                   const isUpTrend = row.currTrend === "UP-TREND";
                   const isDownTrend = row.currTrend === "DOWN-TREND";
-                  const pointerBadgeClass = getPointerBadgeColor(row.monthlyPointer);
+                  const pointerText = row.pointer || row.monthlyPointer;
+                  const pointerDateText = row.pointerDate || row.monthlyPointerDate;
+                  const pointerBadgeClass = getPointerBadgeColor(pointerText);
 
                   return (
                     <tr key={row.symbol || idx} className="ntr-row">
@@ -483,16 +485,16 @@ export default function NewTrendReportPage({
                       {/* TREND DATE */}
                       <td className="td-date">{row.trendDate || "—"}</td>
 
-                      {/* MONTHLY POINTER (PREVIOUS MONTH POINTER TYPE) */}
+                      {/* POINTER */}
                       <td className="td-pointer">
-                        {row.monthlyPointer && row.monthlyPointer !== "—" ? (
+                        {pointerText && pointerText !== "—" ? (
                           <div className="pointer-cell-group">
                             <span className={`monthly-pointer-badge ${pointerBadgeClass}`}>
-                              {row.monthlyPointer}
+                              {pointerText}
                             </span>
-                            {row.monthlyPointerDate && row.monthlyPointerDate !== "—" && (
+                            {pointerDateText && pointerDateText !== "—" && (
                               <span className="pointer-date-subtext">
-                                ({row.monthlyPointerDate})
+                                ({pointerDateText})
                               </span>
                             )}
                           </div>
@@ -501,7 +503,7 @@ export default function NewTrendReportPage({
                         )}
                       </td>
 
-                      {/* YGR (MONTHLY TIMEFRAME POINTER VALUES COMPARED TO TODAY'S CLOSE) */}
+                      {/* YGR (TIMEFRAME POINTER TRIGGER VALUES COMPARED TO CLOSE) */}
                       <td className="td-ygr">
                         <div className="matched-triggers-cell">
                           {row.ygr && row.ygr.length > 0 ? (
@@ -512,7 +514,7 @@ export default function NewTrendReportPage({
                                 <span
                                   key={`${row.symbol}-${item.trigger}`}
                                   className={`matched-trigger-tag ${trigClass}`}
-                                  title={`Monthly ${item.trigger} Level: ₹${Number(item.triggerPrice).toFixed(2)} (CMP Close: ₹${Number(row.price || 0).toFixed(2)}, ${isPositive ? "+" : ""}${item.diffPct}%)`}
+                                  title={`${item.trigger} Level: ₹${Number(item.triggerPrice).toFixed(2)} (CMP Close: ₹${Number(row.price || 0).toFixed(2)}, ${isPositive ? "+" : ""}${item.diffPct}%)`}
                                 >
                                   <strong>{item.trigger}</strong>
                                   {item.triggerPrice !== undefined && (

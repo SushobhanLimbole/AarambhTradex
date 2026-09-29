@@ -17,6 +17,7 @@ export function calculateTrigger(cmp2Candle, pattern = "TABLE TOP", triggerType 
   if (!cmp2Candle) return null;
 
   const { triggers } = calculateStrategyData(cmp2Candle);
+  if (!triggers) return null;
 
   const flatTriggers = {
     ...triggers.yellow,
@@ -24,34 +25,103 @@ export function calculateTrigger(cmp2Candle, pattern = "TABLE TOP", triggerType 
     ...triggers.green,
   };
 
-  // Pattern-based scenario defaults if specialized triggers mapped
-  const normalizedPattern = String(pattern).trim().toUpperCase();
-
-  switch (normalizedPattern) {
-    case "TABLE TENNIS":
-      // Table tennis revolves around Y2 / R2 / G2 channel
-      break;
-    case "BUYING POINTER":
-    case "RISING JACK":
-      // Buying pointer aligns around Y3 / R3 / G3
-      break;
-    case "SELLING POINTER":
-    case "FALLING DUCK":
-      // Selling pointer aligns around Y1 / R1 / G1
-      break;
-    case "TABLE TOP":
-    case "RISING - FALLING BREAKOUT":
-      // Table top revolves around Y4 / R4 / G2 extensions
-      break;
-    case "UPWARD ROTATION":
-      // Upward rotation focuses on Y1-Y3 rotation
-      break;
-    default:
-      break;
-  }
-
   const triggerVal = flatTriggers[triggerType];
   return triggerVal !== undefined ? Number(triggerVal) : null;
+}
+
+/**
+ * Evaluates whether a stock qualifies for a given trigger condition
+ * - Y group (Y1..Y6): Stocks qualify if CMP1 Close > Y trigger level (greater than Y)
+ * - R group (R1..R6): Stocks qualify if CMP1 Close < R trigger level (less than R)
+ * - G group (G1..G6): Stocks qualify if CMP1 Close is between corresponding Y and R group thresholds (R <= CMP1 Close <= Y)
+ *
+ * @param {Object} cmp1Candle - { close, ... }
+ * @param {Object} cmp2Candle - Reference period candle
+ * @param {string} pattern - Pattern filter
+ * @param {string} triggerType - 'Y1'..'Y6', 'R1'..'R6', 'G1'..'G6'
+ * @returns {Object|null} - { trigger, triggerPrice, pctBreakout, lowerPrice, upperPrice, group } or null if not qualified
+ */
+export function evaluateScreenerTrigger(cmp1Candle, cmp2Candle, pattern, triggerType) {
+  if (!cmp1Candle || !cmp2Candle || !triggerType) return null;
+
+  const cmp1Close = parseFloat(cmp1Candle.close);
+  if (isNaN(cmp1Close)) return null;
+
+  const { triggers } = calculateStrategyData(cmp2Candle);
+  if (!triggers) return null;
+
+  const trig = String(triggerType).trim().toUpperCase();
+  const levelNum = trig.replace(/\D/g, "") || "1";
+  const group = trig.charAt(0); // 'Y', 'R', or 'G'
+
+  const yPrice = triggers.yellow ? triggers.yellow[`Y${levelNum}`] : null;
+  const rPrice = triggers.red ? triggers.red[`R${levelNum}`] : null;
+  const gPrice = triggers.green ? triggers.green[`G${levelNum}`] : null;
+
+  if (group === "Y") {
+    const triggerPrice = yPrice !== undefined && yPrice !== null ? Number(yPrice) : null;
+    if (triggerPrice === null) return null;
+    if (cmp1Close > triggerPrice) {
+      const pctBreakout = Number((((cmp1Close - triggerPrice) / triggerPrice) * 100).toFixed(2));
+      return {
+        trigger: trig,
+        group: "Y",
+        triggerPrice,
+        pctBreakout,
+      };
+    }
+  } else if (group === "R") {
+    const triggerPrice = rPrice !== undefined && rPrice !== null ? Number(rPrice) : null;
+    if (triggerPrice === null) return null;
+    if (cmp1Close < triggerPrice) {
+      const pctBreakout = Number((((cmp1Close - triggerPrice) / triggerPrice) * 100).toFixed(2));
+      return {
+        trigger: trig,
+        group: "R",
+        triggerPrice,
+        pctBreakout,
+      };
+    }
+  } else if (group === "G") {
+    // For G: Between Y and R group thresholds (e.g. min(Yx, Rx) <= CMP1 Close <= max(Yx, Rx))
+    if (yPrice === null || yPrice === undefined || rPrice === null || rPrice === undefined) return null;
+    const lowerBound = Math.min(Number(yPrice), Number(rPrice));
+    const upperBound = Math.max(Number(yPrice), Number(rPrice));
+    const centerPrice = gPrice !== undefined && gPrice !== null
+      ? Number(gPrice)
+      : Number(((lowerBound + upperBound) / 2).toFixed(2));
+
+    if (cmp1Close >= lowerBound && cmp1Close <= upperBound) {
+      const pctBreakout = Number((((cmp1Close - centerPrice) / centerPrice) * 100).toFixed(2));
+      return {
+        trigger: trig,
+        group: "G",
+        triggerPrice: centerPrice,
+        lowerPrice: lowerBound,
+        upperPrice: upperBound,
+        pctBreakout,
+      };
+    }
+  } else {
+    // Fallback for any other custom trigger key
+    const flatTriggers = {
+      ...triggers.yellow,
+      ...triggers.red,
+      ...triggers.green,
+    };
+    const triggerPrice = flatTriggers[trig] !== undefined ? Number(flatTriggers[trig]) : null;
+    if (triggerPrice !== null && cmp1Close > triggerPrice) {
+      const pctBreakout = Number((((cmp1Close - triggerPrice) / triggerPrice) * 100).toFixed(2));
+      return {
+        trigger: trig,
+        group: "Y",
+        triggerPrice,
+        pctBreakout,
+      };
+    }
+  }
+
+  return null;
 }
 
 export default calculateTrigger;

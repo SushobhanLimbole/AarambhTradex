@@ -64,18 +64,34 @@ export const screenerService = {
         details: filtered.map((sym, i) => {
           const matched = triggerList.filter((_, tIdx) => (i + tIdx) % 2 === 0 || tIdx === 0);
           const activeTriggers = matched.length > 0 ? matched : [triggerList[0]];
+          const basePrice = Number((1000 + i * 250.5).toFixed(2));
+          const matchedTriggers = activeTriggers.map((trig, tIdx) => {
+            const group = String(trig).charAt(0).toUpperCase();
+            let triggerPrice = Number((950 + i * 240.2 - tIdx * 15).toFixed(2));
+            let pct = Number((3.5 + ((i + tIdx) % 4) * 1.8).toFixed(2));
+            if (group === "R") {
+              triggerPrice = Number((basePrice + 35 + tIdx * 10).toFixed(2));
+              pct = -Number((((triggerPrice - basePrice) / triggerPrice) * 100).toFixed(2));
+            } else if (group === "G") {
+              triggerPrice = Number((basePrice - 5 + tIdx * 5).toFixed(2));
+              pct = Number((((basePrice - triggerPrice) / triggerPrice) * 100).toFixed(2));
+            }
+            return {
+              trigger: trig,
+              group,
+              triggerPrice,
+              pctBreakout: pct,
+            };
+          });
+
           return {
             symbol: sym,
-            cmp1Close: Number((1000 + i * 250.5).toFixed(2)),
-            matchedTriggers: activeTriggers.map((trig, tIdx) => ({
-              trigger: trig,
-              triggerPrice: Number((950 + i * 240.2 - tIdx * 15).toFixed(2)),
-              pctBreakout: Number((3.5 + ((i + tIdx) % 4) * 1.8).toFixed(2)),
-            })),
-            triggerCount: activeTriggers.length,
-            primaryTrigger: activeTriggers[0],
-            primaryTriggerPrice: Number((950 + i * 240.2).toFixed(2)),
-            maxPctBreakout: Number((3.5 + (i % 4) * 1.8).toFixed(2)),
+            cmp1Close: basePrice,
+            matchedTriggers,
+            triggerCount: matchedTriggers.length,
+            primaryTrigger: matchedTriggers[0].trigger,
+            primaryTriggerPrice: matchedTriggers[0].triggerPrice,
+            maxPctBreakout: Math.max(...matchedTriggers.map((m) => Math.abs(m.pctBreakout))),
           };
         }),
       };

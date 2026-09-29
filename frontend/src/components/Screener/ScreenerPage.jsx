@@ -3,6 +3,7 @@ import "./ScreenerPage.css";
 import screenerService from "../../services/screenerService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { getConditionalActionDate } from "../../utils/dateUtils.js";
 
 // Trigger options grouped by category
 const TRIGGER_GROUPS = [
@@ -142,8 +143,8 @@ export default function ScreenerPage({
   savedState,
   onSaveState,
 }) {
-  // Default helper dates: CMP1 defaults to today with Daily timeframe
-  const today = new Date().toISOString().slice(0, 10);
+  // Default helper dates: CMP1 defaults to conditional action date with Daily timeframe
+  const today = getConditionalActionDate();
   const initialCmp2 = computeCmp2FromCmp1(today, "DAILY");
 
   // Market Filters State (Exchange & Index)
@@ -153,8 +154,8 @@ export default function ScreenerPage({
   const [availableIndices, setAvailableIndices] = useState([]);
 
   // CMP1 (Current Market Period) State
-  const [cmp1StartDate, setCmp1StartDate] = useState(savedState?.cmp1StartDate || today);
-  const [cmp1EndDate, setCmp1EndDate] = useState(savedState?.cmp1EndDate || today);
+  const [cmp1StartDate, setCmp1StartDate] = useState(savedState?.cmp1StartDate || getConditionalActionDate());
+  const [cmp1EndDate, setCmp1EndDate] = useState(savedState?.cmp1EndDate || getConditionalActionDate());
   const [cmp1Timeframe, setCmp1Timeframe] = useState(savedState?.cmp1Timeframe || "DAILY");
 
   // CMP2 (Historical Reference Period) State (Pre-filled via template and fully editable)
@@ -862,19 +863,34 @@ export default function ScreenerPage({
                         <td className="col-breakout-triggers">
                           <div className="matched-triggers-cell">
                             {matched.length > 0 ? (
-                              matched.map((m) => (
-                                <span
-                                  key={`${symbol}-${m.trigger}`}
-                                  className={`matched-trigger-tag ${getTriggerClass(m.trigger)}`}
-                                  title={`Trigger Level: ₹${m.triggerPrice} (+${m.pctBreakout}%)`}
-                                >
-                                  <strong>{m.trigger}</strong>
-                                  {m.triggerPrice && <span className="tag-price">@ ₹{m.triggerPrice}</span>}
-                                  {m.pctBreakout !== undefined && (
-                                    <span className="tag-pct">+{m.pctBreakout}%</span>
-                                  )}
-                                </span>
-                              ))
+                              matched.map((m) => {
+                                const isNegative = m.pctBreakout < 0;
+                                const isGGroup = String(m.trigger || "").toUpperCase().startsWith("G");
+                                const sign = m.pctBreakout > 0 ? "+" : "";
+                                return (
+                                  <span
+                                    key={`${symbol}-${m.trigger}`}
+                                    className={`matched-trigger-tag ${getTriggerClass(m.trigger)}`}
+                                    title={`Trigger Level: ₹${m.triggerPrice} (${sign}${m.pctBreakout}%)`}
+                                  >
+                                    <strong>{m.trigger}</strong>
+                                    {m.triggerPrice && <span className="tag-price">@ ₹{m.triggerPrice}</span>}
+                                    {m.pctBreakout !== undefined && (
+                                      <span
+                                        className={`tag-pct ${
+                                          isNegative
+                                            ? isGGroup
+                                              ? "tag-pct-negative tag-pct-g-negative"
+                                              : "tag-pct-negative"
+                                            : "tag-pct-positive"
+                                        }`}
+                                      >
+                                        {sign}{m.pctBreakout}%
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })
                             ) : (
                               <span className="breakout-match-tag">
                                 Breakout Match ({selectedTriggers.join(", ")})
