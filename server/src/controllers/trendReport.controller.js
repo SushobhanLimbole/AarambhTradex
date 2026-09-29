@@ -64,19 +64,23 @@ function getYgrTriggersForScenario(scenario, triggers) {
     yCode = "Y3"; yVal = yList.Y3;
     gCode = "G3"; gVal = gList.G3;
     rCode = "R3"; rVal = rList.R3;
-  } else if (norm === "TABLE TOP") {
+  } else if (norm === "TABLE TOP" || norm.includes("TABLE TOP")) {
     yCode = "Y4"; yVal = yList.Y4 || yList.Y1;
     gCode = "G2"; gVal = gList.G2;
-    rCode = "R4"; rVal = rList.R4 || rList.R2;
+    rCode = "R4"; rVal = rList.R4 || rList.R1;
   } else if (norm === "SELLING POINTER" || norm === "FALLING DUCK" || norm === "UPWARD ROTATION") {
     yCode = "Y1"; yVal = yList.Y1;
     gCode = "G1"; gVal = gList.G1;
     rCode = "R1"; rVal = rList.R1;
+  } else if (norm.includes("BREAKOUT")) {
+    yCode = "Y5"; yVal = yList.Y5 || yList.Y1;
+    gCode = "G2"; gVal = gList.G2;
+    rCode = "R5"; rVal = rList.R5 || rList.R1;
   } else {
     // Default fallback
     yCode = "Y1"; yVal = yList.Y1;
     gCode = "G1"; gVal = gList.G1;
-    rCode = "R2"; rVal = rList.R2 || rList.R1;
+    rCode = "R1"; rVal = rList.R1;
   }
 
   return [
@@ -326,63 +330,38 @@ export const getNewTrendReport = async (req, res, next) => {
       }
 
       // -------------------------------------------------------------
-      // Calculate Previous Month Pointer & YGR Comparison
+      // Calculate Pointer & YGR Comparison for Current Timeframe Candle
       // -------------------------------------------------------------
-      const monthlyCandles = StockDataModel.resampleCandles(symDaily, "Monthly");
-      let monthlyPointer = "—";
-      let monthlyPointerDate = "—";
+      const targetCandle = currEval.lastCandle || currCandles[currCandles.length - 1] || lastDaily;
+      const candleClose = Number(targetCandle.close) || lastDailyClose;
+      const candleDate = targetCandle.date || targetCandle.endDate || lastDaily.date;
+
+      let pointer = "—";
+      let pointerDate = "—";
       let ygr = [];
 
-      if (monthlyCandles && monthlyCandles.length > 0) {
-        const [yrStr, moStr] = lastDateStr.split("-");
-        const yr = parseInt(yrStr, 10);
-        const mo = parseInt(moStr, 10);
-
-        let prevYr = yr;
-        let prevMo = mo - 1;
-        if (prevMo === 0) {
-          prevMo = 12;
-          prevYr -= 1;
+      if (targetCandle) {
+        const strategyData = calculateStrategyData(targetCandle);
+        const scenario = strategyData.conditions?.scenario;
+        if (scenario && scenario !== "FALSE") {
+          pointer = scenario;
         }
-        const prevMonthKey = `${prevYr}-${String(prevMo).padStart(2, "0")}`;
+        pointerDate = formatDateOutput(candleDate);
 
-        // Find the monthly candle for the previous calendar month
-        let prevMonthCandle = monthlyCandles.find(
-          (c) => c.bucketKey === prevMonthKey || (c.date && String(c.date).startsWith(prevMonthKey))
-        );
-
-        if (!prevMonthCandle && monthlyCandles.length >= 2) {
-          const lastMonth = monthlyCandles[monthlyCandles.length - 1];
-          if (lastMonth.bucketKey === `${yrStr}-${moStr}`) {
-            prevMonthCandle = monthlyCandles[monthlyCandles.length - 2];
-          } else {
-            prevMonthCandle = lastMonth;
-          }
-        }
-
-        if (prevMonthCandle) {
-          const prevStrategy = calculateStrategyData(prevMonthCandle);
-          const scenario = prevStrategy.conditions?.scenario;
-          if (scenario && scenario !== "FALSE") {
-            monthlyPointer = scenario;
-          }
-          monthlyPointerDate = formatDateOutput(prevMonthCandle.date || prevMonthCandle.endDate);
-
-          // Calculate YGR comparison against today's closing price
-          const ygrTriggers = getYgrTriggersForScenario(monthlyPointer, prevStrategy.triggers);
-          ygr = ygrTriggers.map((t) => {
-            const triggerPrice = Number(t.triggerPrice) || 0;
-            const diffPct = triggerPrice > 0
-              ? Number((((lastDailyClose - triggerPrice) / triggerPrice) * 100).toFixed(2))
-              : 0;
-            return {
-              trigger: t.trigger,
-              triggerPrice,
-              diffPct,
-              colorKey: t.colorKey,
-            };
-          });
-        }
+        // Calculate YGR comparison against today's closing price
+        const ygrTriggers = getYgrTriggersForScenario(pointer, strategyData.triggers);
+        ygr = ygrTriggers.map((t) => {
+          const triggerPrice = Number(t.triggerPrice) || 0;
+          const diffPct = triggerPrice > 0
+            ? Number((((candleClose - triggerPrice) / triggerPrice) * 100).toFixed(2))
+            : 0;
+          return {
+            trigger: t.trigger,
+            triggerPrice,
+            diffPct,
+            colorKey: t.colorKey,
+          };
+        });
       }
 
       results.push({
@@ -391,8 +370,10 @@ export const getNewTrendReport = async (req, res, next) => {
         currTrend: currEval.trend,
         trendDate: currEval.trendDate,
         rawTrendDate: currEval.rawTrendDate,
-        monthlyPointer,
-        monthlyPointerDate,
+        pointer,
+        pointerDate,
+        monthlyPointer: pointer,
+        monthlyPointerDate: pointerDate,
         ygr,
         area: currEval.area,
         slot: currEval.slot,
@@ -402,7 +383,7 @@ export const getNewTrendReport = async (req, res, next) => {
         htfTrendDate: htfEval.trendDate,
         rawHtfTrendDate: htfEval.rawTrendDate,
         htfArea: htfEval.area,
-        price: currEval.lastCandle ? Number(currEval.lastCandle.close) : lastDailyClose,
+        price: candleClose,
       });
     }
 
