@@ -5,23 +5,24 @@ import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js
  * HIGHEST CLOSING INSTITUTIONAL REPORT CONTROLLER
  * 
  * Logic & Specifications:
- * 1. Type 1: ATH (All Time High / Lifetime) Report
- *    - Benchmark: First 6 months of stock's lifetime data establishes initial base threshold:
- *      athThreshold = max(close), atlThreshold = min(close), athCount = 0, atlCount = 0.
- *    - After first 6 months: Each trading day is evaluated.
+ * 1. Initial 6-Month Listing Baseline Rule:
+ *    - The 6-month baseline ONLY applies to the first 6 months of a stock after its initial listing.
+ *      (e.g., if TCS listed in Jan 1999, Jan–Jun 1999 establishes initial max/min close baseline).
+ * 
+ * 2. Type 1: ATH / ATL (Lifetime) Report:
+ *    - After first 6 months from listing: Each trading day is evaluated.
  *      If close > athThreshold: athCount++, athThreshold = close.
  *      If close < atlThreshold: atlCount++, atlThreshold = close.
  *      If close crossed threshold on actionDate, stock qualifies for ATH / ATL today.
  * 
- * 2. Type 2: CYATH (Current Year All Time High) Report
- *    - Benchmark: First 6 months of the current year (Jan 1 – Jun 30) establishes initial threshold:
- *      cyathThreshold = max(close), cyatlThreshold = min(close), cyathCount = 0, cyatlCount = 0.
- *    - After first 6 months (Jul 1 onwards): Each trading day in the current year is evaluated.
+ * 3. Type 2: CYATH / CYATL (Current Year) Report:
+ *    - In subsequent years (once past the initial listing baseline):
+ *      CYATH / CYATL tracks new highs / lows from day 1 of the current year (no 6-month wait).
  *      If close > cyathThreshold: cyathCount++, cyathThreshold = close.
  *      If close < cyatlThreshold: cyatlCount++, cyatlThreshold = close.
  *      If close crossed threshold on actionDate, stock qualifies for CYATH / CYATL today.
  * 
- * 3. Scope & Filtering:
+ * 4. Scope & Filtering:
  *    - ONLY DAILY TIME FRAME
  *    - Stocks that have NOT crossed any threshold on the target action date are excluded.
  */
@@ -131,7 +132,6 @@ export const getHighestClosingReport = async (req, res, next) => {
 
       const targetYear = new Date(targetDateStr).getFullYear();
       const yearStartStr = `${targetYear}-01-01`;
-      const yearSixMonthStr = `${targetYear}-07-01`;
 
       allCalculatedRecords = [];
       let athCount = 0;
@@ -139,57 +139,44 @@ export const getHighestClosingReport = async (req, res, next) => {
       let cyathCount = 0;
       let cyatlCount = 0;
 
-      // 2. Stage 1: Fast Aggregation to find candidate symbols that can potentially qualify today
-      const BATCH_SIZE = 200;
-      const aggPromises = [];
-      for (let i = 0; i < activeSymbols.length; i += BATCH_SIZE) {
-        const chunk = activeSymbols.slice(i, i + BATCH_SIZE);
-        const placeholders = chunk.map(() => "?").join(",");
-        aggPromises.push(
-          pool.query(
-            `
-            SELECT \`symbol\`,
-                   MAX(\`close\`) as prevMaxLifetime,
-                   MIN(\`close\`) as prevMinLifetime,
-                   MAX(CASE WHEN \`date\` >= ? THEN \`close\` ELSE NULL END) as prevMaxYear,
-                   MIN(CASE WHEN \`date\` >= ? THEN \`close\` ELSE NULL END) as prevMinYear
-            FROM \`${tableName}\`
-            WHERE \`symbol\` IN (${placeholders}) AND \`date\` < ?
-            GROUP BY \`symbol\`
-            `,
-            [yearStartStr, yearStartStr, ...chunk, targetDateStr]
-          ).then(([rows]) => rows)
-        );
+      // 2. Stage 1: Ultra-Fast Current-Year Aggregation (Scans only ~400k rows instead of 13.5M rows)
+      // Mathematically, any stock hitting ATH/CYATH today MUST exceed its previous maximum close in the current year.
+      // Similarly, any stock hitting ATL/CYATL today MUST drop below its previous minimum close in the current year.
+      const [yearAggRows] = await pool.query(
+        `
+        SELECT \`symbol\`,
+               MAX(\`close\`) as prevMaxYear,
+               MIN(\`close\`) as prevMinYear
+        FROM \`${tableName}\`
+        WHERE \`date\` >= ? AND \`date\` < ?
+        GROUP BY \`symbol\`
+        `,
+        [yearStartStr, targetDateStr]
+      );
+
+      const yearAggMap = new Map();
+      for (const r of yearAggRows) {
+        yearAggMap.set(r.symbol, r);
       }
 
-      const aggResults = await Promise.all(aggPromises);
-      const aggMap = new Map();
-      for (const rows of aggResults) {
-        for (const r of rows) {
-          aggMap.set(r.symbol, r);
-        }
-      }
-
-      // Identify candidates that crossed any threshold compared to prior history
+      // Identify candidates that crossed current-year extremes or have no prior data this year (e.g., IPO)
       const qualifiedCandidateSymbols = [];
       for (const sym of activeSymbols) {
         const today = activeCandleMap.get(sym);
-        const agg = aggMap.get(sym);
         if (!today) continue;
 
-        const close = Number(today.close);
-        // If symbol has no prior history (e.g. IPO today) or crossed prior extremes
-        if (!agg) {
+        const yAgg = yearAggMap.get(sym);
+        // If stock has no prior trading days in the current year
+        if (!yAgg) {
           qualifiedCandidateSymbols.push(sym);
           continue;
         }
 
-        const isAthCandidate = agg.prevMaxLifetime !== null && close > Number(agg.prevMaxLifetime);
-        const isAtlCandidate = agg.prevMinLifetime !== null && close < Number(agg.prevMinLifetime);
-        const isCyathCandidate = targetDateStr >= yearSixMonthStr && agg.prevMaxYear !== null && close > Number(agg.prevMaxYear);
-        const isCyatlCandidate = targetDateStr >= yearSixMonthStr && agg.prevMinYear !== null && close < Number(agg.prevMinYear);
+        const close = Number(today.close);
+        const isYearHigh = yAgg.prevMaxYear !== null && close > Number(yAgg.prevMaxYear);
+        const isYearLow = yAgg.prevMinYear !== null && close < Number(yAgg.prevMinYear);
 
-        if (isAthCandidate || isAtlCandidate || isCyathCandidate || isCyatlCandidate) {
+        if (isYearHigh || isYearLow) {
           qualifiedCandidateSymbols.push(sym);
         }
       }
@@ -249,7 +236,7 @@ export const getHighestClosingReport = async (req, res, next) => {
             }
           }
 
-          // 2. Current Year CYATH & CYATL Calculation (with Jan–Jun baseline rule)
+          // 2. Current Year CYATH & CYATL Calculation (Full Current Year tracking, respecting initial listing baseline if new stock)
           let cyathThreshold = -Infinity;
           let cyatlThreshold = Infinity;
           let totalCyathCount = 0;
@@ -261,19 +248,27 @@ export const getHighestClosingReport = async (req, res, next) => {
             const dStr = typeof c.date === "string" ? c.date.slice(0, 10) : new Date(c.date).toISOString().slice(0, 10);
             if (dStr < yearStartStr) continue;
             const close = Number(c.close);
-            if (dStr < yearSixMonthStr) {
+
+            // If stock is still within its initial 6 months from listing in the current year
+            if (dStr <= sixMonthsStr) {
               if (close > cyathThreshold) cyathThreshold = close;
               if (close < cyatlThreshold) cyatlThreshold = close;
             } else {
-              if (close > cyathThreshold) {
-                totalCyathCount++;
+              if (cyathThreshold === -Infinity) {
+                // First trading day of current year initializes the threshold
                 cyathThreshold = close;
-                if (dStr === targetDateStr) isCyathToday = true;
-              }
-              if (close < cyatlThreshold) {
-                totalCyatlCount++;
                 cyatlThreshold = close;
-                if (dStr === targetDateStr) isCyatlToday = true;
+              } else {
+                if (close > cyathThreshold) {
+                  totalCyathCount++;
+                  cyathThreshold = close;
+                  if (dStr === targetDateStr) isCyathToday = true;
+                }
+                if (close < cyatlThreshold) {
+                  totalCyatlCount++;
+                  cyatlThreshold = close;
+                  if (dStr === targetDateStr) isCyatlToday = true;
+                }
               }
             }
           }
