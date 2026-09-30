@@ -133,37 +133,82 @@ export const getHighestClosingReport = async (req, res, next) => {
       const yearStartStr = `${targetYear}-01-01`;
       const yearSixMonthStr = `${targetYear}-07-01`;
 
-      const BATCH_SIZE = 100;
       allCalculatedRecords = [];
       let athCount = 0;
       let atlCount = 0;
       let cyathCount = 0;
       let cyatlCount = 0;
 
-      // 2. Fetch history in parallel for active symbols only (querying only symbol, date, close)
-      const queryPromises = [];
+      // 2. Stage 1: Fast Aggregation to find candidate symbols that can potentially qualify today
+      const BATCH_SIZE = 200;
+      const aggPromises = [];
       for (let i = 0; i < activeSymbols.length; i += BATCH_SIZE) {
         const chunk = activeSymbols.slice(i, i + BATCH_SIZE);
         const placeholders = chunk.map(() => "?").join(",");
-
-        queryPromises.push(
+        aggPromises.push(
           pool.query(
             `
-            SELECT \`symbol\`, \`date\`, \`close\`
+            SELECT \`symbol\`,
+                   MAX(\`close\`) as prevMaxLifetime,
+                   MIN(\`close\`) as prevMinLifetime,
+                   MAX(CASE WHEN \`date\` >= ? THEN \`close\` ELSE NULL END) as prevMaxYear,
+                   MIN(CASE WHEN \`date\` >= ? THEN \`close\` ELSE NULL END) as prevMinYear
             FROM \`${tableName}\`
-            WHERE \`symbol\` IN (${placeholders}) AND \`date\` <= ?
-            ORDER BY \`symbol\` ASC, \`date\` ASC
+            WHERE \`symbol\` IN (${placeholders}) AND \`date\` < ?
+            GROUP BY \`symbol\`
             `,
-            [...chunk, targetDateStr]
-          ).then(([candles]) => candles)
+            [yearStartStr, yearStartStr, ...chunk, targetDateStr]
+          ).then(([rows]) => rows)
         );
       }
 
-      const batchResults = await Promise.all(queryPromises);
+      const aggResults = await Promise.all(aggPromises);
+      const aggMap = new Map();
+      for (const rows of aggResults) {
+        for (const r of rows) {
+          aggMap.set(r.symbol, r);
+        }
+      }
 
-      for (const candles of batchResults) {
+      // Identify candidates that crossed any threshold compared to prior history
+      const qualifiedCandidateSymbols = [];
+      for (const sym of activeSymbols) {
+        const today = activeCandleMap.get(sym);
+        const agg = aggMap.get(sym);
+        if (!today) continue;
+
+        const close = Number(today.close);
+        // If symbol has no prior history (e.g. IPO today) or crossed prior extremes
+        if (!agg) {
+          qualifiedCandidateSymbols.push(sym);
+          continue;
+        }
+
+        const isAthCandidate = agg.prevMaxLifetime !== null && close > Number(agg.prevMaxLifetime);
+        const isAtlCandidate = agg.prevMinLifetime !== null && close < Number(agg.prevMinLifetime);
+        const isCyathCandidate = targetDateStr >= yearSixMonthStr && agg.prevMaxYear !== null && close > Number(agg.prevMaxYear);
+        const isCyatlCandidate = targetDateStr >= yearSixMonthStr && agg.prevMinYear !== null && close < Number(agg.prevMinYear);
+
+        if (isAthCandidate || isAtlCandidate || isCyathCandidate || isCyatlCandidate) {
+          qualifiedCandidateSymbols.push(sym);
+        }
+      }
+
+      // 3. Stage 2: Fetch full historical candles ONLY for qualified candidate symbols to compute exact counts and records
+      if (qualifiedCandidateSymbols.length > 0) {
+        const qPlaceholders = qualifiedCandidateSymbols.map(() => "?").join(",");
+        const [candidateCandles] = await pool.query(
+          `
+          SELECT \`symbol\`, \`date\`, \`close\`
+          FROM \`${tableName}\`
+          WHERE \`symbol\` IN (${qPlaceholders}) AND \`date\` <= ?
+          ORDER BY \`symbol\` ASC, \`date\` ASC
+          `,
+          [...qualifiedCandidateSymbols, targetDateStr]
+        );
+
         const bySym = new Map();
-        for (const c of candles) {
+        for (const c of candidateCandles) {
           if (!bySym.has(c.symbol)) bySym.set(c.symbol, []);
           bySym.get(c.symbol).push(c);
         }
