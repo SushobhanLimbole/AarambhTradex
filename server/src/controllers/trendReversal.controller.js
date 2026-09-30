@@ -114,8 +114,13 @@ function evaluateReversal(candlesUpToPrev, currCandle) {
     close: prevCandle.close,
   });
 
-  const isBullishReversal = runningTrend === "HLC LOWER RUNNING" && cClose > pClose && cClose > pAvg;
-  const isBearishReversal = runningTrend === "HLC HIGHER RUNNING" && cClose < pClose && cClose < pAvg;
+  const isHlcLowerRunning = runningTrend === "HLC LOWER RUNNING";
+  const isHlcHigherRunning = runningTrend === "HLC HIGHER RUNNING";
+
+  // 1. Bullish Reversal: Prior trend is HLC LOWER RUNNING + Today's Close > Previous Close AND Today's Close > Previous Average
+  const isBullishReversal = isHlcLowerRunning && cClose > pClose && cClose > pAvg;
+  // 2. Bearish Reversal: Prior trend is HLC HIGHER RUNNING + Today's Close < Previous Close AND Today's Close < Previous Average
+  const isBearishReversal = isHlcHigherRunning && cClose < pClose && cClose < pAvg;
 
   const ygrBand = evaluateYgrPosition(cClose, prevStrategy.triggers);
 
@@ -160,8 +165,8 @@ function runReversalBacktest(candles) {
     const pClose = Number(prev.close) || 0;
     const pAvg = (pHigh + pLow + pClose) / 3;
 
-    const isBullish = runningTrend === "HLC LOWER RUNNING" && cClose > pClose && cClose > pAvg;
-    const isBearish = runningTrend === "HLC HIGHER RUNNING" && cClose < pClose && cClose < pAvg;
+    const isBullish = cClose > pClose && cClose > pAvg;
+    const isBearish = cClose < pClose && cClose < pAvg;
 
     if (isBullish) {
       bullTotal++;
@@ -209,7 +214,7 @@ export const getTrendReversalReport = async (req, res, next) => {
     const {
       exchange = "NSE",
       indice = "ALL",
-      timeframe = "Monthly", // Default monthly pointer matching image
+      timeframe = "Daily", // Default Daily timeframe
       actionDate,
       reversalType = "ALL", // 'ALL' | 'BULLISH_REVERSAL' | 'BEARISH_REVERSAL'
       limit = "all",
@@ -315,19 +320,31 @@ export const getTrendReversalReport = async (req, res, next) => {
         bearishReversalsCount++;
       }
 
+      // Trend Reversal Report only includes stocks that actually triggered a reversal
+      if (!resEval.isBullishReversal && !resEval.isBearishReversal) continue;
+
       // Filter by requested reversal type
       if (reversalType === "BULLISH_REVERSAL" && !resEval.isBullishReversal) continue;
       if (reversalType === "BEARISH_REVERSAL" && !resEval.isBearishReversal) continue;
 
       let reversalStatus = "NO REVERSAL";
       let reversalColor = "neutral";
+      let zone = "—";
+      let zoneColor = "neutral";
+
       if (resEval.isBullishReversal) {
         reversalStatus = "BULLISH REVERSAL";
         reversalColor = "bullish";
+        zone = "GREEN";
+        zoneColor = "green";
       } else if (resEval.isBearishReversal) {
         reversalStatus = "BEARISH REVERSAL";
         reversalColor = "bearish";
+        zone = "RED";
+        zoneColor = "red";
       }
+
+      const currStatus = resEval.runningTrend === "HLC HIGHER RUNNING" ? "HLC HIGHER" : (resEval.runningTrend === "HLC LOWER RUNNING" ? "HLC LOWER" : "—");
 
       reportRecords.push({
         symbol: sym,
@@ -335,6 +352,9 @@ export const getTrendReversalReport = async (req, res, next) => {
         prevClose: resEval.prevClose,
         prevAvg: resEval.prevAvg,
         runningTrend: resEval.runningTrend,
+        currStatus,
+        zone,
+        zoneColor,
         reversalStatus,
         reversalColor,
         isBullishReversal: resEval.isBullishReversal,

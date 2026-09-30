@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./TrendReversalPage.css";
 import trendReversalService from "../../services/trendReversalService.js";
 import stockService from "../../services/stockService.js";
@@ -36,13 +36,15 @@ const PRESET_INDICES = [
   { value: "TOP 500", label: "TOP 500 (500 stocks)", count: 500 },
 ];
 
-export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBack }) {
+export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onOpenStockAnalytics, onBack }) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
-  const [timeframe, setTimeframe] = useState("Monthly");
+  const [timeframe, setTimeframe] = useState("Daily");
   const [actionDate, setActionDate] = useState("");
   const [reversalType, setReversalType] = useState("ALL"); // 'ALL' | 'BULLISH_REVERSAL' | 'BEARISH_REVERSAL'
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("date"); // 'sr' | 'date' | 'ticker' | 'currStatus' | 'zone'
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
@@ -52,15 +54,6 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBac
     bullishReversals: 0,
     bearishReversals: 0,
     totalScanned: 0,
-    backtest: {
-      overallAccuracy: 0,
-      bullishAccuracy: 0,
-      bearishAccuracy: 0,
-      bullHits: 0,
-      bullTotal: 0,
-      bearHits: 0,
-      bearTotal: 0,
-    },
   });
 
   const [loading, setLoading] = useState(false);
@@ -154,99 +147,87 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBac
     handleFetchReport();
   }, [handleFetchReport]);
 
-  const filteredData = reportData.filter((row) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const sym = (row.symbol || "").toLowerCase();
-    const status = (row.reversalStatus || "").toLowerCase();
-    return sym.includes(q) || status.includes(q);
-  });
+  // Handle header sort
+  const handleHeaderSort = (columnKey) => {
+    if (sortBy === columnKey) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(columnKey);
+      setSortOrder(columnKey === "date" ? "desc" : "asc");
+    }
+  };
+
+  // Filter and sort processed rows
+  const processedData = useMemo(() => {
+    let list = [...reportData];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((row) => {
+        const sym = stripSymbolSuffix(row.symbol).toLowerCase();
+        const dt = String(row.date || "").toLowerCase();
+        const st = String(row.currStatus || row.runningTrend || "").toLowerCase();
+        const zn = String(row.zone || "").toLowerCase();
+        return sym.includes(q) || dt.includes(q) || st.includes(q) || zn.includes(q);
+      });
+    }
+
+    list.sort((a, b) => {
+      let comp = 0;
+      if (sortBy === "date") {
+        const tA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+        const tB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+        comp = tB - tA;
+        if (comp === 0) comp = a.symbol.localeCompare(b.symbol);
+        return sortOrder === "asc" ? -comp : comp;
+      } else if (sortBy === "ticker") {
+        comp = a.symbol.localeCompare(b.symbol);
+      } else if (sortBy === "currStatus") {
+        comp = String(a.currStatus || a.runningTrend || "").localeCompare(String(b.currStatus || b.runningTrend || ""));
+      } else if (sortBy === "zone") {
+        comp = String(a.zone || "").localeCompare(String(b.zone || ""));
+      }
+      return sortOrder === "asc" ? comp : -comp;
+    });
+
+    return list;
+  }, [reportData, searchQuery, sortBy, sortOrder]);
+
+  // Click on stock routes directly to Data Summary / Analytics page
+  const handleStockClick = (row) => {
+    const cleanSym = stripSymbolSuffix(row.symbol);
+    if (onOpenStockAnalytics) {
+      onOpenStockAnalytics({
+        symbol: row.symbol,
+        exchange: row.exchange || exchange || "NSE",
+        indice: indexVal || "ALL",
+        timeframe: timeframe || "Daily",
+      });
+    } else if (onOpenStrategy) {
+      onOpenStrategy({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    } else if (onOpenPointer) {
+      onOpenPointer({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    }
+  };
 
   return (
     <div className="trend-reversal-wrapper">
-      {/* 1. TOP FORMULA SPECIFICATION MATRIX (MATCHING USER SCREENSHOT EXACTLY) */}
-      <div className="tr-matrix-card">
-        <div className="tr-matrix-grid">
-          {/* BULLISH REVERSAL ROW */}
-          <div className="tr-reversal-card card-bullish">
-            <div className="tr-card-header">
-              <span className="tr-badge badge-bullish">BULLISH REVERSAL</span>
-              <div className="tr-running-banner banner-red">
-                <span className="banner-title">HLC LOWER RUNNING</span>
-              </div>
-            </div>
-            <div className="tr-card-body">
-              <div className="tr-formula-line">
-                <span className="f-title">Trigger Formulation:</span>
-                <span className="f-math">TODAYS CLOSE &gt; PREV.CLOSE &amp; PREV.AVG</span>
-              </div>
-              <div className="tr-pointer-info">
-                <span className="p-badge">MONTHLY POINTER</span>
-                <span className="p-desc">ABOVE / BELOW Y/G/R</span>
-              </div>
-              <div className="tr-counter-badge count-green">
-                <span className="cnt-lbl">Live Bullish Reversals:</span>
-                <span className="cnt-num">{summary.bullishReversals || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* BEARISH REVERSAL ROW */}
-          <div className="tr-reversal-card card-bearish">
-            <div className="tr-card-header">
-              <span className="tr-badge badge-bearish">BEARISH REVERSAL</span>
-              <div className="tr-running-banner banner-green">
-                <span className="banner-title">HLC HIGHER RUNNING</span>
-              </div>
-            </div>
-            <div className="tr-card-body">
-              <div className="tr-formula-line">
-                <span className="f-title">Trigger Formulation:</span>
-                <span className="f-math">TODAYS CLOSE &lt; PREV.CLOSE &amp; PREV.AVG</span>
-              </div>
-              <div className="tr-pointer-info">
-                <span className="p-badge">MONTHLY POINTER</span>
-                <span className="p-desc">ABOVE / BELOW Y/G/R</span>
-              </div>
-              <div className="tr-counter-badge count-red">
-                <span className="cnt-lbl">Live Bearish Reversals:</span>
-                <span className="cnt-num">{summary.bearishReversals || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* GOLD RIBBON: BACKTESTING THIS REPORT WITH ACCURACY IN % */}
-        <div className="tr-backtest-ribbon">
-          <div className="tr-ribbon-left">
-            <span className="ribbon-icon">🏆</span>
-            <span className="ribbon-title">BACKTESTING THIS REPORT WITH ACCURACY IN %</span>
-          </div>
-          <div className="tr-ribbon-stats">
-            <div className="tr-stat-pill">
-              <span className="lbl">Overall Accuracy:</span>
-              <span className="val highlight">{summary.backtest?.overallAccuracy || 0}%</span>
-            </div>
-            <div className="tr-stat-pill">
-              <span className="lbl">Bullish Continuation:</span>
-              <span className="val text-bull">{summary.backtest?.bullishAccuracy || 0}%</span>
-            </div>
-            <div className="tr-stat-pill">
-              <span className="lbl">Bearish Continuation:</span>
-              <span className="val text-bear">{summary.backtest?.bearishAccuracy || 0}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. FILTER CONTROLS TOOLBAR */}
+      {/* 1. FILTER CONTROLS TOOLBAR */}
       <div className="tr-toolbar">
         {onBack && (
           <button
             type="button"
             className="tr-back-btn"
             onClick={onBack}
-            title="Return to 8 Report Cards Hub"
+            title="Return to Report Cards Hub"
           >
             ← Back to Report Cards
           </button>
@@ -312,31 +293,6 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBac
           />
         </div>
 
-        {/* Filter Type Pills */}
-        <div className="tr-filter-pills">
-          <button
-            type="button"
-            className={`tr-pill-btn ${reversalType === "ALL" ? "active" : ""}`}
-            onClick={() => setReversalType("ALL")}
-          >
-            All Stocks ({summary.totalScanned})
-          </button>
-          <button
-            type="button"
-            className={`tr-pill-btn pill-bullish ${reversalType === "BULLISH_REVERSAL" ? "active" : ""}`}
-            onClick={() => setReversalType("BULLISH_REVERSAL")}
-          >
-            Bullish Reversals ({summary.bullishReversals})
-          </button>
-          <button
-            type="button"
-            className={`tr-pill-btn pill-bearish ${reversalType === "BEARISH_REVERSAL" ? "active" : ""}`}
-            onClick={() => setReversalType("BEARISH_REVERSAL")}
-          >
-            Bearish Reversals ({summary.bearishReversals})
-          </button>
-        </div>
-
         {/* Run Scan Button */}
         <button
           type="button"
@@ -355,7 +311,7 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBac
         </div>
       )}
 
-      {/* 3. SEARCH & TABLE STATS */}
+      {/* 2. SEARCH & TABLE STATS */}
       <div className="tr-search-bar-row">
         <div className="tr-search-box">
           <span className="search-icon">🔍</span>
@@ -374,143 +330,121 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onBac
         </div>
 
         <div className="tr-table-counts">
-          <span>Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> stocks</span>
+          <span>Showing <strong>{processedData.length}</strong> of <strong>{reportData.length}</strong> stocks</span>
         </div>
       </div>
 
-      {/* 4. DATA TABLE */}
+      {/* 3. DATA TABLE (5 COLUMNS: Sr | date | ticker | Curr status | zone) */}
       <div className="tr-table-card">
         <div className="tr-table-scroll">
           <table className="tr-table">
             <thead>
               <tr>
-                <th className="th-sr">SR.</th>
-                <th className="th-sym">TICKER</th>
-                <th className="th-price">PRICE (CMP)</th>
-                <th className="th-running">RUNNING TREND</th>
-                <th className="th-reversal">REVERSAL TRIGGER</th>
-                <th className="th-compare">TODAYS vs PREV (CLOSE &amp; AVG)</th>
-                <th className="th-ygr">Y / G / R BAND POSITION</th>
-                <th className="th-targets">POINTER TRIGGERS (Y1 / G1 / R1)</th>
-                <th className="th-date">DATE</th>
-                <th className="th-acc">HISTORICAL ACCURACY</th>
+                <th className="th-sr">Sr</th>
+                <th
+                  className="th-date sortable-th"
+                  onClick={() => handleHeaderSort("date")}
+                  title="Click to sort by date"
+                >
+                  date {sortBy === "date" && (sortOrder === "desc" ? "▼" : "▲")}
+                </th>
+                <th
+                  className="th-ticker sortable-th"
+                  onClick={() => handleHeaderSort("ticker")}
+                  title="Click to sort by ticker"
+                >
+                  ticker {sortBy === "ticker" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-status sortable-th"
+                  onClick={() => handleHeaderSort("currStatus")}
+                  title="Click to sort by status"
+                >
+                  Curr status {sortBy === "currStatus" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-zone sortable-th"
+                  onClick={() => handleHeaderSort("zone")}
+                  title="Click to sort by zone"
+                >
+                  zone {sortBy === "zone" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="tr-empty-cell">
+                  <td colSpan={5} className="tr-empty-cell">
                     <div className="tr-loading-box">
                       <span className="tr-spinner">⏳</span>
-                      <span>Calculating Bullish &amp; Bearish Trend Reversal Matrices...</span>
+                      <span>Calculating Trend Reversal Matrices...</span>
                     </div>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : processedData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="tr-empty-cell">
+                  <td colSpan={5} className="tr-empty-cell">
                     <div className="tr-loading-box">
                       <span className="tr-spinner">📊</span>
-                      <span>No stocks matched the selected Trend Reversal criteria.</span>
+                      <span>No stocks matched the selected criteria.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row, idx) => {
+                processedData.map((row, idx) => {
                   const cleanSym = stripSymbolSuffix(row.symbol);
+                  const isHigher = row.currStatus === "HLC HIGHER" || row.runningTrend?.includes("HIGHER");
+                  const isLower = row.currStatus === "HLC LOWER" || row.runningTrend?.includes("LOWER");
+                  const isGreen = row.zone === "GREEN" || row.isBullishReversal;
+                  const isRed = row.zone === "RED" || row.isBearishReversal;
+
                   return (
                     <tr key={row.symbol || idx} className="tr-row">
+                      {/* 1. Sr */}
                       <td className="td-sr">{idx + 1}</td>
 
-                      {/* Ticker */}
+                      {/* 2. date */}
+                      <td className="td-date">{row.date || "—"}</td>
+
+                      {/* 3. ticker */}
                       <td className="td-sym">
                         <span
                           className="ticker-badge-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            }
-                          }}
-                          title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
+                          onClick={() => handleStockClick(row)}
+                          title={`Click to open ${cleanSym} Data Summary & Analytics`}
                         >
                           {cleanSym}
                         </span>
                       </td>
 
-                      {/* Price */}
-                      <td className="td-price">
-                        <strong>₹{Number(row.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                      {/* 4. Curr status (hlc higher / lower) */}
+                      <td className="td-status">
+                        {isHigher && (
+                          <span className="running-badge run-green">HLC HIGHER</span>
+                        )}
+                        {isLower && (
+                          <span className="running-badge run-red">HLC LOWER</span>
+                        )}
+                        {!isHigher && !isLower && <span className="tr-muted">—</span>}
                       </td>
 
-                      {/* Running Trend */}
-                      <td className="td-running">
-                        {row.runningTrend === "HLC HIGHER RUNNING" && (
-                          <span className="running-badge run-green">HLC HIGHER RUNNING</span>
-                        )}
-                        {row.runningTrend === "HLC LOWER RUNNING" && (
-                          <span className="running-badge run-red">HLC LOWER RUNNING</span>
-                        )}
-                        {!row.runningTrend && <span className="tr-muted">—</span>}
-                      </td>
-
-                      {/* Reversal Trigger */}
-                      <td className="td-reversal">
-                        {row.isBullishReversal && (
-                          <span className="reversal-pill rev-bull">
-                            🟢 BULLISH REVERSAL
+                      {/* 5. zone (green / red) */}
+                      <td className="td-zone">
+                        {isGreen && (
+                          <span className="zone-pill zone-green">
+                            🟢 GREEN
                           </span>
                         )}
-                        {row.isBearishReversal && (
-                          <span className="reversal-pill rev-bear">
-                            🔴 BEARISH REVERSAL
+                        {isRed && (
+                          <span className="zone-pill zone-red">
+                            🔴 RED
                           </span>
                         )}
-                        {!row.isBullishReversal && !row.isBearishReversal && (
-                          <span className="reversal-pill rev-neutral">
-                            ⚪ NO REVERSAL
+                        {!isGreen && !isRed && (
+                          <span className="zone-pill zone-neutral">
+                            ⚪ —
                           </span>
                         )}
-                      </td>
-
-                      {/* Compare */}
-                      <td className="td-compare">
-                        <div className="compare-box">
-                          <span>Close: <strong>₹{row.price}</strong></span>
-                          <span>Prev Close: ₹{row.prevClose}</span>
-                          <span>Prev Avg: ₹{row.prevAvg}</span>
-                        </div>
-                      </td>
-
-                      {/* YGR Band */}
-                      <td className="td-ygr">
-                        <span className="ygr-tag">{row.ygrBand || "—"}</span>
-                      </td>
-
-                      {/* Targets */}
-                      <td className="td-targets">
-                        <div className="target-pill-group">
-                          <span className="tgt-chip">Y1: {row.triggers?.yellow?.Y1}</span>
-                          <span className="tgt-chip">G1: {row.triggers?.green?.G1}</span>
-                          <span className="tgt-chip">R1: {row.triggers?.red?.R1}</span>
-                        </div>
-                      </td>
-
-                      {/* Date */}
-                      <td className="td-date">{row.date || "—"}</td>
-
-                      {/* Accuracy */}
-                      <td className="td-acc">
-                        <span className="acc-badge">{row.accuracy || 95}%</span>
                       </td>
                     </tr>
                   );

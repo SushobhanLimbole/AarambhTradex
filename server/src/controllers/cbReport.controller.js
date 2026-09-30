@@ -70,35 +70,39 @@ function evaluateCbCandles(prevCandle, currCandle) {
   const day2HlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
   const day2HlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
 
-  // Bullish Classifications
-  const isOrdinaryBullishCb = day1Bullish && day2BullishBreakout;
-  const isBullishCbWithStatus = isOrdinaryBullishCb && day2HlcHigher;
+  // Mutually Exclusive 4-Category Formulation:
+  // If HLC Higher/Lower formed on Day 2 -> Strictly Advanced CB.
+  // Otherwise -> Strictly Ordinary CB.
+  const isAdvancedBullish = day1Bullish && day2BullishBreakout && day2HlcHigher;
+  const isOrdinaryBullish = day1Bullish && day2BullishBreakout && !day2HlcHigher;
 
-  // Bearish Classifications
-  const isOrdinaryBearishCb = day1Bearish && day2BearishBreakdown;
-  const isBearishCbWithStatus = isOrdinaryBearishCb && day2HlcLower;
+  const isAdvancedBearish = day1Bearish && day2BearishBreakdown && day2HlcLower;
+  const isOrdinaryBearish = day1Bearish && day2BearishBreakdown && !day2HlcLower;
+
+  const isBullish = isAdvancedBullish || isOrdinaryBullish;
+  const isBearish = isAdvancedBearish || isOrdinaryBearish;
 
   let cbType = "NO CB";
   let cbCategory = "neutral";
   let statusBadge = "NONE";
   let breakoutMargin = 0;
 
-  if (isBullishCbWithStatus) {
+  if (isAdvancedBullish) {
     cbType = "CB WITH STATUS";
     cbCategory = "bullish_status";
     statusBadge = "ON DAY 2 HLC HIGHER FORMED";
     breakoutMargin = Number((((cClose - pHigh) / pHigh) * 100).toFixed(2));
-  } else if (isOrdinaryBullishCb) {
+  } else if (isOrdinaryBullish) {
     cbType = "ORDINARY CB";
     cbCategory = "bullish_ordinary";
     statusBadge = "DAY 2 CLOSE > PREV HIGH";
     breakoutMargin = Number((((cClose - pHigh) / pHigh) * 100).toFixed(2));
-  } else if (isBearishCbWithStatus) {
+  } else if (isAdvancedBearish) {
     cbType = "CB WITH STATUS";
     cbCategory = "bearish_status";
     statusBadge = "ON DAY 2 HLC LOWER FORMED";
     breakoutMargin = Number((((pLow - cClose) / pLow) * 100).toFixed(2));
-  } else if (isOrdinaryBearishCb) {
+  } else if (isOrdinaryBearish) {
     cbType = "ORDINARY CB";
     cbCategory = "bearish_ordinary";
     statusBadge = "DAY 2 CLOSE < PREV LOW";
@@ -109,12 +113,16 @@ function evaluateCbCandles(prevCandle, currCandle) {
     cbType,
     cbCategory,
     statusBadge,
-    isBullishCbWithStatus,
-    isOrdinaryBullishCb,
-    isBearishCbWithStatus,
-    isOrdinaryBearishCb,
-    isBullish: isOrdinaryBullishCb,
-    isBearish: isOrdinaryBearishCb,
+    isAdvancedBullish,
+    isOrdinaryBullish,
+    isAdvancedBearish,
+    isOrdinaryBearish,
+    isBullishCbWithStatus: isAdvancedBullish,
+    isOrdinaryBullishCb: isOrdinaryBullish,
+    isBearishCbWithStatus: isAdvancedBearish,
+    isOrdinaryBearishCb: isOrdinaryBearish,
+    isBullish,
+    isBearish,
     breakoutMargin,
     prevClose: pClose,
     prevHigh: pHigh,
@@ -296,7 +304,10 @@ export const getCbReport = async (req, res, next) => {
       if (cbRes.isOrdinaryBearishCb) ordBearCount++;
       if (cbRes.isBearishCbWithStatus) statusBearCount++;
 
-      // Filter by requested category
+      // Comparative study focuses on stocks with active breakouts/breakdowns
+      if (!cbRes.isBullish && !cbRes.isBearish) continue;
+
+      // Filter by requested category if specified
       if (filterType === "CB_WITH_STATUS" && !cbRes.isBullishCbWithStatus && !cbRes.isBearishCbWithStatus) continue;
       if (filterType === "ORDINARY_CB" && !cbRes.isOrdinaryBullishCb && !cbRes.isOrdinaryBearishCb) continue;
       if (filterType === "BULLISH" && !cbRes.isBullish) continue;
@@ -317,6 +328,10 @@ export const getCbReport = async (req, res, next) => {
         statusBadge: cbRes.statusBadge,
         isBullish: cbRes.isBullish,
         isBearish: cbRes.isBearish,
+        isOrdinaryBullish: cbRes.isOrdinaryBullishCb,
+        isAdvancedBullish: cbRes.isBullishCbWithStatus,
+        isOrdinaryBearish: cbRes.isOrdinaryBearishCb,
+        isAdvancedBearish: cbRes.isBearishCbWithStatus,
         isBullishCbWithStatus: cbRes.isBullishCbWithStatus,
         isBearishCbWithStatus: cbRes.isBearishCbWithStatus,
         breakoutMargin: cbRes.breakoutMargin,
