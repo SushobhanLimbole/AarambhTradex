@@ -44,7 +44,12 @@ const formatDateOutput = (dStr) => {
 };
 
 /**
- * Map monthly pointer scenario to corresponding Y, G, R trigger codes and levels
+ * Map pointer scenario to corresponding Y, G, R trigger codes and levels:
+ * - Table Top        -> Y1, G1, R1
+ * - Table Tennis     -> Y2, G2, R2
+ * - Rising Jack      -> Y3, G3, R3
+ * - Falling Duck     -> Y5, Y2, R3
+ * - Upward Rotation  -> Y1, R2, R5
  */
 function getYgrTriggersForScenario(scenario, triggers) {
   const norm = String(scenario || "").trim().toUpperCase();
@@ -52,42 +57,38 @@ function getYgrTriggersForScenario(scenario, triggers) {
   const gList = triggers?.green || {};
   const rList = triggers?.red || {};
 
-  let yCode = "Y1", yVal = yList.Y1;
-  let gCode = "G1", gVal = gList.G1;
-  let rCode = "R1", rVal = rList.R1;
+  let t1 = { trigger: "Y1", triggerPrice: Number(yList.Y1) || 0, colorKey: "yellow" };
+  let t2 = { trigger: "G1", triggerPrice: Number(gList.G1) || 0, colorKey: "green" };
+  let t3 = { trigger: "R1", triggerPrice: Number(rList.R1) || 0, colorKey: "red" };
 
-  if (norm === "TABLE TENNIS") {
-    yCode = "Y2"; yVal = yList.Y2;
-    gCode = "G2"; gVal = gList.G2;
-    rCode = "R2"; rVal = rList.R2;
-  } else if (norm === "BUYING POINTER" || norm === "RISING JACK") {
-    yCode = "Y3"; yVal = yList.Y3;
-    gCode = "G3"; gVal = gList.G3;
-    rCode = "R3"; rVal = rList.R3;
-  } else if (norm === "TABLE TOP" || norm.includes("TABLE TOP")) {
-    yCode = "Y4"; yVal = yList.Y4 || yList.Y1;
-    gCode = "G2"; gVal = gList.G2;
-    rCode = "R4"; rVal = rList.R4 || rList.R1;
-  } else if (norm === "SELLING POINTER" || norm === "FALLING DUCK" || norm === "UPWARD ROTATION") {
-    yCode = "Y1"; yVal = yList.Y1;
-    gCode = "G1"; gVal = gList.G1;
-    rCode = "R1"; rVal = rList.R1;
-  } else if (norm.includes("BREAKOUT")) {
-    yCode = "Y5"; yVal = yList.Y5 || yList.Y1;
-    gCode = "G2"; gVal = gList.G2;
-    rCode = "R5"; rVal = rList.R5 || rList.R1;
+  if (norm === "TABLE TOP" || norm.includes("TABLE TOP")) {
+    t1 = { trigger: "Y1", triggerPrice: Number(yList.Y1) || 0, colorKey: "yellow" };
+    t2 = { trigger: "G1", triggerPrice: Number(gList.G1) || 0, colorKey: "green" };
+    t3 = { trigger: "R1", triggerPrice: Number(rList.R1) || 0, colorKey: "red" };
+  } else if (norm === "TABLE TENNIS") {
+    t1 = { trigger: "Y2", triggerPrice: Number(yList.Y2) || 0, colorKey: "yellow" };
+    t2 = { trigger: "G2", triggerPrice: Number(gList.G2) || 0, colorKey: "green" };
+    t3 = { trigger: "R2", triggerPrice: Number(rList.R2) || 0, colorKey: "red" };
+  } else if (norm === "RISING JACK" || norm === "BUYING POINTER") {
+    t1 = { trigger: "Y3", triggerPrice: Number(yList.Y3) || 0, colorKey: "yellow" };
+    t2 = { trigger: "G3", triggerPrice: Number(gList.G3) || 0, colorKey: "green" };
+    t3 = { trigger: "R3", triggerPrice: Number(rList.R3) || 0, colorKey: "red" };
+  } else if (norm === "FALLING DUCK" || norm === "SELLING POINTER") {
+    t1 = { trigger: "Y5", triggerPrice: Number(yList.Y5 || yList.Y1) || 0, colorKey: "yellow" };
+    t2 = { trigger: "Y2", triggerPrice: Number(yList.Y2 || yList.Y1) || 0, colorKey: "yellow" };
+    t3 = { trigger: "R3", triggerPrice: Number(rList.R3 || rList.R1) || 0, colorKey: "red" };
+  } else if (norm === "UPWARD ROTATION" || norm.includes("UPWARD") || norm.includes("BREAKOUT") || norm.includes("RISING - FALLING")) {
+    t1 = { trigger: "Y1", triggerPrice: Number(yList.Y1) || 0, colorKey: "yellow" };
+    t2 = { trigger: "R2", triggerPrice: Number(rList.R2 || rList.R1) || 0, colorKey: "red" };
+    t3 = { trigger: "R5", triggerPrice: Number(rList.R5 || rList.R1) || 0, colorKey: "red" };
   } else {
     // Default fallback
-    yCode = "Y1"; yVal = yList.Y1;
-    gCode = "G1"; gVal = gList.G1;
-    rCode = "R1"; rVal = rList.R1;
+    t1 = { trigger: "Y1", triggerPrice: Number(yList.Y1) || 0, colorKey: "yellow" };
+    t2 = { trigger: "G1", triggerPrice: Number(gList.G1) || 0, colorKey: "green" };
+    t3 = { trigger: "R1", triggerPrice: Number(rList.R1) || 0, colorKey: "red" };
   }
 
-  return [
-    { trigger: yCode, triggerPrice: Number(yVal) || 0, colorKey: "yellow" },
-    { trigger: gCode, triggerPrice: Number(gVal) || 0, colorKey: "green" },
-    { trigger: rCode, triggerPrice: Number(rVal) || 0, colorKey: "red" },
-  ];
+  return [t1, t2, t3];
 }
 
 /**
@@ -330,30 +331,40 @@ export const getNewTrendReport = async (req, res, next) => {
       }
 
       // -------------------------------------------------------------
-      // Calculate Pointer & YGR Comparison for Current Timeframe Candle
+      // Calculate Monthly Pointer & YGR Comparison for Entire Previous Month
       // -------------------------------------------------------------
-      const targetCandle = currEval.lastCandle || currCandles[currCandles.length - 1] || lastDaily;
-      const candleClose = Number(targetCandle.close) || lastDailyClose;
-      const candleDate = targetCandle.date || targetCandle.endDate || lastDaily.date;
+      const monthlyCandles = StockDataModel.resampleCandles(symDaily, "Monthly");
+      let prevMonthCandle = null;
+      if (monthlyCandles && monthlyCandles.length > 0) {
+        const lastMonthBucket = monthlyCandles[monthlyCandles.length - 1].period;
+        const currentMonthBucket = lastDateStr.slice(0, 7); // e.g. "2026-09"
+        if (lastMonthBucket === currentMonthBucket && monthlyCandles.length >= 2) {
+          prevMonthCandle = monthlyCandles[monthlyCandles.length - 2];
+        } else if (lastMonthBucket !== currentMonthBucket) {
+          prevMonthCandle = monthlyCandles[monthlyCandles.length - 1];
+        } else {
+          prevMonthCandle = monthlyCandles[0];
+        }
+      }
 
       let pointer = "—";
       let pointerDate = "—";
       let ygr = [];
 
-      if (targetCandle) {
-        const strategyData = calculateStrategyData(targetCandle);
-        const scenario = strategyData.conditions?.scenario;
+      if (prevMonthCandle) {
+        const monthlyStrategyData = calculateStrategyData(prevMonthCandle);
+        const scenario = monthlyStrategyData.conditions?.scenario;
         if (scenario && scenario !== "FALSE") {
           pointer = scenario;
         }
-        pointerDate = formatDateOutput(candleDate);
+        pointerDate = formatDateOutput(prevMonthCandle.date || prevMonthCandle.endDate);
 
-        // Calculate YGR comparison against today's closing price
-        const ygrTriggers = getYgrTriggersForScenario(pointer, strategyData.triggers);
+        // Calculate YGR comparison: Compare today's CMP close against previous month's YGR triggers
+        const ygrTriggers = getYgrTriggersForScenario(pointer, monthlyStrategyData.triggers);
         ygr = ygrTriggers.map((t) => {
           const triggerPrice = Number(t.triggerPrice) || 0;
           const diffPct = triggerPrice > 0
-            ? Number((((candleClose - triggerPrice) / triggerPrice) * 100).toFixed(2))
+            ? Number((((lastDailyClose - triggerPrice) / triggerPrice) * 100).toFixed(2))
             : 0;
           return {
             trigger: t.trigger,
@@ -383,7 +394,7 @@ export const getNewTrendReport = async (req, res, next) => {
         htfTrendDate: htfEval.trendDate,
         rawHtfTrendDate: htfEval.rawTrendDate,
         htfArea: htfEval.area,
-        price: candleClose,
+        price: lastDailyClose,
       });
     }
 

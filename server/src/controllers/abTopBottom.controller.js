@@ -1,16 +1,16 @@
 import pool from "../config/mysql.js";
 import { StockDataModel } from "../models/stockData.model.js";
 import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js";
-import { calculateStrategyData } from "../services/strategyFormula.service.js";
 
 /**
- * AB TOP & BLW BOTTOM (Above Top & Below Bottom) Institutional Report Controller
- * Computes:
- * - "CLOSING ABOVE AB TOP" (Closed above Y1-Y6 triggers)
- * - "CLOSING BELOW AB BOTTOM" (Closed below R1-R6 triggers)
- * - Exact level breached (Y1-Y6 / R1-R6)
- * - Multi-Timeframe support (Daily, Weekly, Monthly, Quarterly, Half-Yearly, Yearly)
- * - Backtesting accuracy engine (% success of continuation after breakout/breakdown)
+ * TOP AND BOTTOM EXTREME ZONE (AB TOP & BOTTOM EXTREME ZONE) Report Controller
+ * Logic:
+ * 1. Identify HLC HIGHER / LOWER transitions.
+ * 2. Absolute Top (AB TOP) is formed at the peak candle between HLC HIGHER and HLC LOWER.
+ *    Scan subsequent candles after AB TOP: first time close > topClose AND avg > topAvg -> "ABOVE EXTREME TOP".
+ * 3. Absolute Bottom (AB BOTTOM) is formed at the trough candle between HLC LOWER and HLC HIGHER.
+ *    Scan subsequent candles after AB BOTTOM: first time close < bottomClose AND avg < bottomAvg -> "ABOVE EXTREME BOTTOM".
+ * 4. Multi-Timeframe support (Daily, Weekly, Monthly, Quarterly, Half-Yearly, Yearly).
  */
 
 const formatDateOutput = (dStr) => {
@@ -28,155 +28,190 @@ const formatDateOutput = (dStr) => {
 };
 
 /**
- * Determine AB Top / Below Bottom breakout status between reference candle and current candle
+ * Detect Extreme Top & Bottom Zone Signals across candles for a symbol
+ * 1. Extreme Absolute Top (Breakout):
+ *    - Pivot Baseline: Top High (High of the Absolute Top candle)
+ *    - Forward Scan: Chronologically evaluate subsequent days
+ *    - Trigger Condition: First occurrence where Close > Top High AND Avg > Top High
+ * 2. Extreme Absolute Bottom (Breakdown):
+ *    - Pivot Baseline: Bottom Low (Low of the Absolute Bottom candle)
+ *    - Forward Scan: Chronologically evaluate subsequent days
+ *    - Trigger Condition: First occurrence where Close < Bottom Low AND Avg < Bottom Low
  */
-function evaluateAbTopBottom(prevCandle, currCandle) {
-  if (!prevCandle || !currCandle) return null;
+function detectExtremeZoneSignals(candles, sym, exchange) {
+  if (!candles || candles.length < 3) return [];
 
-  const prevStrategy = calculateStrategyData({
-    open: prevCandle.open,
-    high: prevCandle.high,
-    low: prevCandle.low,
-    close: prevCandle.close,
-  });
+  // 1. Calculate HLC Higher / Lower transitions across candles (chronological ASC)
+  const events = []; // Array of { idx, type: 'HLC HIGHER' | 'HLC LOWER' }
+  let currentMode = null;
 
-  const currClose = Number(currCandle.close) || 0;
-  const currHigh = Number(currCandle.high) || 0;
-  const currLow = Number(currCandle.low) || 0;
-
-  const { yellow, red } = prevStrategy.triggers;
-  // Yellow triggers (Y1 - Y6)
-  const yLevels = [
-    { name: "Y6", val: yellow.Y6 },
-    { name: "Y5", val: yellow.Y5 },
-    { name: "Y4", val: yellow.Y4 },
-    { name: "Y3", val: yellow.Y3 },
-    { name: "Y2", val: yellow.Y2 },
-    { name: "Y1", val: yellow.Y1 },
-  ];
-
-  // Red triggers (R1 - R6)
-  const rLevels = [
-    { name: "R6", val: red.R6 },
-    { name: "R5", val: red.R5 },
-    { name: "R4", val: red.R4 },
-    { name: "R1", val: red.R1 },
-    { name: "R2", val: red.R2 },
-    { name: "R3", val: red.R3 },
-  ];
-
-  let isAbTop = false;
-  let highestBreachedY = null;
-  let topDelta = 0;
-
-  // Check top breach: currClose > Y1..Y6
-  for (const y of yLevels) {
-    if (currClose > y.val) {
-      isAbTop = true;
-      highestBreachedY = y;
-      topDelta = ((currClose - y.val) / y.val) * 100;
-      break;
-    }
-  }
-
-  let isAbBottom = false;
-  let lowestBreachedR = null;
-  let bottomDelta = 0;
-
-  // Check bottom breach: currClose < R1..R6
-  // R6 is lowest, R3 is highest of red triggers
-  for (const r of rLevels) {
-    if (currClose < r.val) {
-      isAbBottom = true;
-      lowestBreachedR = r;
-      bottomDelta = ((r.val - currClose) / r.val) * 100;
-      break;
-    }
-  }
-
-  return {
-    isAbTop,
-    topLevel: highestBreachedY ? highestBreachedY.name : null,
-    topTriggerVal: highestBreachedY ? highestBreachedY.val : null,
-    topDeltaPercent: topDelta ? Number(topDelta.toFixed(2)) : 0,
-
-    isAbBottom,
-    bottomLevel: lowestBreachedR ? lowestBreachedR.name : null,
-    bottomTriggerVal: lowestBreachedR ? lowestBreachedR.val : null,
-    bottomDeltaPercent: bottomDelta ? Number(bottomDelta.toFixed(2)) : 0,
-
-    prevClose: Number(prevCandle.close),
-    currClose,
-    currHigh,
-    currLow,
-    triggers: { yellow, red },
-  };
-}
-
-/**
- * Backtest historical accuracy across candle series for AB Top / AB Bottom follow-through
- */
-function runBacktest(candles) {
-  if (!candles || candles.length < 5) {
-    return { topAccuracy: 0, bottomAccuracy: 0, topHits: 0, topTotal: 0, bottomHits: 0, bottomTotal: 0 };
-  }
-
-  let topTotal = 0;
-  let topHits = 0;
-  let bottomTotal = 0;
-  let bottomHits = 0;
-
-  for (let i = 1; i < candles.length - 1; i++) {
-    const prev = candles[i - 1];
+  for (let i = 1; i < candles.length; i++) {
     const curr = candles[i];
-    const next = candles[i + 1];
+    const prev = candles[i - 1];
 
-    const evalResult = evaluateAbTopBottom(prev, curr);
-    if (!evalResult) continue;
+    const cHigh = Number(curr.high) || 0;
+    const cLow = Number(curr.low) || 0;
+    const cClose = Number(curr.close) || 0;
 
-    // AB TOP Continuation Test: Next candle high > curr close or next close > curr close
-    if (evalResult.isAbTop) {
-      topTotal++;
-      if (Number(next.high) > Number(curr.close) || Number(next.close) > Number(curr.close)) {
-        topHits++;
+    const pHigh = Number(prev.high) || 0;
+    const pLow = Number(prev.low) || 0;
+    const pClose = Number(prev.close) || 0;
+
+    const isHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+    const isHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
+
+    if (isHlcHigher) {
+      if (currentMode !== "HLC HIGHER") {
+        currentMode = "HLC HIGHER";
+        events.push({ idx: i, type: "HLC HIGHER" });
       }
-    }
-
-    // AB BOTTOM Continuation Test: Next candle low < curr close or next close < curr close
-    if (evalResult.isAbBottom) {
-      bottomTotal++;
-      if (Number(next.low) < Number(curr.close) || Number(next.close) < Number(curr.close)) {
-        bottomHits++;
+    } else if (isHlcLower) {
+      if (currentMode !== "HLC LOWER") {
+        currentMode = "HLC LOWER";
+        events.push({ idx: i, type: "HLC LOWER" });
       }
     }
   }
 
-  const topAccuracy = topTotal > 0 ? Number(((topHits / topTotal) * 100).toFixed(1)) : 0;
-  const bottomAccuracy = bottomTotal > 0 ? Number(((bottomHits / bottomTotal) * 100).toFixed(1)) : 0;
+  // 2. Identify all AB TOP and AB BOTTOM pivots (strictly formed between HLC transitions)
+  const topPivots = [];
+  const bottomPivots = [];
 
-  return {
-    topAccuracy,
-    bottomAccuracy,
-    topHits,
-    topTotal,
-    bottomHits,
-    bottomTotal,
-    overallAccuracy: (topTotal + bottomTotal) > 0 ? Number((((topHits + bottomHits) / (topTotal + bottomTotal)) * 100).toFixed(1)) : 0,
-  };
+  for (let e = 1; e < events.length; e++) {
+    const prevEv = events[e - 1];
+    const currEv = events[e];
+
+    if (prevEv.type === "HLC HIGHER" && currEv.type === "HLC LOWER") {
+      // AB TOP: Highest High strictly between HLC HIGHER and HLC LOWER
+      if (currEv.idx > prevEv.idx + 1) {
+        let bestIdx = -1;
+        let maxHigh = -Infinity;
+        for (let k = prevEv.idx + 1; k < currEv.idx; k++) {
+          const h = Number(candles[k].high) || 0;
+          if (h >= maxHigh) {
+            maxHigh = h;
+            bestIdx = k;
+          }
+        }
+        if (bestIdx !== -1) {
+          topPivots.push({ idx: bestIdx, candle: candles[bestIdx] });
+        }
+      }
+    } else if (prevEv.type === "HLC LOWER" && currEv.type === "HLC HIGHER") {
+      // AB BOTTOM: Lowest Low strictly between HLC LOWER and HLC HIGHER
+      if (currEv.idx > prevEv.idx + 1) {
+        let bestIdx = -1;
+        let minLow = Infinity;
+        for (let k = prevEv.idx + 1; k < currEv.idx; k++) {
+          const l = Number(candles[k].low) || Infinity;
+          if (l <= minLow) {
+            minLow = l;
+            bestIdx = k;
+          }
+        }
+        if (bestIdx !== -1) {
+          bottomPivots.push({ idx: bestIdx, candle: candles[bestIdx] });
+        }
+      }
+    }
+  }
+
+  const signals = [];
+
+  // 3. Evaluate Extreme AB TOP pivots: forward scan bounded by next top pivot formation
+  for (let p = 0; p < topPivots.length; p++) {
+    const pivot = topPivots[p];
+    const nextPivotIdx = p + 1 < topPivots.length ? topPivots[p + 1].idx : candles.length;
+    const topCandle = pivot.candle;
+    const topHigh = Number(topCandle.high) || 0;
+    const topLow = Number(topCandle.low) || 0;
+    const topClose = Number(topCandle.close) || 0;
+    const topAvg = (topHigh + topLow + topClose) / 3;
+
+    for (let j = pivot.idx + 1; j < nextPivotIdx; j++) {
+      const nextCandle = candles[j];
+      const nextClose = Number(nextCandle.close) || 0;
+      const nextHigh = Number(nextCandle.high) || 0;
+      const nextLow = Number(nextCandle.low) || 0;
+      const nextAvg = (nextHigh + nextLow + nextClose) / 3;
+
+      if (nextClose > topHigh && nextAvg > topHigh) {
+        signals.push({
+          symbol: sym,
+          exchange: exchange || "NSE",
+          scenario: "extreme Ab top",
+          scenarioType: "top",
+          date: formatDateOutput(nextCandle.date),
+          rawDate: typeof nextCandle.date === "string" ? nextCandle.date.slice(0, 10) : new Date(nextCandle.date).toISOString().slice(0, 10),
+          cmp: nextClose,
+          refDate: formatDateOutput(topCandle.date),
+          refBaseline: topHigh,
+          refHigh: topHigh,
+          refLow: topLow,
+          refClose: topClose,
+          refAvg: Number(topAvg.toFixed(2)),
+          triggerClose: nextClose,
+          triggerAvg: Number(nextAvg.toFixed(2)),
+        });
+        break; // First occurrence stop rule for this pivot cycle
+      }
+    }
+  }
+
+  // 4. Evaluate Extreme AB BOTTOM pivots: forward scan bounded by next bottom pivot formation
+  for (let p = 0; p < bottomPivots.length; p++) {
+    const pivot = bottomPivots[p];
+    const nextPivotIdx = p + 1 < bottomPivots.length ? bottomPivots[p + 1].idx : candles.length;
+    const bottomCandle = pivot.candle;
+    const bottomHigh = Number(bottomCandle.high) || 0;
+    const bottomLow = Number(bottomCandle.low) || 0;
+    const bottomClose = Number(bottomCandle.close) || 0;
+    const bottomAvg = (bottomHigh + bottomLow + bottomClose) / 3;
+
+    for (let j = pivot.idx + 1; j < nextPivotIdx; j++) {
+      const nextCandle = candles[j];
+      const nextClose = Number(nextCandle.close) || 0;
+      const nextHigh = Number(nextCandle.high) || 0;
+      const nextLow = Number(nextCandle.low) || 0;
+      const nextAvg = (nextHigh + nextLow + nextClose) / 3;
+
+      if (nextClose < bottomLow && nextAvg < bottomLow) {
+        signals.push({
+          symbol: sym,
+          exchange: exchange || "NSE",
+          scenario: "extreme Ab bottom",
+          scenarioType: "bottom",
+          date: formatDateOutput(nextCandle.date),
+          rawDate: typeof nextCandle.date === "string" ? nextCandle.date.slice(0, 10) : new Date(nextCandle.date).toISOString().slice(0, 10),
+          cmp: nextClose,
+          refDate: formatDateOutput(bottomCandle.date),
+          refBaseline: bottomLow,
+          refHigh: bottomHigh,
+          refLow: bottomLow,
+          refClose: bottomClose,
+          refAvg: Number(bottomAvg.toFixed(2)),
+          triggerClose: nextClose,
+          triggerAvg: Number(nextAvg.toFixed(2)),
+        });
+        break; // First occurrence stop rule for this pivot cycle
+      }
+    }
+  }
+
+  return signals;
 }
 
 /**
  * GET /api/ab-top-bottom
- * Run the AB TOP & BELOW BOTTOM Report Scanner
+ * Run the TOP AND BOTTOM EXTREME ZONE Report Scanner
  */
 export const getAbTopBottomReport = async (req, res, next) => {
   try {
     const {
       exchange = "NSE",
       indice = "ALL",
-      timeframe = "Monthly", // Default monthly pointer matching image
+      timeframe = "Daily", // Default Daily timeframe
       actionDate,
-      filterType = "ALL", // 'ALL' | 'AB_TOP' | 'AB_BOTTOM'
       limit = "all",
     } = req.query;
 
@@ -200,15 +235,19 @@ export const getAbTopBottomReport = async (req, res, next) => {
           closingAboveAbTop: 0,
           closingBelowAbBottom: 0,
           totalScanned: 0,
-          backtest: { overallAccuracy: 0, topAccuracy: 0, bottomAccuracy: 0 },
         },
-        actionDate: targetDateStr,
+        actionDate: formatDateOutput(targetDateStr),
+        rawActionDate: targetDateStr,
         timeframe,
         data: [],
       });
     }
 
     const matchedSymbols = symbolRows.map((r) => r.symbol);
+    const symbolExchangeMap = new Map();
+    symbolRows.forEach((r) => {
+      symbolExchangeMap.set(r.symbol, r.exchange || exchange || "NSE");
+    });
 
     // 3. Query historical records (past 730 days for robust timeframe aggregations)
     const placeholders = matchedSymbols.map(() => "?").join(",");
@@ -239,18 +278,13 @@ export const getAbTopBottomReport = async (req, res, next) => {
       candlesBySymbol.get(row.symbol).push(row);
     }
 
-    const reportRecords = [];
+    let allSignals = [];
     let closingAboveAbTopCount = 0;
     let closingBelowAbBottomCount = 0;
 
-    let aggregateTopHits = 0;
-    let aggregateTopTotal = 0;
-    let aggregateBottomHits = 0;
-    let aggregateBottomTotal = 0;
-
     for (const sym of matchedSymbols) {
       const symDaily = candlesBySymbol.get(sym);
-      if (!symDaily || symDaily.length < 2) continue;
+      if (!symDaily || symDaily.length < 3) continue;
 
       // Resample candles according to timeframe
       let candles = symDaily;
@@ -258,98 +292,63 @@ export const getAbTopBottomReport = async (req, res, next) => {
         candles = StockDataModel.resampleCandles(symDaily, timeframe);
       }
 
-      if (!candles || candles.length < 2) continue;
+      if (!candles || candles.length < 3) continue;
 
-      const prevCandle = candles[candles.length - 2];
-      const currCandle = candles[candles.length - 1];
+      const symExchange = symbolExchangeMap.get(sym) || exchange || "NSE";
+      const symSignals = detectExtremeZoneSignals(candles, sym, symExchange);
 
-      const resEval = evaluateAbTopBottom(prevCandle, currCandle);
-      if (!resEval) continue;
-
-      // Run backtest across candle history
-      const bt = runBacktest(candles);
-      aggregateTopHits += bt.topHits;
-      aggregateTopTotal += bt.topTotal;
-      aggregateBottomHits += bt.bottomHits;
-      aggregateBottomTotal += bt.bottomTotal;
-
-      if (resEval.isAbTop) {
-        closingAboveAbTopCount++;
+      for (const sig of symSignals) {
+        allSignals.push(sig);
+        if (sig.scenarioType === "top") {
+          closingAboveAbTopCount++;
+        } else if (sig.scenarioType === "bottom") {
+          closingBelowAbBottomCount++;
+        }
       }
-      if (resEval.isAbBottom) {
-        closingBelowAbBottomCount++;
-      }
-
-      // Filter by type if specified
-      if (filterType === "AB_TOP" && !resEval.isAbTop) continue;
-      if (filterType === "AB_BOTTOM" && !resEval.isAbBottom) continue;
-
-      let statusLabel = "NEUTRAL";
-      let statusColor = "neutral";
-      if (resEval.isAbTop && resEval.isAbBottom) {
-        statusLabel = "AB TOP & BOTTOM";
-        statusColor = "both";
-      } else if (resEval.isAbTop) {
-        statusLabel = "ABOVE TOP";
-        statusColor = "top"; // Red theme
-      } else if (resEval.isAbBottom) {
-        statusLabel = "BELOW BOTTOM";
-        statusColor = "bottom"; // Green theme
-      }
-
-      reportRecords.push({
-        symbol: sym,
-        price: resEval.currClose,
-        prevClose: resEval.prevClose,
-        high: resEval.currHigh,
-        low: resEval.currLow,
-        status: statusLabel,
-        statusColor,
-        isAbTop: resEval.isAbTop,
-        topLevel: resEval.topLevel,
-        topTriggerVal: resEval.topTriggerVal,
-        topDeltaPercent: resEval.topDeltaPercent,
-        isAbBottom: resEval.isAbBottom,
-        bottomLevel: resEval.bottomLevel,
-        bottomTriggerVal: resEval.bottomTriggerVal,
-        bottomDeltaPercent: resEval.bottomDeltaPercent,
-        date: formatDateOutput(currCandle.date),
-        rawDate: currCandle.date,
-        triggers: resEval.triggers,
-        accuracy: bt.overallAccuracy,
-      });
     }
 
-    const overallTopAcc = aggregateTopTotal > 0 ? Number(((aggregateTopHits / aggregateTopTotal) * 100).toFixed(1)) : 0;
-    const overallBottomAcc = aggregateBottomTotal > 0 ? Number(((aggregateBottomHits / aggregateBottomTotal) * 100).toFixed(1)) : 0;
-    const overallTotalAcc = (aggregateTopTotal + aggregateBottomTotal) > 0
-      ? Number((((aggregateTopHits + aggregateBottomHits) / (aggregateTopTotal + aggregateBottomTotal)) * 100).toFixed(1))
-      : 0;
+    // 4. Filter signals for the target date if signals exist on that date, or return all recent signals
+    let displaySignals = allSignals;
+    if (targetDateStr) {
+      const exactDateSignals = allSignals.filter((s) => s.rawDate === targetDateStr);
+      if (exactDateSignals.length > 0) {
+        displaySignals = exactDateSignals;
+      }
+    }
+
+    // Sort signals newest date first
+    displaySignals.sort((a, b) => {
+      const tA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const tB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      if (tB !== tA) return tB - tA;
+      return a.symbol.localeCompare(b.symbol);
+    });
+
+    let topCount = 0;
+    let bottomCount = 0;
+    for (const sig of displaySignals) {
+      if (sig.scenarioType === "top") topCount++;
+      else if (sig.scenarioType === "bottom") bottomCount++;
+    }
 
     return res.status(200).json({
       success: true,
       summary: {
-        closingAboveAbTop: closingAboveAbTopCount,
-        closingBelowAbBottom: closingBelowAbBottomCount,
+        closingAboveAbTop: topCount,
+        closingBelowAbBottom: bottomCount,
         totalScanned: matchedSymbols.length,
-        backtest: {
-          overallAccuracy: overallTotalAcc,
-          topAccuracy: overallTopAcc,
-          bottomAccuracy: overallBottomAcc,
-          topHits: aggregateTopHits,
-          topTotal: aggregateTopTotal,
-          bottomHits: aggregateBottomHits,
-          bottomTotal: aggregateBottomTotal,
-        },
       },
       actionDate: formatDateOutput(targetDateStr),
       rawActionDate: targetDateStr,
       timeframe,
-      filterType,
-      count: reportRecords.length,
-      data: reportRecords,
+      count: displaySignals.length,
+      data: displaySignals,
     });
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  getAbTopBottomReport,
 };

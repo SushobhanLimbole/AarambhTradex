@@ -31,7 +31,7 @@ export const REPORT_CARDS = [
   },
   {
     id: "ab_top_blw_bottom",
-    title: "AB TOP BLW BOTTOM",
+    title: "TOP AND BOTTOM EXTREME ZONE",
     tagline: "Above Top & Below Bottom Extreme Pivots",
     tag: "Range Boundaries",
     badge: "Extreme Pivots",
@@ -44,7 +44,7 @@ export const REPORT_CARDS = [
   },
   {
     id: "trend_reversal_bullish_bearish",
-    title: "trend reversal bullish-bearish",
+    title: "MOMENTUM SHIFT REPORT",
     tagline: "Bullish & Bearish Inflection Point Detection",
     tag: "Pivot Reversals",
     badge: "Reversals",
@@ -57,7 +57,7 @@ export const REPORT_CARDS = [
   },
   {
     id: "cb",
-    title: "CB",
+    title: "COMPARATIVE STUDY",
     tagline: "Closing Candle Breakout & Liquidity Expansion",
     tag: "Price Action",
     badge: "Candle Breakout",

@@ -111,41 +111,64 @@ export const getHighestClosingReport = async (req, res, next) => {
       }
 
       const matchedSymbols = symbolRows.map((r) => r.symbol);
+      const matchedSet = new Set(matchedSymbols);
       totalScanned = matchedSymbols.length;
+
+      // 1. Fetch candles for targetDate to find active traded symbols
+      const [todayCandleRows] = await pool.query(
+        `
+        SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
+        FROM \`${tableName}\`
+        WHERE \`date\` = ?
+        `,
+        [targetDateStr]
+      );
+
+      const activeTodayCandles = todayCandleRows.filter((c) => matchedSet.has(c.symbol));
+      const activeSymbols = activeTodayCandles.map((c) => c.symbol);
+      const activeCandleMap = new Map();
+      activeTodayCandles.forEach((c) => activeCandleMap.set(c.symbol, c));
 
       const targetYear = new Date(targetDateStr).getFullYear();
       const yearStartStr = `${targetYear}-01-01`;
       const yearSixMonthStr = `${targetYear}-07-01`;
 
-      const BATCH_SIZE = 200;
+      const BATCH_SIZE = 100;
       allCalculatedRecords = [];
       let athCount = 0;
       let atlCount = 0;
       let cyathCount = 0;
       let cyatlCount = 0;
 
-      for (let i = 0; i < matchedSymbols.length; i += BATCH_SIZE) {
-        const chunk = matchedSymbols.slice(i, i + BATCH_SIZE);
+      // 2. Fetch history in parallel for active symbols only (querying only symbol, date, close)
+      const queryPromises = [];
+      for (let i = 0; i < activeSymbols.length; i += BATCH_SIZE) {
+        const chunk = activeSymbols.slice(i, i + BATCH_SIZE);
         const placeholders = chunk.map(() => "?").join(",");
 
-        const [candles] = await pool.query(
-          `
-          SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-          FROM \`${tableName}\`
-          WHERE \`symbol\` IN (${placeholders}) AND \`date\` <= ?
-          ORDER BY \`symbol\` ASC, \`date\` ASC
-          `,
-          [...chunk, targetDateStr]
+        queryPromises.push(
+          pool.query(
+            `
+            SELECT \`symbol\`, \`date\`, \`close\`
+            FROM \`${tableName}\`
+            WHERE \`symbol\` IN (${placeholders}) AND \`date\` <= ?
+            ORDER BY \`symbol\` ASC, \`date\` ASC
+            `,
+            [...chunk, targetDateStr]
+          ).then(([candles]) => candles)
         );
+      }
 
+      const batchResults = await Promise.all(queryPromises);
+
+      for (const candles of batchResults) {
         const bySym = new Map();
         for (const c of candles) {
           if (!bySym.has(c.symbol)) bySym.set(c.symbol, []);
           bySym.get(c.symbol).push(c);
         }
 
-        for (const sym of chunk) {
-          const cList = bySym.get(sym);
+        for (const [sym, cList] of bySym.entries()) {
           if (!cList || cList.length === 0) continue;
 
           // 1. Lifetime ATH & ATL Calculation (with 6-Month baseline rule)
@@ -217,7 +240,7 @@ export const getHighestClosingReport = async (req, res, next) => {
             if (isCyathToday) cyathCount++;
             if (isCyatlToday) cyatlCount++;
 
-            const latestCandle = cList[cList.length - 1];
+            const latestCandle = activeCandleMap.get(sym) || cList[cList.length - 1];
             const cleanSym = String(sym).replace(/\.(NS|BO)$/i, "");
 
             allCalculatedRecords.push({
