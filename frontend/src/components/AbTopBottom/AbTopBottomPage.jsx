@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./AbTopBottomPage.css";
 import abTopBottomService from "../../services/abTopBottomService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { getConditionalActionDate } from "../../utils/dateUtils.js";
+import SearchableSelect from "../Common/SearchableSelect.jsx";
 
-const TIMEFRAMES = ["Monthly", "Daily", "Weekly", "Quarterly", "Half-Yearly", "Yearly"];
+const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"];
 
-// Preset indices matching screenshot with exact formatting
+// Preset indices matching system standard
 const PRESET_INDICES = [
   { value: "ALL", label: "ALL (All Stocks)", count: 2300 },
   { value: "COMMODITY-IND", label: "COMMODITY-IND (9 stocks)", count: 9 },
@@ -36,13 +38,19 @@ const PRESET_INDICES = [
   { value: "TOP 500", label: "TOP 500 (500 stocks)", count: 500 },
 ];
 
-export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack }) {
+export default function AbTopBottomPage({
+  onOpenStockAnalytics,
+  onOpenStrategy,
+  onOpenPointer,
+  onBack,
+}) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
-  const [timeframe, setTimeframe] = useState("Monthly");
-  const [actionDate, setActionDate] = useState("");
-  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'AB_TOP' | 'AB_BOTTOM'
+  const [timeframe, setTimeframe] = useState("Daily"); // Default Daily
+  const [actionDate, setActionDate] = useState(() => getConditionalActionDate());
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("date"); // 'sr' | 'date' | 'ticker' | 'scenario' | 'cmp'
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
@@ -52,15 +60,6 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
     closingAboveAbTop: 0,
     closingBelowAbBottom: 0,
     totalScanned: 0,
-    backtest: {
-      overallAccuracy: 0,
-      topAccuracy: 0,
-      bottomAccuracy: 0,
-      topHits: 0,
-      topTotal: 0,
-      bottomHits: 0,
-      bottomTotal: 0,
-    },
   });
 
   const [loading, setLoading] = useState(false);
@@ -127,7 +126,6 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
         indice: indexVal,
         timeframe,
         actionDate: actionDate || undefined,
-        filterType,
       });
 
       if (res?.data && Array.isArray(res.data)) {
@@ -140,95 +138,107 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
         }
       } else {
         setReportData([]);
+        setSummary({ closingAboveAbTop: 0, closingBelowAbBottom: 0, totalScanned: 0 });
       }
     } catch (err) {
       console.error("AB Top Bottom Error:", err);
-      setError(err.message || "Failed to load AB Top / Below Bottom report.");
+      setError(err.message || "Failed to load Top & Bottom Extreme Zone report.");
       setReportData([]);
     } finally {
       setLoading(false);
     }
-  }, [exchange, indexVal, timeframe, actionDate, filterType]);
+  }, [exchange, indexVal, timeframe, actionDate]);
 
   useEffect(() => {
     handleFetchReport();
   }, [handleFetchReport]);
 
-  const filteredData = reportData.filter((row) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const sym = (row.symbol || "").toLowerCase();
-    const lvl = (row.topLevel || row.bottomLevel || "").toLowerCase();
-    return sym.includes(q) || lvl.includes(q);
-  });
+  // Handle header sort
+  const handleHeaderSort = (columnKey) => {
+    if (sortBy === columnKey) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(columnKey);
+      setSortOrder(columnKey === "date" ? "desc" : "asc");
+    }
+  };
+
+  // Filter and sort data
+  const processedData = useMemo(() => {
+    let list = [...reportData];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((r) => {
+        const sym = stripSymbolSuffix(r.symbol).toLowerCase();
+        const sc = String(r.scenario || "").toLowerCase();
+        const dt = String(r.date || "").toLowerCase();
+        return sym.includes(q) || sc.includes(q) || dt.includes(q);
+      });
+    }
+
+    list.sort((a, b) => {
+      let comp = 0;
+      if (sortBy === "date") {
+        const tA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+        const tB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+        comp = tB - tA;
+        if (comp === 0) comp = a.symbol.localeCompare(b.symbol);
+        return sortOrder === "asc" ? -comp : comp;
+      } else if (sortBy === "ticker") {
+        comp = a.symbol.localeCompare(b.symbol);
+      } else if (sortBy === "scenario") {
+        comp = String(a.scenario || "").localeCompare(String(b.scenario || ""));
+      } else if (sortBy === "cmp") {
+        comp = (Number(a.cmp) || 0) - (Number(b.cmp) || 0);
+      }
+      return sortOrder === "asc" ? comp : -comp;
+    });
+
+    return list;
+  }, [reportData, searchQuery, sortBy, sortOrder]);
+
+  // Click on stock routes directly to Data Summary / Analytics page
+  const handleStockClick = (row) => {
+    const cleanSym = stripSymbolSuffix(row.symbol);
+    if (onOpenStockAnalytics) {
+      onOpenStockAnalytics({
+        symbol: row.symbol,
+        exchange: row.exchange || exchange || "NSE",
+        indice: indexVal || "ALL",
+        timeframe: timeframe || "Daily",
+      });
+    } else if (onOpenStrategy) {
+      onOpenStrategy({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    } else if (onOpenPointer) {
+      onOpenPointer({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    }
+  };
 
   return (
     <div className="ab-top-bottom-wrapper">
-      {/* 1. TOP HEADER EXCEL MATRIX DISPLAY (MATCHING USER SCREENSHOT EXACTLY) */}
+      {/* 1. TOP HEADER SUMMARY MATRIX */}
       <div className="ab-matrix-card">
-        <div className="ab-matrix-grid">
-          {/* Top Formula Banner */}
-          <div className="ab-matrix-col col-left">
-            <div className="ab-cell-header-spacer">
-              <span className="ab-badge-scope">FOR ALL TIME FRAME</span>
-            </div>
-            
-            <div className="ab-metric-row">
-              <span className="ab-metric-label">CLOSING ABOVE AB TOP</span>
-              <div className="ab-value-box box-red">
-                <span className="ab-val-num">{summary.closingAboveAbTop || 0}</span>
-              </div>
-            </div>
-
-            <div className="ab-metric-row">
-              <span className="ab-metric-label">CLOSING BELOW AB BOTTOM</span>
-              <div className="ab-value-box box-green">
-                <span className="ab-val-num">{summary.closingBelowAbBottom || 0}</span>
-              </div>
+        <div className="ab-matrix-grid-simple">
+          <div className="ab-metric-row">
+            <span className="ab-metric-label">EXTREME AB TOP</span>
+            <div className="ab-value-box box-red">
+              <span className="ab-val-num">{summary.closingAboveAbTop || 0}</span>
             </div>
           </div>
 
-          <div className="ab-matrix-col col-right">
-            <div className="ab-rule-headers">
-              <div className="ab-rule-box rule-red">
-                <span className="rule-title">for top</span>
-                <span className="rule-sub">closed above y1-y6</span>
-              </div>
-              <div className="ab-rule-box rule-green">
-                <span className="rule-title">for bottom</span>
-                <span className="rule-sub">closed below R1-R6</span>
-              </div>
-            </div>
-
-            <div className="ab-rule-desc-box">
-              <div className="ab-rule-desc-item">
-                <span className="pointer-tag">MONTHLY POINTER</span>
-                <span className="pointer-desc">
-                  Institutional Fibonacci Y1-Y6 upper resistance breakout triggers and R1-R6 structural floor breakdowns.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* GOLD RIBBON: BACKTESTING THIS REPORT WITH ACCURACY IN % */}
-        <div className="ab-backtest-ribbon">
-          <div className="ab-ribbon-left">
-            <span className="ribbon-icon">🏆</span>
-            <span className="ribbon-title">BACKTESTING THIS REPORT WITH ACCURACY IN %</span>
-          </div>
-          <div className="ab-ribbon-stats">
-            <div className="ribbon-stat-pill">
-              <span className="lbl">Overall Accuracy:</span>
-              <span className="val highlight">{summary.backtest?.overallAccuracy || 0}%</span>
-            </div>
-            <div className="ribbon-stat-pill">
-              <span className="lbl">Top Continuation:</span>
-              <span className="val text-top">{summary.backtest?.topAccuracy || 0}%</span>
-            </div>
-            <div className="ribbon-stat-pill">
-              <span className="lbl">Bottom Continuation:</span>
-              <span className="val text-bottom">{summary.backtest?.bottomAccuracy || 0}%</span>
+          <div className="ab-metric-row">
+            <span className="ab-metric-label">EXTREME AB BOTTOM</span>
+            <div className="ab-value-box box-green">
+              <span className="ab-val-num">{summary.closingBelowAbBottom || 0}</span>
             </div>
           </div>
         </div>
@@ -241,7 +251,7 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
             type="button"
             className="ab-back-btn"
             onClick={onBack}
-            title="Return to 8 Report Cards Hub"
+            title="Return to Report Cards Hub"
           >
             ← Back to Report Cards
           </button>
@@ -250,50 +260,34 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
         {/* Exchange */}
         <div className="ab-control-group">
           <label className="ab-label">Exchange</label>
-          <select
-            className="ab-select"
+          <SearchableSelect
+            options={[{ value: "ALL", label: "ALL" }, ...availableExchanges.map((ex) => ({ value: ex, label: ex }))]}
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
-          >
-            <option value="ALL">ALL</option>
-            {availableExchanges.map((ex) => (
-              <option key={ex} value={ex}>
-                {ex}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* Index */}
         <div className="ab-control-group ab-wide">
           <label className="ab-label">Index</label>
-          <select
-            className="ab-select"
+          <SearchableSelect
+            options={[{ value: "ALL", label: "ALL (All Stocks)" }, ...indexOptions]}
             value={indexVal}
             onChange={(e) => setIndexVal(e.target.value)}
-          >
-            {indexOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* Timeframe */}
         <div className="ab-control-group">
           <label className="ab-label">Timeframe</label>
-          <select
-            className="ab-select"
+          <SearchableSelect
+            options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-          >
-            {TIMEFRAMES.map((tf) => (
-              <option key={tf} value={tf}>
-                {tf}
-              </option>
-            ))}
-          </select>
+            compact
+          />
         </div>
 
         {/* Action Date */}
@@ -305,31 +299,6 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
             value={actionDate}
             onChange={(e) => setActionDate(e.target.value)}
           />
-        </div>
-
-        {/* Filter Type Pills */}
-        <div className="ab-filter-pills">
-          <button
-            type="button"
-            className={`ab-pill-btn ${filterType === "ALL" ? "active" : ""}`}
-            onClick={() => setFilterType("ALL")}
-          >
-            All Signals ({summary.totalScanned})
-          </button>
-          <button
-            type="button"
-            className={`ab-pill-btn pill-top ${filterType === "AB_TOP" ? "active" : ""}`}
-            onClick={() => setFilterType("AB_TOP")}
-          >
-            Closing Above AB Top ({summary.closingAboveAbTop})
-          </button>
-          <button
-            type="button"
-            className={`ab-pill-btn pill-bottom ${filterType === "AB_BOTTOM" ? "active" : ""}`}
-            onClick={() => setFilterType("AB_BOTTOM")}
-          >
-            Closing Below AB Bottom ({summary.closingBelowAbBottom})
-          </button>
         </div>
 
         {/* Scan Button */}
@@ -369,7 +338,7 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
         </div>
 
         <div className="ab-table-counts">
-          <span>Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> stocks</span>
+          <span>Showing <strong>{processedData.length}</strong> of <strong>{reportData.length}</strong> extreme zone signals</span>
         </div>
       </div>
 
@@ -380,138 +349,103 @@ export default function AbTopBottomPage({ onOpenStrategy, onOpenPointer, onBack 
             <thead>
               <tr>
                 <th className="th-sr">SR.</th>
-                <th className="th-sym">TICKER</th>
-                <th className="th-price">PRICE (CMP)</th>
-                <th className="th-status">BREAKOUT STATUS</th>
-                <th className="th-level">BREACHED LEVEL</th>
-                <th className="th-delta">DELTA %</th>
-                <th className="th-top-targets">Y1 - Y6 TOP LEVELS</th>
-                <th className="th-bottom-targets">R1 - R6 BOTTOM LEVELS</th>
-                <th className="th-date">DATE</th>
-                <th className="th-acc">HISTORICAL ACCURACY</th>
+                <th
+                  className="th-date sortable-th"
+                  onClick={() => handleHeaderSort("date")}
+                  title="Click to sort by date"
+                >
+                  DATE {sortBy === "date" && (sortOrder === "desc" ? "▼" : "▲")}
+                </th>
+                <th
+                  className="th-ticker sortable-th"
+                  onClick={() => handleHeaderSort("ticker")}
+                  title="Click to sort by ticker"
+                >
+                  TICKER {sortBy === "ticker" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-scenario sortable-th"
+                  onClick={() => handleHeaderSort("scenario")}
+                  title="Click to sort by scenario"
+                >
+                  SCENARIO {sortBy === "scenario" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th
+                  className="th-cmp sortable-th"
+                  onClick={() => handleHeaderSort("cmp")}
+                  title="Click to sort by CMP"
+                >
+                  CMP {sortBy === "cmp" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="ab-empty-cell">
+                  <td colSpan={5} className="ab-empty-cell">
                     <div className="ab-loading-box">
                       <span className="ab-spinner">⏳</span>
-                      <span>Calculating AB TOP &amp; BLW BOTTOM Fibonacci Decision Matrix...</span>
+                      <span>Detecting Top &amp; Bottom Extreme Zone Breakouts...</span>
                     </div>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : processedData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="ab-empty-cell">
+                  <td colSpan={5} className="ab-empty-cell">
                     <div className="ab-loading-box">
                       <span className="ab-spinner">📊</span>
-                      <span>No stocks matched the selected AB Top / Bottom criteria.</span>
+                      <span>No stocks matched the extreme top/bottom criteria. Click RUN SCANNER to scan.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row, idx) => {
+                processedData.map((row, idx) => {
                   const cleanSym = stripSymbolSuffix(row.symbol);
+                  const isTop = row.scenarioType === "top" || String(row.scenario).toUpperCase().includes("TOP");
+
                   return (
-                    <tr key={row.symbol || idx} className="ab-row">
+                    <tr key={`${row.symbol}-${row.date}-${idx}`} className="ab-row">
+                      {/* 1. SR */}
                       <td className="td-sr">{idx + 1}</td>
-                      
-                      {/* Ticker */}
-                      <td className="td-sym">
+
+                      {/* 2. DATE */}
+                      <td className="td-date">{row.date || "—"}</td>
+
+                      {/* 3. TICKER (CLICK ROUTES TO DATA SUMMARY) */}
+                      <td className="td-ticker">
                         <span
                           className="ticker-badge-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            }
-                          }}
-                          title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
+                          onClick={() => handleStockClick(row)}
+                          title={`Click to open ${cleanSym} Data Summary & Analytics`}
                         >
                           {cleanSym}
                         </span>
                       </td>
 
-                      {/* CMP */}
-                      <td className="td-price">
-                        <strong>₹{Number(row.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                      </td>
-
-                      {/* Status */}
-                      <td className="td-status">
-                        {row.isAbTop && (
-                          <span className="status-pill status-top">
-                            🔴 CLOSING ABOVE AB TOP
+                      {/* 4. SCENARIO - EXTREME AB TOP / BOTTOM */}
+                      <td className="td-scenario">
+                        {isTop ? (
+                          <span
+                            className="status-pill status-top"
+                            title={row.refBaseline ? `Triggered: Close (₹${row.cmp}) > Top High (₹${row.refBaseline}) AND Avg (₹${row.triggerAvg}) > Top High (₹${row.refBaseline}) | Pivot Date: ${row.refDate}` : "extreme Ab top"}
+                          >
+                            🔴 extreme Ab top
                           </span>
-                        )}
-                        {row.isAbBottom && (
-                          <span className="status-pill status-bottom">
-                            🟢 CLOSING BELOW AB BOTTOM
-                          </span>
-                        )}
-                        {!row.isAbTop && !row.isAbBottom && (
-                          <span className="status-pill status-neutral">
-                            ⚪ WITHIN RANGE
+                        ) : (
+                          <span
+                            className="status-pill status-bottom"
+                            title={row.refBaseline ? `Triggered: Close (₹${row.cmp}) < Bottom Low (₹${row.refBaseline}) AND Avg (₹${row.triggerAvg}) < Bottom Low (₹${row.refBaseline}) | Pivot Date: ${row.refDate}` : "extreme Ab bottom"}
+                          >
+                            🟢 extreme Ab bottom
                           </span>
                         )}
                       </td>
 
-                      {/* Breached Level */}
-                      <td className="td-level">
-                        {row.isAbTop && (
-                          <span className="level-badge level-top">
-                            {row.topLevel} (₹{row.topTriggerVal})
-                          </span>
-                        )}
-                        {row.isAbBottom && (
-                          <span className="level-badge level-bottom">
-                            {row.bottomLevel} (₹{row.bottomTriggerVal})
-                          </span>
-                        )}
-                        {!row.isAbTop && !row.isAbBottom && <span className="ab-muted">—</span>}
-                      </td>
-
-                      {/* Delta % */}
-                      <td className="td-delta">
-                        {row.isAbTop && <span className="delta-tag tag-top">+{row.topDeltaPercent}%</span>}
-                        {row.isAbBottom && <span className="delta-tag tag-bottom">-{row.bottomDeltaPercent}%</span>}
-                        {!row.isAbTop && !row.isAbBottom && <span className="ab-muted">—</span>}
-                      </td>
-
-                      {/* Y1-Y6 */}
-                      <td className="td-top-targets">
-                        <div className="target-pill-group">
-                          <span className="tgt-chip">Y1: {row.triggers?.yellow?.Y1}</span>
-                          <span className="tgt-chip">Y2: {row.triggers?.yellow?.Y2}</span>
-                          <span className="tgt-chip">Y6: {row.triggers?.yellow?.Y6}</span>
-                        </div>
-                      </td>
-
-                      {/* R1-R6 */}
-                      <td className="td-bottom-targets">
-                        <div className="target-pill-group">
-                          <span className="tgt-chip">R3: {row.triggers?.red?.R3}</span>
-                          <span className="tgt-chip">R1: {row.triggers?.red?.R1}</span>
-                          <span className="tgt-chip">R6: {row.triggers?.red?.R6}</span>
-                        </div>
-                      </td>
-
-                      {/* Date */}
-                      <td className="td-date">{row.date || "—"}</td>
-
-                      {/* Accuracy */}
-                      <td className="td-acc">
-                        <span className="acc-badge">{row.accuracy || 90}%</span>
+                      {/* 5. CMP - MARKET CLOSED VALUE */}
+                      <td className="td-cmp">
+                        <strong>
+                          ₹{Number(row.cmp || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </strong>
                       </td>
                     </tr>
                   );
