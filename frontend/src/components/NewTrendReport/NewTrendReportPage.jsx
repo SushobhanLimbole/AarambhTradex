@@ -417,139 +417,140 @@ export default function NewTrendReportPage({
                   onClick={() => handleHeaderSort("pointer")}
                   title="Displays stock's pointer type for the entire previous month (Monthly timeframe)"
                 >
-                  MONTHLY POINTER {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
+                  {timeframe === "Daily" ? "POINTER" : `${timeframe.toUpperCase()} POINTER`} {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th className="th-ygr" title="Previous month's pointer trigger values (Y, G, R) compared against today's CMP closing price">
-                  ygr
-                </th>
-                <th
-                  className="th-price sortable-th"
-                  onClick={() => handleHeaderSort("price")}
-                  title="Click to sort by CMP close price"
+  <th className="th-ygr" title="Previous month's pointer trigger values (Y, G, R) compared against today's CMP closing price">
+      ygr
+    </th>
+    <th
+      className="th-price sortable-th"
+      onClick={() => handleHeaderSort("price")}
+      title="Click to sort by CMP close price"
+    >
+      CMP CLOSE {sortBy === "price" && (sortOrder === "asc" ? "▲" : "▼")}
+    </th>
+  </tr>
+            </thead >
+    <tbody>
+      {loading ? (
+        <tr>
+          <td colSpan={7} className="ntr-empty-cell">
+            <div className="ntr-loading-box">
+              <span className="ntr-spinner">⏳</span>
+              <span>Calculating Trend Matrices, Pointers &amp; YGR Comparisons...</span>
+            </div>
+          </td>
+        </tr>
+      ) : processedData.length === 0 ? (
+        <tr>
+          <td colSpan={7} className="ntr-empty-cell">
+            <div className="ntr-loading-box">
+              <span className="ntr-spinner">📊</span>
+              <span>No trend records matched the criteria. Click RUN to scan all symbols.</span>
+            </div>
+          </td>
+        </tr>
+      ) : (
+        processedData.map((row, idx) => {
+          const cleanSym = stripSymbolSuffix(row.symbol);
+          const isUpTrend = row.currTrend === "UP-TREND";
+          const isDownTrend = row.currTrend === "DOWN-TREND";
+          const pointerText = row.pointer || row.monthlyPointer;
+          const pointerDateText = row.pointerDate || row.monthlyPointerDate;
+          const pointerBadgeClass = getPointerBadgeColor(pointerText);
+
+          return (
+            <tr key={row.symbol || idx} className="ntr-row">
+              {/* SR */}
+              <td className="td-sr">{idx + 1}</td>
+
+              {/* TICKER (CLICK ROUTES TO DATA SUMMARY PAGE) */}
+              <td className="td-ticker">
+                <span
+                  className="ticker-pill-link"
+                  onClick={() => handleStockClick(row)}
+                  title={`Click to open ${cleanSym} Data Summary & Analytics`}
                 >
-                  CMP CLOSE {sortBy === "price" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="ntr-empty-cell">
-                    <div className="ntr-loading-box">
-                      <span className="ntr-spinner">⏳</span>
-                      <span>Calculating Trend Matrices, Pointers &amp; YGR Comparisons...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : processedData.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="ntr-empty-cell">
-                    <div className="ntr-loading-box">
-                      <span className="ntr-spinner">📊</span>
-                      <span>No trend records matched the criteria. Click RUN to scan all symbols.</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                processedData.map((row, idx) => {
-                  const cleanSym = stripSymbolSuffix(row.symbol);
-                  const isUpTrend = row.currTrend === "UP-TREND";
-                  const isDownTrend = row.currTrend === "DOWN-TREND";
-                  const pointerText = row.pointer || row.monthlyPointer;
-                  const pointerDateText = row.pointerDate || row.monthlyPointerDate;
-                  const pointerBadgeClass = getPointerBadgeColor(pointerText);
+                  {cleanSym}
+                </span>
+              </td>
 
-                  return (
-                    <tr key={row.symbol || idx} className="ntr-row">
-                      {/* SR */}
-                      <td className="td-sr">{idx + 1}</td>
+              {/* CURR TREND */}
+              <td className="td-trend">
+                {isUpTrend && <div className="trend-badge badge-green">HLC HIGHER</div>}
+                {isDownTrend && <div className="trend-badge badge-red">HLC LOWER</div>}
+                {!isUpTrend && !isDownTrend && <span className="ntr-muted">—</span>}
+              </td>
 
-                      {/* TICKER (CLICK ROUTES TO DATA SUMMARY PAGE) */}
-                      <td className="td-ticker">
-                        <span
-                          className="ticker-pill-link"
-                          onClick={() => handleStockClick(row)}
-                          title={`Click to open ${cleanSym} Data Summary & Analytics`}
-                        >
-                          {cleanSym}
-                        </span>
-                      </td>
+              {/* TREND DATE */}
+              <td className="td-date">{row.trendDate || "—"}</td>
 
-                      {/* CURR TREND */}
-                      <td className="td-trend">
-                        {isUpTrend && <div className="trend-badge badge-green">HLC HIGHER</div>}
-                        {isDownTrend && <div className="trend-badge badge-red">HLC LOWER</div>}
-                        {!isUpTrend && !isDownTrend && <span className="ntr-muted">—</span>}
-                      </td>
-
-                      {/* TREND DATE */}
-                      <td className="td-date">{row.trendDate || "—"}</td>
-
-                      {/* POINTER */}
-                      <td className="td-pointer">
-                        {pointerText && pointerText !== "—" ? (
-                          <div className="pointer-cell-group">
-                            <span className={`monthly-pointer-badge ${pointerBadgeClass}`}>
-                              {pointerText}
-                            </span>
-                            {/* {pointerDateText && pointerDateText !== "—" && (
+              {/* POINTER */}
+              <td className="td-pointer">
+                {pointerText && pointerText !== "—" ? (
+                  <div className="pointer-cell-group">
+                    <span className={`monthly-pointer-badge ${pointerBadgeClass}`}>
+                      {pointerText}
+                    </span>
+  {/* {pointerDateText && pointerDateText !== "—" && (
                               <span className="pointer-date-subtext">
                                 ({pointerDateText})
                               </span>
                             )} */}
-                          </div>
+                          </div >
                         ) : (
-                          <span className="ntr-muted">—</span>
-                        )}
-                      </td>
+    <span className="ntr-muted">—</span>
+  )
+}
+                      </td >
 
-                      {/* YGR (TIMEFRAME POINTER TRIGGER VALUES COMPARED TO CLOSE) */}
-                      <td className="td-ygr">
-                        <div className="matched-triggers-cell">
-                          {row.ygr && row.ygr.length > 0 ? (
-                            row.ygr.map((item) => {
-                              const trigClass = getTriggerClass(item.trigger);
-                              const isPositive = item.diffPct >= 0;
-                              return (
-                                <span
-                                  key={`${row.symbol}-${item.trigger}`}
-                                  className={`matched-trigger-tag ${trigClass}`}
-                                  title={`${item.trigger} Level: ₹${Number(item.triggerPrice).toFixed(2)} (CMP Close: ₹${Number(row.price || 0).toFixed(2)}, ${isPositive ? "+" : ""}${item.diffPct}%)`}
-                                >
-                                  <strong>{item.trigger}</strong>
-                                  {item.triggerPrice !== undefined && (
-                                    <span className="tag-price">@ ₹{Number(item.triggerPrice).toFixed(2)}</span>
-                                  )}
-                                  {item.diffPct !== undefined && (
-                                    <span className="tag-pct">
-                                      {isPositive ? `+${item.diffPct}%` : `${item.diffPct}%`}
-                                    </span>
-                                  )}
-                                </span>
-                              );
-                            })
-                          ) : (
-                            <span className="ntr-muted">—</span>
-                          )}
-                        </div>
-                      </td>
+  {/* YGR (TIMEFRAME POINTER TRIGGER VALUES COMPARED TO CLOSE) */ }
+  < td className = "td-ygr" >
+    <div className="matched-triggers-cell">
+      {row.ygr && row.ygr.length > 0 ? (
+        row.ygr.map((item) => {
+          const trigClass = getTriggerClass(item.trigger);
+          const isPositive = item.diffPct >= 0;
+          return (
+            <span
+              key={`${row.symbol}-${item.trigger}`}
+              className={`matched-trigger-tag ${trigClass}`}
+              title={`${item.trigger} Level: ₹${Number(item.triggerPrice).toFixed(2)} (CMP Close: ₹${Number(row.price || 0).toFixed(2)}, ${isPositive ? "+" : ""}${item.diffPct}%)`}
+            >
+              <strong>{item.trigger}</strong>
+              {item.triggerPrice !== undefined && (
+                <span className="tag-price">@ ₹{Number(item.triggerPrice).toFixed(2)}</span>
+              )}
+              {item.diffPct !== undefined && (
+                <span className="tag-pct">
+                  {isPositive ? `+${item.diffPct}%` : `${item.diffPct}%`}
+                </span>
+              )}
+            </span>
+          );
+        })
+      ) : (
+        <span className="ntr-muted">—</span>
+      )}
+    </div>
+                      </td >
 
-                      {/* CMP CLOSE PRICE */}
-                      <td className="td-price">
-                        <span className="price-badge">
-                          {row.price !== null && row.price !== undefined
-                            ? `₹${Number(row.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : "—"}
-                        </span>
-                      </td>
-                    </tr>
+  {/* CMP CLOSE PRICE */ }
+  < td className = "td-price" >
+    <span className="price-badge">
+      {row.price !== null && row.price !== undefined
+        ? `₹${Number(row.price).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : "—"}
+    </span>
+                      </td >
+                    </tr >
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+            </tbody >
+          </table >
+        </div >
+      </div >
+    </div >
   );
 }
