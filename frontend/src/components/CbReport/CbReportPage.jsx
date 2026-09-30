@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./CbReportPage.css";
 import cbReportService from "../../services/cbReportService.js";
 import stockService from "../../services/stockService.js";
@@ -36,35 +36,19 @@ const PRESET_INDICES = [
   { value: "TOP 500", label: "TOP 500 (500 stocks)", count: 500 },
 ];
 
-export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) {
+export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStockAnalytics, onBack }) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
   const [timeframe, setTimeframe] = useState("Daily");
   const [actionDate, setActionDate] = useState("");
-  const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'CB_WITH_STATUS' | 'ORDINARY_CB' | 'BULLISH' | 'BEARISH'
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("date"); // 'sr' | 'date' | 'ticker'
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const [availableExchanges, setAvailableExchanges] = useState(["NSE", "BSE"]);
   const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
 
   const [reportData, setReportData] = useState([]);
-  const [summary, setSummary] = useState({
-    ordinaryBullishCb: 0,
-    bullishCbWithStatus: 0,
-    ordinaryBearishCb: 0,
-    bearishCbWithStatus: 0,
-    totalScanned: 0,
-    backtest: {
-      overallAccuracy: 0,
-      bullishAccuracy: 0,
-      bearishAccuracy: 0,
-      bullHits: 0,
-      bullTotal: 0,
-      bearHits: 0,
-      bearTotal: 0,
-    },
-  });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -129,14 +113,11 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         indice: indexVal,
         timeframe,
         actionDate: actionDate || undefined,
-        filterType,
+        filterType: "ALL",
       });
 
       if (res?.data && Array.isArray(res.data)) {
         setReportData(res.data);
-        if (res.summary) {
-          setSummary(res.summary);
-        }
         if (res.rawActionDate && !actionDate) {
           setActionDate(res.rawActionDate);
         }
@@ -145,162 +126,92 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
       }
     } catch (err) {
       console.error("CB Report Error:", err);
-      setError(err.message || "Failed to load CB report.");
+      setError(err.message || "Failed to load Comparative Study report.");
       setReportData([]);
     } finally {
       setLoading(false);
     }
-  }, [exchange, indexVal, timeframe, actionDate, filterType]);
+  }, [exchange, indexVal, timeframe, actionDate]);
 
   useEffect(() => {
     handleFetchReport();
   }, [handleFetchReport]);
 
-  const filteredData = reportData.filter((row) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const sym = (row.symbol || "").toLowerCase();
-    const type = (row.cbType || "").toLowerCase();
-    const status = (row.statusBadge || "").toLowerCase();
-    return sym.includes(q) || type.includes(q) || status.includes(q);
-  });
+  // Handle header sort
+  const handleHeaderSort = (columnKey) => {
+    if (sortBy === columnKey) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(columnKey);
+      setSortOrder(columnKey === "date" ? "desc" : "asc");
+    }
+  };
+
+  // Filter and sort data
+  const processedData = useMemo(() => {
+    let list = [...reportData];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((row) => {
+        const sym = stripSymbolSuffix(row.symbol).toLowerCase();
+        const dt = String(row.date || "").toLowerCase();
+        return sym.includes(q) || dt.includes(q);
+      });
+    }
+
+    list.sort((a, b) => {
+      let comp = 0;
+      if (sortBy === "date") {
+        const tA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+        const tB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+        comp = tB - tA;
+        if (comp === 0) comp = a.symbol.localeCompare(b.symbol);
+        return sortOrder === "asc" ? -comp : comp;
+      } else if (sortBy === "ticker") {
+        comp = a.symbol.localeCompare(b.symbol);
+      }
+      return sortOrder === "asc" ? comp : -comp;
+    });
+
+    return list;
+  }, [reportData, searchQuery, sortBy, sortOrder]);
+
+  // Click on stock routes directly to Data Summary / Analytics page
+  const handleStockClick = (row) => {
+    const cleanSym = stripSymbolSuffix(row.symbol);
+    if (onOpenStockAnalytics) {
+      onOpenStockAnalytics({
+        symbol: row.symbol,
+        exchange: row.exchange || exchange || "NSE",
+        indice: indexVal || "ALL",
+        timeframe: timeframe || "Daily",
+      });
+    } else if (onOpenStrategy) {
+      onOpenStrategy({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    } else if (onOpenPointer) {
+      onOpenPointer({
+        symbol: row.symbol,
+        script: cleanSym,
+        timeframe,
+      });
+    }
+  };
 
   return (
     <div className="cb-report-wrapper">
-      {/* 1. EXCEL SPECIFICATION MATRIX HEADER (MATCHING USER SCREENSHOT EXACTLY) */}
-      <div className="cb-matrix-card">
-        {/* Top Type Headers */}
-        <div className="cb-type-banner-row">
-          <div className="cb-type-col">
-            <span className="type-badge">TYPE 1</span>
-            <span className="type-desc">ORDINARY CB</span>
-          </div>
-          <div className="cb-type-col">
-            <span className="type-badge">TYPE 2</span>
-            <span className="type-desc highlight">CB WITH STATUS</span>
-          </div>
-          <div className="cb-type-col right-align">
-            <span className="cb-scope-pill">FOR ALL TIME FRAME</span>
-          </div>
-        </div>
-
-        {/* Matrix Grid */}
-        <div className="cb-matrix-grid">
-          {/* BULLISH SECTION (GREEN) */}
-          <div className="cb-matrix-section section-green">
-            <div className="section-header-row header-green">
-              <span className="sec-title">ORDINARY CB (BULLISH)</span>
-              <span className="sec-title highlight">CB WITH STATUS (BULLISH)</span>
-            </div>
-
-            <div className="cb-formula-grid">
-              <div className="cb-formula-col">
-                <div className="day-step">
-                  <span className="day-num">DAY 1</span>
-                  <span className="day-math">CLOSE &gt; SAME DAY AVG</span>
-                </div>
-                <div className="day-step">
-                  <span className="day-num">DAY 2</span>
-                  <span className="day-math">CLOSE &gt; PREV.HIGH</span>
-                </div>
-              </div>
-
-              <div className="cb-formula-col col-status">
-                <div className="day-step">
-                  <span className="day-num">DAY 1</span>
-                  <span className="day-math">CLOSE &gt; SAME DAY AVG</span>
-                </div>
-                <div className="day-step">
-                  <span className="day-num">DAY 2</span>
-                  <span className="day-math">CLOSE &gt; PREV.HIGH</span>
-                </div>
-                <div className="status-callout-box callout-green">
-                  <span>ON DAY 2 HLC HIGHER FORMED</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bullish Counters */}
-            <div className="cb-counter-footer">
-              <div className="cb-cnt-box">
-                <span className="cb-cnt-lbl">Ordinary Bullish CB:</span>
-                <span className="cb-cnt-val val-green">{summary.ordinaryBullishCb || 0}</span>
-              </div>
-              <div className="cb-cnt-box highlight-box">
-                <span className="cb-cnt-lbl">Bullish CB with Status:</span>
-                <span className="cb-cnt-val val-green">{summary.bullishCbWithStatus || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* BEARISH SECTION (RED) */}
-          <div className="cb-matrix-section section-red">
-            <div className="section-header-row header-red">
-              <span className="sec-title">ORDINARY CB (BEARISH)</span>
-              <span className="sec-title highlight">CB WITH STATUS (BEARISH)</span>
-            </div>
-
-            <div className="cb-formula-grid">
-              <div className="cb-formula-col">
-                <div className="day-step">
-                  <span className="day-num">DAY 1</span>
-                  <span className="day-math">CLOSE &lt; SAME DAY AVG</span>
-                </div>
-                <div className="day-step">
-                  <span className="day-num">DAY 2</span>
-                  <span className="day-math">CLOSE &lt; PREV.LOW</span>
-                </div>
-              </div>
-
-              <div className="cb-formula-col col-status">
-                <div className="day-step">
-                  <span className="day-num">DAY 1</span>
-                  <span className="day-math">CLOSE &lt; SAME DAY AVG</span>
-                </div>
-                <div className="day-step">
-                  <span className="day-num">DAY 2</span>
-                  <span className="day-math">CLOSE &lt; PREV.LOW</span>
-                </div>
-                <div className="status-callout-box callout-red">
-                  <span>ON DAY 2 HLC LOWER FORMED</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bearish Counters */}
-            <div className="cb-counter-footer">
-              <div className="cb-cnt-box">
-                <span className="cb-cnt-lbl">Ordinary Bearish CB:</span>
-                <span className="cb-cnt-val val-red">{summary.ordinaryBearishCb || 0}</span>
-              </div>
-              <div className="cb-cnt-box highlight-box">
-                <span className="cb-cnt-lbl">Bearish CB with Status:</span>
-                <span className="cb-cnt-val val-red">{summary.bearishCbWithStatus || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* GOLD RIBBON: BACKTESTING WITH ACCURACY IN % */}
-        <div className="cb-backtest-ribbon">
-          <div className="cb-ribbon-left">
-            <span className="ribbon-icon">🏆</span>
-            <span className="ribbon-title">BACKTESTING THIS REPORT WITH ACCURACY IN %</span>
-          </div>
-          <div className="cb-ribbon-stats">
-            <div className="cb-stat-pill">
-              <span className="lbl">Overall Accuracy:</span>
-              <span className="val highlight">{summary.backtest?.overallAccuracy || 0}%</span>
-            </div>
-            <div className="cb-stat-pill">
-              <span className="lbl">Bullish Breakouts:</span>
-              <span className="val text-bull">{summary.backtest?.bullishAccuracy || 0}%</span>
-            </div>
-            <div className="cb-stat-pill">
-              <span className="lbl">Bearish Breakdowns:</span>
-              <span className="val text-bear">{summary.backtest?.bearishAccuracy || 0}%</span>
-            </div>
-          </div>
+      {/* 1. TITLE & CONTEXT BANNER */}
+      <div className="cb-page-header-card">
+        <div className="cb-title-block">
+          <div className="cb-badge-pill">REPORT CARD 4</div>
+          <h1 className="cb-page-title">Comparative Study</h1>
+          <p className="cb-page-subtitle">
+            Includes <strong>Type 1 (Ordinary CB)</strong> and <strong>Type 2 (Advanced CB)</strong>
+          </p>
         </div>
       </div>
 
@@ -311,7 +222,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
             type="button"
             className="cb-back-btn"
             onClick={onBack}
-            title="Return to 8 Report Cards Hub"
+            title="Return to Report Cards Hub"
           >
             ← Back to Report Cards
           </button>
@@ -377,38 +288,6 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
           />
         </div>
 
-        {/* Filter Pills */}
-        <div className="cb-filter-pills">
-          <button
-            type="button"
-            className={`cb-pill-btn ${filterType === "ALL" ? "active" : ""}`}
-            onClick={() => setFilterType("ALL")}
-          >
-            All Stocks ({summary.totalScanned})
-          </button>
-          <button
-            type="button"
-            className={`cb-pill-btn pill-status ${filterType === "CB_WITH_STATUS" ? "active" : ""}`}
-            onClick={() => setFilterType("CB_WITH_STATUS")}
-          >
-            CB with Status ({summary.bullishCbWithStatus + summary.bearishCbWithStatus})
-          </button>
-          <button
-            type="button"
-            className={`cb-pill-btn pill-bullish ${filterType === "BULLISH" ? "active" : ""}`}
-            onClick={() => setFilterType("BULLISH")}
-          >
-            Bullish CB ({summary.ordinaryBullishCb})
-          </button>
-          <button
-            type="button"
-            className={`cb-pill-btn pill-bearish ${filterType === "BEARISH" ? "active" : ""}`}
-            onClick={() => setFilterType("BEARISH")}
-          >
-            Bearish CB ({summary.ordinaryBearishCb})
-          </button>
-        </div>
-
         {/* Run Scan Button */}
         <button
           type="button"
@@ -427,7 +306,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         </div>
       )}
 
-      {/* 3. SEARCH & SUMMARY BAR */}
+      {/* 3. SEARCH & TABLE STATS */}
       <div className="cb-search-bar-row">
         <div className="cb-search-box">
           <span className="search-icon">🔍</span>
@@ -446,147 +325,159 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         </div>
 
         <div className="cb-table-counts">
-          <span>Showing <strong>{filteredData.length}</strong> of <strong>{reportData.length}</strong> stocks</span>
+          <span>Showing <strong>{processedData.length}</strong> of <strong>{reportData.length}</strong> breakout stocks</span>
         </div>
       </div>
 
-      {/* 4. LIVE REPORT DATA TABLE */}
+      {/* 4. COMPARATIVE STUDY TABLE WITH NESTED SUB-COLUMNS */}
       <div className="cb-table-card">
         <div className="cb-table-scroll">
           <table className="cb-table">
             <thead>
+              {/* Row 1: Main Headers */}
               <tr>
-                <th className="th-sr">SR.</th>
-                <th className="th-sym">TICKER</th>
-                <th className="th-price">PRICE (CMP)</th>
-                <th className="th-type">CB TYPE</th>
-                <th className="th-status">STATUS FORMATION</th>
-                <th className="th-day1">DAY 1 (PREV CLOSE vs AVG)</th>
-                <th className="th-day2">DAY 2 (CLOSE vs PREV LEVEL)</th>
-                <th className="th-margin">BREAKOUT MARGIN %</th>
-                <th className="th-date">DATE</th>
-                <th className="th-acc">HISTORICAL ACCURACY</th>
+                <th rowSpan={2} className="th-sr">Sr</th>
+                <th
+                  rowSpan={2}
+                  className="th-date sortable-th"
+                  onClick={() => handleHeaderSort("date")}
+                  title="Click to sort by date"
+                >
+                  Date {sortBy === "date" && (sortOrder === "desc" ? "▼" : "▲")}
+                </th>
+                <th
+                  rowSpan={2}
+                  className="th-ticker sortable-th"
+                  onClick={() => handleHeaderSort("ticker")}
+                  title="Click to sort by ticker"
+                >
+                  Ticker {sortBy === "ticker" && (sortOrder === "asc" ? "▲" : "▼")}
+                </th>
+                <th colSpan={2} className="th-group-bullish">
+                  🟢 Bullish
+                </th>
+                <th colSpan={2} className="th-group-bearish">
+                  🔴 Bearish
+                </th>
+              </tr>
+              {/* Row 2: Sub-Columns */}
+              <tr>
+                <th className="th-sub sub-bullish" title="Type 1: Day 1 Close > Avg & Day 2 Close > Prev High">
+                  Ordinary
+                </th>
+                <th className="th-sub sub-bullish" title="Type 2: Day 1 Close > Avg & Day 2 Close > Prev High + Day 2 HLC HIGHER">
+                  Advanced CB
+                </th>
+                <th className="th-sub sub-bearish" title="Type 1: Day 1 Close < Avg & Day 2 Close < Prev Low">
+                  Ordinary
+                </th>
+                <th className="th-sub sub-bearish" title="Type 2: Day 1 Close < Avg & Day 2 Close < Prev Low + Day 2 HLC LOWER">
+                  Advanced CB
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="cb-empty-cell">
+                  <td colSpan={7} className="cb-empty-cell">
                     <div className="cb-loading-box">
                       <span className="cb-spinner">⏳</span>
-                      <span>Calculating CB (Ordinary &amp; CB with Status) Matrices...</span>
+                      <span>Calculating Comparative Study (Ordinary &amp; Advanced CB) Matrices...</span>
                     </div>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : processedData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="cb-empty-cell">
+                  <td colSpan={7} className="cb-empty-cell">
                     <div className="cb-loading-box">
                       <span className="cb-spinner">📊</span>
-                      <span>No stocks matched the selected CB criteria.</span>
+                      <span>No stocks matched the Comparative Study criteria for the selected date.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row, idx) => {
+                processedData.map((row, idx) => {
                   const cleanSym = stripSymbolSuffix(row.symbol);
+                  // Strict 1-of-4 classification
+                  const isAdvBull = Boolean(row.isAdvancedBullish || (row.isBullish && (row.cbType === "CB WITH STATUS" || row.statusBadge?.includes("HIGHER"))));
+                  const isOrdBull = !isAdvBull && Boolean(row.isOrdinaryBullish || (row.isBullish && row.cbType === "ORDINARY CB") || (row.isBullish && !row.isBearish));
+
+                  const isAdvBear = Boolean(row.isAdvancedBearish || (row.isBearish && (row.cbType === "CB WITH STATUS" || row.statusBadge?.includes("LOWER"))));
+                  const isOrdBear = !isAdvBear && Boolean(row.isOrdinaryBearish || (row.isBearish && row.cbType === "ORDINARY CB") || (row.isBearish && !row.isBullish));
+
                   return (
                     <tr key={row.symbol || idx} className="cb-row">
+                      {/* 1. Sr */}
                       <td className="td-sr">{idx + 1}</td>
 
-                      {/* Ticker */}
-                      <td className="td-sym">
+                      {/* 2. Date */}
+                      <td className="td-date">{row.date || "—"}</td>
+
+                      {/* 3. Ticker */}
+                      <td className="td-ticker">
                         <span
                           className="ticker-badge-link"
-                          onClick={() => {
-                            if (onOpenStrategy) {
-                              onOpenStrategy({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            } else if (onOpenPointer) {
-                              onOpenPointer({
-                                symbol: row.symbol,
-                                script: cleanSym,
-                                timeframe,
-                              });
-                            }
-                          }}
-                          title={`Open ${cleanSym} Strategy & Pointer Decision Matrix`}
+                          onClick={() => handleStockClick(row)}
+                          title={`Click to open ${cleanSym} Data Summary & Analytics`}
                         >
                           {cleanSym}
                         </span>
                       </td>
 
-                      {/* Price */}
-                      <td className="td-price">
-                        <strong>₹{Number(row.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                      </td>
-
-                      {/* CB Type */}
-                      <td className="td-type">
-                        {row.cbType === "CB WITH STATUS" && (
-                          <span className={`cb-type-badge ${row.isBullish ? "badge-status-green" : "badge-status-red"}`}>
-                            ⭐ CB WITH STATUS
+                      {/* 4. Bullish -> Ordinary */}
+                      <td className="td-signal td-bull-cell">
+                        {isOrdBull ? (
+                          <span
+                            className="cb-signal-pill pill-bullish-ord"
+                            title={`Triggered: Day 1 Close (₹${row.prevClose}) > Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) > Prev High (₹${row.prevHigh})`}
+                          >
+                             Ordinary
                           </span>
-                        )}
-                        {row.cbType === "ORDINARY CB" && (
-                          <span className={`cb-type-badge ${row.isBullish ? "badge-ord-green" : "badge-ord-red"}`}>
-                            ORDINARY CB
-                          </span>
-                        )}
-                        {row.cbType === "NO CB" && <span className="cb-muted">—</span>}
-                      </td>
-
-                      {/* Status Formation */}
-                      <td className="td-status">
-                        {row.isBullishCbWithStatus && (
-                          <span className="status-pill pill-hlc-higher">
-                            🟢 ON DAY 2 HLC HIGHER FORMED
-                          </span>
-                        )}
-                        {row.isBearishCbWithStatus && (
-                          <span className="status-pill pill-hlc-lower">
-                            🔴 ON DAY 2 HLC LOWER FORMED
-                          </span>
-                        )}
-                        {!row.isBullishCbWithStatus && !row.isBearishCbWithStatus && (
-                          <span className="status-pill pill-standard">
-                            {row.statusBadge || "STANDARD BREAKOUT"}
-                          </span>
+                        ) : (
+                          <span className="cb-muted">—</span>
                         )}
                       </td>
 
-                      {/* Day 1 */}
-                      <td className="td-day1">
-                        <div className="step-info-box">
-                          <span>Close: ₹{row.prevClose}</span>
-                          <span>Avg: ₹{row.prevAvg}</span>
-                        </div>
+                      {/* 5. Bullish -> Advanced CB */}
+                      <td className="td-signal td-bull-cell">
+                        {isAdvBull ? (
+                          <span
+                            className="cb-signal-pill pill-bullish-adv"
+                            title={`Triggered: Day 1 Close > Avg & Day 2 Close > Prev High + ON DAY 2 HLC HIGHER FORMED`}
+                          >
+                             Advanced CB
+                          </span>
+                        ) : (
+                          <span className="cb-muted">—</span>
+                        )}
                       </td>
 
-                      {/* Day 2 */}
-                      <td className="td-day2">
-                        <div className="step-info-box">
-                          <span>Close: <strong>₹{row.price}</strong></span>
-                          <span>{row.isBullish ? `Prev High: ₹${row.prevHigh}` : `Prev Low: ₹${row.prevLow}`}</span>
-                        </div>
+                      {/* 6. Bearish -> Ordinary */}
+                      <td className="td-signal td-bear-cell">
+                        {isOrdBear ? (
+                          <span
+                            className="cb-signal-pill pill-bearish-ord"
+                            title={`Triggered: Day 1 Close (₹${row.prevClose}) < Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) < Prev Low (₹${row.prevLow})`}
+                          >
+                             Ordinary
+                          </span>
+                        ) : (
+                          <span className="cb-muted">—</span>
+                        )}
                       </td>
 
-                      {/* Breakout Margin */}
-                      <td className="td-margin">
-                        {row.isBullish && <span className="margin-tag tag-bull">+{row.breakoutMargin}%</span>}
-                        {row.isBearish && <span className="margin-tag tag-bear">-{row.breakoutMargin}%</span>}
-                        {!row.isBullish && !row.isBearish && <span className="cb-muted">—</span>}
-                      </td>
-
-                      {/* Date */}
-                      <td className="td-date">{row.date || "—"}</td>
-
-                      {/* Accuracy */}
-                      <td className="td-acc">
-                        <span className="acc-badge">{row.accuracy || 87}%</span>
+                      {/* 7. Bearish -> Advanced CB */}
+                      <td className="td-signal td-bear-cell">
+                        {isAdvBear ? (
+                          <span
+                            className="cb-signal-pill pill-bearish-adv"
+                            title={`Triggered: Day 1 Close < Avg & Day 2 Close < Prev Low + ON DAY 2 HLC LOWER FORMED`}
+                          >
+                             Advanced CB
+                          </span>
+                        ) : (
+                          <span className="cb-muted">—</span>
+                        )}
                       </td>
                     </tr>
                   );

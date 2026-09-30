@@ -309,6 +309,7 @@ export default function MainLayout() {
             onBack={handleBack}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "trend-reversal")}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "trend-reversal")}
+            onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
         {activeTab === "cb-report" && (
@@ -316,6 +317,7 @@ export default function MainLayout() {
             onBack={handleBack}
             onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "cb-report")}
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "cb-report")}
+            onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
         {activeTab === "highest-closing" && (
