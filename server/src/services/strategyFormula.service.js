@@ -285,7 +285,7 @@ export function calculateStrategyData(ohlc = {}) {
   const lowCloseCond = evaluatePriceBand(lowClose, channelContext);
 
   // Scenario determination (Matching Excel formula: if conditions are FALSE, Scenario is empty)
-  const scenarioName = determineScenario(h, l, channelContext, highCond, lowCond);
+  const scenarioName = determineScenario(h, l, channelContext, highCond, lowCond, c);
 
   const conditions = {
     high: highCond,

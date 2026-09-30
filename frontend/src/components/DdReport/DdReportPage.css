@@ -250,19 +250,19 @@
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  background: #ffffff;
+  background: #0f172a;
   padding: 14px 18px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .dd-back-btn {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
   padding: 7px 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -275,8 +275,8 @@
 }
 
 .dd-back-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .dd-control-group {
@@ -292,7 +292,7 @@
 .dd-label {
   font-size: 11px;
   font-weight: 800;
-  color: #64748b;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -327,25 +327,27 @@
 .dd-pill-btn {
   height: 36px;
   padding: 0 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 800;
-  color: #475569;
+  color: #cbd5e1;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .dd-pill-btn:hover {
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .dd-pill-btn.active {
-  background: #0f172a;
+  background: #0284c7;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #0284c7;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
 }
 
 .dd-pill-btn.pill-bullish.active {

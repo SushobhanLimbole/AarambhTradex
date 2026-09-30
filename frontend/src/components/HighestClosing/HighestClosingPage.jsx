@@ -268,55 +268,83 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
         <div className="hc-types-grid">
           {/* Type 1 Box: ATH Report */}
           <div
-            className={`hc-type-box type-2-box ${filterType === "ATH" || filterType === "TYPE1" ? "active-type-box" : ""}`}
-            onClick={() => setFilterType(filterType === "ATH" ? "ALL" : "ATH")}
+            className={`hc-type-box type-2-box ${filterType === "TYPE1" || filterType === "ATH" || filterType === "ATL" ? "active-type-box" : ""}`}
+            onClick={() => setFilterType(filterType === "TYPE1" ? "ALL" : "TYPE1")}
+            title="Click to toggle Type 1 (Lifetime ATH & ATL)"
           >
             <div className="hc-type-header-row">
-              <span className="hc-type-tag tag-gold">Type 1: ATH Report</span>
-              <span className="hc-filter-click-hint">Click to filter</span>
+              <span className="hc-type-tag tag-gold">Type 1: ATH &amp; ATL Report</span>
+              <span className="hc-filter-click-hint">Click card to filter all Type 1</span>
             </div>
-            <div className="hc-type-title">All-Time High Report</div>
+            <div className="hc-type-title">All-Time High / Low Report (Lifetime)</div>
             <div className="hc-type-sub">
               Baseline established across the <strong>first 6 months</strong> of stock history. Compares every subsequent trading day against the rolling Lifetime ATH &amp; ATL closing thresholds.
             </div>
             <div className="hc-type-stats-row">
-              <div className="hc-stat-pill stat-gold">
-                <span className="stat-icon">👑</span>
-                <span>ATH Today:</span>
-                <strong>{summary.athCount || 0}</strong>
-              </div>
-              <div className="hc-stat-pill stat-red">
-                <span className="stat-icon">🔻</span>
-                <span>ATL Today:</span>
-                <strong>{summary.atlCount || 0}</strong>
-              </div>
+              <button
+                type="button"
+                className={`hc-header-pill-btn pill-gold ${filterType === "ATH" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterType(filterType === "ATH" ? "ALL" : "ATH");
+                }}
+                title="Filter ATH (Lifetime All-Time High today)"
+              >
+                👑 ATH ({summary.athCount || 0})
+              </button>
+
+              <button
+                type="button"
+                className={`hc-header-pill-btn pill-red ${filterType === "ATL" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterType(filterType === "ATL" ? "ALL" : "ATL");
+                }}
+                title="Filter ATL (Lifetime All-Time Low today)"
+              >
+                🔻 ATL ({summary.atlCount || 0})
+              </button>
             </div>
           </div>
 
           {/* Type 2 Box: CYATH Report */}
           <div
-            className={`hc-type-box type-1-box ${filterType === "CYATH" || filterType === "TYPE2" ? "active-type-box" : ""}`}
-            onClick={() => setFilterType(filterType === "CYATH" ? "ALL" : "CYATH")}
+            className={`hc-type-box type-1-box ${filterType === "TYPE2" || filterType === "CYATH" || filterType === "CYATL" ? "active-type-box" : ""}`}
+            onClick={() => setFilterType(filterType === "TYPE2" ? "ALL" : "TYPE2")}
+            title="Click to toggle Type 2 (Current Year ATH & ATL)"
           >
             <div className="hc-type-header-row">
-              <span className="hc-type-tag tag-cyan">Type 2: CYATH Report</span>
-              <span className="hc-filter-click-hint">Click to filter</span>
+              <span className="hc-type-tag tag-cyan">Type 2: CYATH &amp; CYATL Report</span>
+              <span className="hc-filter-click-hint">Click card to filter all Type 2</span>
             </div>
-            <div className="hc-type-title">Current Year All-Time High Report</div>
+            <div className="hc-type-title">Current Year All-Time High / Low Report</div>
             <div className="hc-type-sub">
               Baseline established across <strong>first 6 months of current year (Jan 1 – Jun 30)</strong>. Compares each subsequent day from Jul 1 onwards against the Current Year ATH &amp; ATL closing thresholds.
             </div>
             <div className="hc-type-stats-row">
-              <div className="hc-stat-pill stat-cyan">
-                <span className="stat-icon">🌟</span>
-                <span>CYATH Today:</span>
-                <strong>{summary.cyathCount || 0}</strong>
-              </div>
-              <div className="hc-stat-pill stat-amber">
-                <span className="stat-icon">🔻</span>
-                <span>CYATL Today:</span>
-                <strong>{summary.cyatlCount || 0}</strong>
-              </div>
+              <button
+                type="button"
+                className={`hc-header-pill-btn pill-cyan ${filterType === "CYATH" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterType(filterType === "CYATH" ? "ALL" : "CYATH");
+                }}
+                title="Filter CYATH (Current Year All-Time High today)"
+              >
+                🌟 CYATH ({summary.cyathCount || 0})
+              </button>
+
+              <button
+                type="button"
+                className={`hc-header-pill-btn pill-amber ${filterType === "CYATL" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterType(filterType === "CYATL" ? "ALL" : "CYATL");
+                }}
+                title="Filter CYATL (Current Year All-Time Low today)"
+              >
+                🔻 CYATL ({summary.cyatlCount || 0})
+              </button>
             </div>
           </div>
         </div>
@@ -392,7 +420,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
           />
         </div>
 
-        {/* Filter Pills */}
+        {/* Filter Pills in Toolbar */}
         <div className="hc-filter-pills">
           <button
             type="button"
@@ -400,38 +428,6 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
             onClick={() => setFilterType("ALL")}
           >
             All Breakouts ({summary.totalQualified || 0})
-          </button>
-
-          <button
-            type="button"
-            className={`hc-pill-btn pill-gold ${filterType === "ATH" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "ATH" ? "ALL" : "ATH")}
-          >
-            👑 ATH ({summary.athCount || 0})
-          </button>
-
-          <button
-            type="button"
-            className={`hc-pill-btn pill-red ${filterType === "ATL" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "ATL" ? "ALL" : "ATL")}
-          >
-            🔻 ATL ({summary.atlCount || 0})
-          </button>
-
-          <button
-            type="button"
-            className={`hc-pill-btn pill-cyan ${filterType === "CYATH" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "CYATH" ? "ALL" : "CYATH")}
-          >
-            🌟 CYATH ({summary.cyathCount || 0})
-          </button>
-
-          <button
-            type="button"
-            className={`hc-pill-btn pill-amber ${filterType === "CYATL" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "CYATL" ? "ALL" : "CYATL")}
-          >
-            🔻 CYATL ({summary.cyatlCount || 0})
           </button>
         </div>
 
@@ -442,7 +438,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
           onClick={handleFetchReport}
           disabled={loading}
         >
-          {loading ? "Scanning..." : "RUN SCANNER"}
+          {loading ? "Scanning..." : "RUN"}
         </button>
 
         <button
