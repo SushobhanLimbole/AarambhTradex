@@ -417,7 +417,7 @@ export default function NewTrendReportPage({
                   onClick={() => handleHeaderSort("pointer")}
                   title="Displays stock's pointer type for the entire previous month (Monthly timeframe)"
                 >
-                  {timeframe === "Daily" ? "POINTER" : `${timeframe.toUpperCase()} POINTER`} {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
+                  {timeframe === "Daily" ? "MONTHLY POINTER" : `${timeframe.toUpperCase()} POINTER`} {sortBy === "pointer" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
   <th className="th-ygr" title="Previous month's pointer trigger values (Y, G, R) compared against today's CMP closing price">
       ygr
