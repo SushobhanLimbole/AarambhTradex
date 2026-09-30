@@ -492,11 +492,11 @@ export default function NewTrendReportPage({
                             <span className={`monthly-pointer-badge ${pointerBadgeClass}`}>
                               {pointerText}
                             </span>
-                            {pointerDateText && pointerDateText !== "—" && (
+                            {/* {pointerDateText && pointerDateText !== "—" && (
                               <span className="pointer-date-subtext">
                                 ({pointerDateText})
                               </span>
-                            )}
+                            )} */}
                           </div>
                         ) : (
                           <span className="ntr-muted">—</span>
