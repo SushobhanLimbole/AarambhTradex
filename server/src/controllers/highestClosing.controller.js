@@ -31,6 +31,19 @@ import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js
 const cache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+const addSixMonths = (dateStr) => {
+  if (!dateStr) return "";
+  const clean = String(dateStr).slice(0, 10);
+  const [yearStr, monthStr, dayStr] = clean.split("-");
+  let year = parseInt(yearStr, 10);
+  let month = parseInt(monthStr, 10) + 6;
+  if (month > 12) {
+    year += 1;
+    month -= 12;
+  }
+  return `${year}-${String(month).padStart(2, "0")}-${dayStr}`;
+};
+
 const formatDateOutput = (dStr) => {
   if (!dStr) return "—";
   try {
@@ -204,10 +217,7 @@ export const getHighestClosingReport = async (req, res, next) => {
           if (!cList || cList.length === 0) continue;
 
           // 1. Lifetime ATH & ATL Calculation (with 6-Month baseline rule)
-          const firstDate = new Date(cList[0].date);
-          const sixMonthsLater = new Date(firstDate);
-          sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-          const sixMonthsStr = sixMonthsLater.toISOString().slice(0, 10);
+          const sixMonthsStr = addSixMonths(cList[0].date);
 
           let athThreshold = -Infinity;
           let atlThreshold = Infinity;
