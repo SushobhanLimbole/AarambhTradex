@@ -277,30 +277,50 @@ export const getDdReport = async (req, res, next) => {
       }
 
       const matchedSymbols = symbolRows.map((r) => r.symbol);
-      const matchedSymbolsSet = new Set(matchedSymbols);
+      const isFilteredSubset = matchedSymbols.length < 1500;
 
       // Determine lookback window depending on timeframe
-      let lookbackYears = 1;
-      if (effectiveTf === "Weekly") lookbackYears = 3;
-      if (effectiveTf === "Monthly") lookbackYears = 7;
-      if (effectiveTf === "Yearly") lookbackYears = 20;
+      let intervalSql = "INTERVAL 180 DAY";
+      if (effectiveTf === "Weekly") intervalSql = "INTERVAL 2 YEAR";
+      if (effectiveTf === "Monthly") intervalSql = "INTERVAL 5 YEAR";
+      if (effectiveTf === "Yearly") intervalSql = "INTERVAL 15 YEAR";
 
-      // 3. Query historical candles window
-      const [allCandleRows] = await pool.query(
-        `
-        SELECT \`symbol\`, DATE_FORMAT(\`date\`, '%Y-%m-%d') as \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
-        FROM \`${tableName}\`
-        WHERE \`date\` >= DATE_SUB(?, INTERVAL ? YEAR) AND \`date\` <= ?
-        ORDER BY \`symbol\` ASC, \`date\` ASC
-        `,
-        [targetDateStr, lookbackYears, targetDateStr]
-      );
+      // 3. Query historical candles window with direct date selection & indexing
+      let query = "";
+      let params = [];
 
+      if (isFilteredSubset) {
+        query = `
+          SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
+          FROM \`${tableName}\`
+          WHERE \`symbol\` IN (?) AND \`date\` >= DATE_SUB(?, ${intervalSql}) AND \`date\` <= ?
+          ORDER BY \`symbol\` ASC, \`date\` ASC
+        `;
+        params = [matchedSymbols, targetDateStr, targetDateStr];
+      } else {
+        query = `
+          SELECT \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
+          FROM \`${tableName}\`
+          WHERE \`date\` >= DATE_SUB(?, ${intervalSql}) AND \`date\` <= ?
+          ORDER BY \`symbol\` ASC, \`date\` ASC
+        `;
+        params = [targetDateStr, targetDateStr];
+      }
+
+      const [allCandleRows] = await pool.query(query, params);
+
+      const matchedSymbolsSet = new Set(matchedSymbols);
       const candlesBySymbol = new Map();
       for (const c of allCandleRows) {
         if (!matchedSymbolsSet.has(c.symbol)) continue;
         if (!candlesBySymbol.has(c.symbol)) {
           candlesBySymbol.set(c.symbol, []);
+        }
+        // Normalize date format quickly
+        if (c.date instanceof Date) {
+          c.date = c.date.toISOString().slice(0, 10);
+        } else if (typeof c.date === "string") {
+          c.date = c.date.slice(0, 10);
         }
         candlesBySymbol.get(c.symbol).push(c);
       }
@@ -312,6 +332,13 @@ export const getDdReport = async (req, res, next) => {
       for (const sym of matchedSymbols) {
         const cList = candlesBySymbol.get(sym) || [];
         if (cList.length < 2) continue;
+
+        // For Daily, if the stock didn't trade on targetDate, skip directly
+        if (effectiveTf === "Daily") {
+          const lastCandle = cList[cList.length - 1];
+          const lastDateStr = typeof lastCandle.date === "string" ? lastCandle.date.slice(0, 10) : new Date(lastCandle.date).toISOString().slice(0, 10);
+          if (lastDateStr !== targetDateStr) continue;
+        }
 
         // Resample candles according to requested timeframe
         const tfCandles = effectiveTf === "Daily" ? cList : StockDataModel.resampleCandles(cList, effectiveTf);
