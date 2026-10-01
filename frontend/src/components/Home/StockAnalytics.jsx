@@ -80,6 +80,14 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
   const [fromDate, setFromDate] = useState(selectedStockParams?.fromDate || todayStr);
   const [toDate, setToDate] = useState(selectedStockParams?.toDate || todayStr);
   const [timeframe, setTimeframe] = useState(selectedStockParams?.timeframe || "Daily");
+  const [highlightDate, setHighlightDate] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return selectedStockParams?.highlightDate || urlParams.get("highlightDate") || urlParams.get("date") || "";
+    } catch (_) {
+      return selectedStockParams?.highlightDate || "";
+    }
+  });
 
   // Sync state and automatically fetch data if selectedStockParams prop changes
   useEffect(() => {
@@ -90,6 +98,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
       const fDate = selectedStockParams.fromDate || todayStr;
       const tDate = selectedStockParams.toDate || todayStr;
       const tf = selectedStockParams.timeframe || "Daily";
+      const hDate = selectedStockParams.highlightDate || "";
 
       setTicker(sym);
       setExchange(ex);
@@ -97,6 +106,7 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
       setFromDate(fDate);
       setToDate(tDate);
       setTimeframe(tf);
+      if (hDate) setHighlightDate(hDate);
 
       const fetchForIncoming = async () => {
         setLoading(true);
@@ -604,20 +614,37 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
     return resultRows;
   }, [rawRecords]);
 
-  // Table scroll container ref for scrolling to the last row
+  // Table scroll container ref and highlighted row ref
   const tableScrollRef = useRef(null);
+  const highlightedRowRef = useRef(null);
 
-  // Auto-scroll table to the very last row when records load/update
+  const isRowHighlighted = useCallback((row) => {
+    if (!highlightDate) return false;
+    const cleanTarget = String(highlightDate).trim().slice(0, 10);
+    if (row.rawDate && String(row.rawDate).slice(0, 10) === cleanTarget) return true;
+    if (row.date && String(row.date).includes(cleanTarget)) return true;
+    try {
+      const d1 = new Date(row.rawDate || row.date);
+      const d2 = new Date(cleanTarget);
+      if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+        return d1.toISOString().slice(0, 10) === d2.toISOString().slice(0, 10);
+      }
+    } catch (_) {}
+    return false;
+  }, [highlightDate]);
+
+  // Auto-scroll table to the highlighted row (or the last row if no highlight) when records load
   useEffect(() => {
-    if (!loading && processedRows.length > 0 && tableScrollRef.current) {
-      const container = tableScrollRef.current;
-      requestAnimationFrame(() => {
-        if (container) {
-          container.scrollTop = container.scrollHeight;
+    if (!loading && processedRows.length > 0) {
+      setTimeout(() => {
+        if (highlightDate && highlightedRowRef.current) {
+          highlightedRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (tableScrollRef.current) {
+          tableScrollRef.current.scrollTop = tableScrollRef.current.scrollHeight;
         }
-      });
+      }, 300);
     }
-  }, [loading, processedRows]);
+  }, [loading, processedRows, highlightDate]);
 
   // Handle row click / pointer navigation
   const handleOpenRowDetails = (row) => {
@@ -980,8 +1007,13 @@ export default function StockAnalytics({ onOpenPointer, onOpenStrategy, selected
               ) : (
                 processedRows.map((row) => {
                   const pInfo = getPointerInfo(row.pointer);
+                  const isHighlighted = isRowHighlighted(row);
                   return (
-                    <tr key={`${row.symbol}-${row.rawId || row.rawDate || row.no}`}>
+                    <tr
+                      key={`${row.symbol}-${row.rawId || row.rawDate || row.no}`}
+                      ref={isHighlighted ? highlightedRowRef : null}
+                      className={isHighlighted ? "row-highlighted" : ""}
+                    >
                       <td className="serial-col">{row.no}</td>
                       {visibleCols.symbol && (
                         <td style={{ fontWeight: 600, color: "#1e293b" }}>

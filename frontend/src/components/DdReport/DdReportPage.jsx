@@ -4,6 +4,7 @@ import ddReportService from "../../services/ddReportService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 import { getConditionalActionDate } from "../../utils/dateUtils.js";
+import { openStockAnalyticsInNewTab } from "../../utils/navigationUtils.js";
 
 // Preset indices matching system standard
 const PRESET_INDICES = [
@@ -38,6 +39,8 @@ const PRESET_INDICES = [
 export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) {
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
+  const [timeframe, setTimeframe] = useState("Daily");
+  const [higherTimeframe, setHigherTimeframe] = useState("Weekly");
   const [actionDate, setActionDate] = useState(() => getConditionalActionDate());
   const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'BULLISH' | 'BEARISH'
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,7 +122,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
       const res = await ddReportService.getDdReport({
         exchange,
         indice: indexVal,
-        timeframe: "Daily",
+        timeframe,
         actionDate: targetDate || undefined,
         filterType: "ALL",
       });
@@ -128,6 +131,9 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         setReportData(res.data);
         if (res.summary) {
           setSummary(res.summary);
+        }
+        if (res.higherTimeframe) {
+          setHigherTimeframe(res.higherTimeframe);
         }
         if (res.rawActionDate && !targetDate) {
           setActionDate(res.rawActionDate);
@@ -142,7 +148,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     } finally {
       setLoading(false);
     }
-  }, [exchange, indexVal, actionDate]);
+  }, [exchange, indexVal, timeframe, actionDate]);
 
   // Initial load on mount using getConditionalActionDate()
   useEffect(() => {
@@ -164,10 +170,11 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     const q = searchQuery.toLowerCase();
     return list.filter((row) => {
       const sym = (row.symbol || "").toLowerCase();
-      const cleanSym = (row.cleanSymbol || "").toLowerCase();
+      const cleanSym = stripSymbolSuffix(row.symbol || row.cleanSymbol || "").toLowerCase();
+      const rawClean = (row.cleanSymbol || "").toLowerCase();
       const weekly = (row.weeklyStatus || "").toLowerCase();
       const tt = (row.twinTower || "").toLowerCase();
-      return sym.includes(q) || cleanSym.includes(q) || weekly.includes(q) || tt.includes(q);
+      return sym.includes(q) || cleanSym.includes(q) || rawClean.includes(q) || weekly.includes(q) || tt.includes(q);
     });
   }, [reportData, filterType, searchQuery]);
 
@@ -181,31 +188,18 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     }, 2000);
   };
 
-  // Open stock analytics data summary page in a new tab with last 6 months data
+  // Open stock analytics data summary page in a new tab with date highlighting
   const handleOpenStockAnalyticsInNewTab = (row) => {
     const fullSym = row.symbol || row.cleanSymbol;
     if (!fullSym) return;
 
-    const now = new Date();
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const formatDate = (d) => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    };
-
-    const fromDate = formatDate(sixMonthsAgo);
-    const toDate = formatDate(now);
-    const ex = exchange || "NSE";
-    const ind = indexVal || "ALL";
-    const tf = "Daily";
-
-    const url = `${window.location.origin}${window.location.pathname}?tab=reports&symbol=${encodeURIComponent(fullSym)}&exchange=${encodeURIComponent(ex)}&indice=${encodeURIComponent(ind)}&fromDate=${fromDate}&toDate=${toDate}&timeframe=${tf}#reports`;
-
-    window.open(url, "_blank");
+    openStockAnalyticsInNewTab({
+      symbol: fullSym,
+      exchange: exchange || "NSE",
+      indice: indexVal || "ALL",
+      timeframe: timeframe || "Daily",
+      highlightDate: row.rawDate || row.rawDay2Date || row.day2Date || actionDate,
+    });
   };
 
   // CSV Export
@@ -224,7 +218,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
     const rows = filteredData.map((r, i) => [
       i + 1,
-      r.cleanSymbol || r.symbol,
+      stripSymbolSuffix(r.cleanSymbol || r.symbol),
       r.price,
       `"${r.weeklyStatus}"`,
       `"${r.twinTower}"`,
@@ -386,6 +380,21 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
           </select>
         </div>
 
+        {/* Timeframe */}
+        <div className="dd-control-group">
+          <label className="dd-label">Timeframe</label>
+          <select
+            className="dd-select"
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value)}
+          >
+            <option value="Daily">Daily</option>
+            <option value="Weekly">Weekly</option>
+            <option value="Monthly">Monthly</option>
+            <option value="Yearly">Yearly</option>
+          </select>
+        </div>
+
         {/* Action Date */}
         <div className="dd-control-group">
           <label className="dd-label">Action Date</label>
@@ -405,20 +414,6 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
             onClick={() => setFilterType("ALL")}
           >
             All Stocks ({summary.totalMatched || 0})
-          </button>
-          <button
-            type="button"
-            className={`dd-pill-btn pill-bullish ${filterType === "BULLISH" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "BULLISH" ? "ALL" : "BULLISH")}
-          >
-            🟢 Bullish Twin Tower ({summary.bullishCount || 0})
-          </button>
-          <button
-            type="button"
-            className={`dd-pill-btn pill-bearish ${filterType === "BEARISH" ? "active" : ""}`}
-            onClick={() => setFilterType(filterType === "BEARISH" ? "ALL" : "BEARISH")}
-          >
-            🔴 Bearish Twin Tower ({summary.bearishCount || 0})
           </button>
         </div>
 
@@ -475,7 +470,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
         </div>
       </div>
 
-      {/* 4. LIVE REPORT DATA TABLE (Columns: SR.NO, TICKER NAME, WEEKLY STATUS, TWIN TOWER, ACTIONS) */}
+      {/* 4. LIVE REPORT DATA TABLE (Columns: SR.NO, TICKER NAME, COMPARISON STATUS, TWIN TOWER, ACTIONS) */}
       <div className="dd-table-card">
         <div className="dd-table-scroll">
           <table className="dd-table">
@@ -483,7 +478,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
               <tr>
                 <th className="th-sr">SR.NO</th>
                 <th className="th-sym">TICKER NAME</th>
-                <th className="th-weekly">WEEKLY STATUS</th>
+                <th className="th-weekly">{higherTimeframe ? `${higherTimeframe.toUpperCase()} STATUS` : "WEEKLY STATUS"}</th>
                 <th className="th-twintower">TWIN TOWER</th>
                 <th className="th-actions">ACTIONS</th>
               </tr>
@@ -518,7 +513,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
                 </tr>
               ) : (
                 filteredData.map((row, idx) => {
-                  const cleanSym = row.cleanSymbol || stripSymbolSuffix(row.symbol);
+                  const cleanSym = stripSymbolSuffix(row.symbol || row.cleanSymbol);
                   return (
                     <tr
                       key={row.symbol || idx}

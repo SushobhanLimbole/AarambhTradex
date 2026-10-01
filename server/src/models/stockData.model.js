@@ -83,7 +83,8 @@ export class StockDataModel {
         \`volume\` BIGINT DEFAULT NULL,
         PRIMARY KEY (\`id\`),
         UNIQUE KEY \`unique_symbol_date\` (\`symbol\`, \`date\`),
-        KEY \`idx_candle_sym_date\` (\`symbol\`, \`date\` DESC)
+        KEY \`idx_candle_sym_date\` (\`symbol\`, \`date\` DESC),
+        KEY \`idx_candle_date\` (\`date\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
     const [result] = await pool.query(query);

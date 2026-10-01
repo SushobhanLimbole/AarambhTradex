@@ -47,6 +47,7 @@ export default function MainLayout() {
         const exchange = urlParams.get("exchange") || "ALL";
         const indice = urlParams.get("indice") || "ALL";
         const timeframe = urlParams.get("timeframe") || "Daily";
+        const highlightDate = urlParams.get("highlightDate") || urlParams.get("date") || "";
 
         return {
           tab: "reports",
@@ -57,6 +58,7 @@ export default function MainLayout() {
             fromDate,
             toDate,
             timeframe,
+            highlightDate,
           },
         };
       }

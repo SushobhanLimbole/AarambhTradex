@@ -291,7 +291,7 @@ export const getHighestClosingReport = async (req, res, next) => {
             if (isCyatlToday) cyatlCount++;
 
             const latestCandle = activeCandleMap.get(sym) || cList[cList.length - 1];
-            const cleanSym = String(sym).replace(/\.(NS|BO)$/i, "");
+            const cleanSym = String(sym).replace(/^\^/, "").replace(/\.(NS|BO)$/i, "");
 
             allCalculatedRecords.push({
               symbol: sym,

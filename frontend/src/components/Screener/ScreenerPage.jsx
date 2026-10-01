@@ -4,6 +4,7 @@ import screenerService from "../../services/screenerService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 import { getConditionalActionDate } from "../../utils/dateUtils.js";
+import { openStockAnalyticsInNewTab } from "../../utils/navigationUtils.js";
 
 // Trigger options grouped by category
 const TRIGGER_GROUPS = [
@@ -817,16 +818,15 @@ export default function ScreenerPage({
                           <div
                             className="stock-name-cell clickable-stock"
                             onClick={() => {
-                              if (onOpenStockAnalytics) {
-                                onOpenStockAnalytics({
-                                  symbol,
-                                  exchange: detail?.exchange || selectedExchange || "ALL",
-                                  indice: detail?.indice || selectedIndice || "ALL",
-                                  timeframe: "Daily",
-                                });
-                              }
+                              openStockAnalyticsInNewTab({
+                                symbol,
+                                exchange: detail?.exchange || selectedExchange || "ALL",
+                                indice: detail?.indice || selectedIndice || "ALL",
+                                timeframe: "Daily",
+                                highlightDate: stockDate,
+                              });
                             }}
-                            title="Click to view Stock Analytics (last 6 months to today)"
+                            title="Click to view Stock Analytics in new tab"
                           >
                             <span className="stock-symbol-badge link-badge">{stripSymbolSuffix(symbol)}</span>
                             {detail?.exchange && (
