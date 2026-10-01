@@ -170,10 +170,11 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
     const q = searchQuery.toLowerCase();
     return list.filter((row) => {
       const sym = (row.symbol || "").toLowerCase();
-      const cleanSym = (row.cleanSymbol || "").toLowerCase();
+      const cleanSym = stripSymbolSuffix(row.symbol || row.cleanSymbol || "").toLowerCase();
+      const rawClean = (row.cleanSymbol || "").toLowerCase();
       const weekly = (row.weeklyStatus || "").toLowerCase();
       const tt = (row.twinTower || "").toLowerCase();
-      return sym.includes(q) || cleanSym.includes(q) || weekly.includes(q) || tt.includes(q);
+      return sym.includes(q) || cleanSym.includes(q) || rawClean.includes(q) || weekly.includes(q) || tt.includes(q);
     });
   }, [reportData, filterType, searchQuery]);
 
@@ -217,7 +218,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
 
     const rows = filteredData.map((r, i) => [
       i + 1,
-      r.cleanSymbol || r.symbol,
+      stripSymbolSuffix(r.cleanSymbol || r.symbol),
       r.price,
       `"${r.weeklyStatus}"`,
       `"${r.twinTower}"`,
@@ -512,7 +513,7 @@ export default function DdReportPage({ onOpenStrategy, onOpenPointer, onBack }) 
                 </tr>
               ) : (
                 filteredData.map((row, idx) => {
-                  const cleanSym = row.cleanSymbol || stripSymbolSuffix(row.symbol);
+                  const cleanSym = stripSymbolSuffix(row.symbol || row.cleanSymbol);
                   return (
                     <tr
                       key={row.symbol || idx}

@@ -351,7 +351,7 @@ export const getDdReport = async (req, res, next) => {
         if (ttRes.isBearishTwinTower) bearishCount++;
 
         const weeklyStatus = computeHigherTimeframeStatus(cList, effectiveTf, higherTf, targetDateStr);
-        const cleanSym = String(sym).replace(/\.(NS|BO)$/i, "");
+        const cleanSym = String(sym).replace(/^\^/, "").replace(/\.(NS|BO)$/i, "");
         const latestCandle = tfCandles[tfCandles.length - 1];
 
         allCalculatedRecords.push({
