@@ -57,6 +57,9 @@ export function AuthProvider({ children }) {
     authService.logout();
     setUser(null);
     setToken(null);
+    try {
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch (_) {}
   };
 
   const value = {

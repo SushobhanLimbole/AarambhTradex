@@ -63,7 +63,7 @@ export default function MainLayout() {
         };
       }
 
-      if (tabParam) {
+      if (tabParam && tabParam !== "profile" && tabParam !== "reports") {
         return { tab: tabParam, stockParams: null };
       }
     } catch (_) {}
