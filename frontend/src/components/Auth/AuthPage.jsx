@@ -253,6 +253,9 @@ export default function AuthPage() {
     setLoginSubmitting(true);
     try {
       await login({ email: loginEmail, password: loginPassword });
+      try {
+        window.history.replaceState({ tab: "symbols" }, "", window.location.pathname + "#symbols");
+      } catch (_) {}
       setToast({ message: "Signed in successfully! Welcome back.", type: "success" });
     } catch (err) {
       setServerLoginError(err.message || "Authentication failed. Please check your credentials.");
