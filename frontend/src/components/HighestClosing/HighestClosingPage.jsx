@@ -3,6 +3,8 @@ import "./HighestClosingPage.css";
 import highestClosingService from "../../services/highestClosingService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { getConditionalActionDate } from "../../utils/dateUtils.js";
+import { openStockAnalyticsInNewTab } from "../../utils/navigationUtils.js";
 
 // Preset indices matching system standard
 const PRESET_INDICES = [
@@ -38,7 +40,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
   const [exchange, setExchange] = useState("NSE");
   const [indexVal, setIndexVal] = useState("ALL");
   const [timeframe] = useState("Daily");
-  const [actionDate, setActionDate] = useState("");
+  const [actionDate, setActionDate] = useState(() => getConditionalActionDate());
   const [filterType, setFilterType] = useState("ALL"); // 'ALL' | 'ATH' | 'ATL' | 'CYATH' | 'CYATL' | 'TYPE1' | 'TYPE2'
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedSymbol, setCopiedSymbol] = useState(null);
@@ -111,8 +113,9 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
     loadMeta();
   }, []);
 
-  // 2. Fetch Report (Triggered strictly on clicking RUN SCANNER)
-  const handleFetchReport = useCallback(async () => {
+  // 2. Fetch Report (Triggered on mount for initial conditional date, and subsequently on clicking RUN SCANNER)
+  const handleFetchReport = useCallback(async (customDate) => {
+    const targetDate = typeof customDate === "string" ? customDate : actionDate;
     setLoading(true);
     setHasScanned(true);
     setError("");
@@ -121,7 +124,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
         exchange,
         indice: indexVal,
         timeframe: "Daily", // strictly Daily
-        actionDate: actionDate || undefined,
+        actionDate: targetDate || undefined,
         filterType: "ALL",
       });
 
@@ -130,7 +133,7 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
         if (res.summary) {
           setSummary(res.summary);
         }
-        if (res.rawActionDate && !actionDate) {
+        if (res.rawActionDate && !targetDate) {
           setActionDate(res.rawActionDate);
         }
       } else {
@@ -144,6 +147,12 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
       setLoading(false);
     }
   }, [exchange, indexVal, actionDate]);
+
+  // Initial load on mount using getConditionalActionDate()
+  useEffect(() => {
+    const initDate = getConditionalActionDate();
+    handleFetchReport(initDate);
+  }, []);
 
   const filteredData = useMemo(() => {
     let list = reportData;
@@ -181,31 +190,18 @@ export default function HighestClosingPage({ onOpenStrategy, onOpenPointer, onBa
     }, 2000);
   };
 
-  // Open stock analytics data summary page in a new tab with last 6 months data
+  // Open stock analytics data summary page in a new tab with last 6 months data and highlight date
   const handleOpenStockAnalyticsInNewTab = (row) => {
     const fullSym = row.symbol || row.cleanSymbol;
     if (!fullSym) return;
 
-    const now = new Date();
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const formatDate = (d) => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    };
-
-    const fromDate = formatDate(sixMonthsAgo);
-    const toDate = formatDate(now);
-    const ex = exchange || "NSE";
-    const ind = indexVal || "ALL";
-    const tf = "Daily";
-
-    const url = `${window.location.origin}${window.location.pathname}?tab=reports&symbol=${encodeURIComponent(fullSym)}&exchange=${encodeURIComponent(ex)}&indice=${encodeURIComponent(ind)}&fromDate=${fromDate}&toDate=${toDate}&timeframe=${tf}#reports`;
-
-    window.open(url, "_blank");
+    openStockAnalyticsInNewTab({
+      symbol: fullSym,
+      exchange: exchange || "NSE",
+      indice: indexVal || "ALL",
+      timeframe: "Daily",
+      highlightDate: row.rawDate || row.date || actionDate,
+    });
   };
 
   // CSV Export

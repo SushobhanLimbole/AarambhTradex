@@ -3,6 +3,7 @@ import "./TrendReversalPage.css";
 import trendReversalService from "../../services/trendReversalService.js";
 import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
+import { openStockAnalyticsInNewTab } from "../../utils/navigationUtils.js";
 
 const TIMEFRAMES = ["Monthly", "Daily", "Weekly", "Quarterly", "Half-Yearly", "Yearly"];
 
@@ -193,29 +194,15 @@ export default function TrendReversalPage({ onOpenStrategy, onOpenPointer, onOpe
     return list;
   }, [reportData, searchQuery, sortBy, sortOrder]);
 
-  // Click on stock routes directly to Data Summary / Analytics page
+  // Click on stock routes directly to Data Summary / Analytics page on a new tab with date highlighting
   const handleStockClick = (row) => {
-    const cleanSym = stripSymbolSuffix(row.symbol);
-    if (onOpenStockAnalytics) {
-      onOpenStockAnalytics({
-        symbol: row.symbol,
-        exchange: row.exchange || exchange || "NSE",
-        indice: indexVal || "ALL",
-        timeframe: timeframe || "Daily",
-      });
-    } else if (onOpenStrategy) {
-      onOpenStrategy({
-        symbol: row.symbol,
-        script: cleanSym,
-        timeframe,
-      });
-    } else if (onOpenPointer) {
-      onOpenPointer({
-        symbol: row.symbol,
-        script: cleanSym,
-        timeframe,
-      });
-    }
+    openStockAnalyticsInNewTab({
+      symbol: row.symbol,
+      exchange: row.exchange || exchange || "NSE",
+      indice: indexVal || "ALL",
+      timeframe: timeframe || "Daily",
+      highlightDate: row.rawDate || row.date || row.reversalDate || actionDate,
+    });
   };
 
   return (

@@ -5,6 +5,7 @@ import stockService from "../../services/stockService.js";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 import { getConditionalActionDate, formatDateDisplay } from "../../utils/dateUtils.js";
 import SearchableSelect from "../Common/SearchableSelect.jsx";
+import { openStockAnalyticsInNewTab } from "../../utils/navigationUtils.js";
 
 const TIMEFRAMES = ["Daily", "Weekly", "Monthly", "Quarterly", "Half-Yearly", "Yearly"];
 
@@ -64,7 +65,7 @@ export default function NewTrendReportPage({
   onBack,
 }) {
   const [exchange, setExchange] = useState("NSE");
-  const [indexVal, setIndexVal] = useState("NIFTY 50");
+  const [indexVal, setIndexVal] = useState("ALL");
   const [timeframe, setTimeframe] = useState("Daily");
 
   // Conditional Date Logic: 6:00 PM or later = today's date; before 6:00 PM = previous working day
@@ -234,29 +235,15 @@ export default function NewTrendReportPage({
     return list;
   }, [reportData, searchQuery, sortBy, sortOrder]);
 
-  // Navigation handler to route directly to Data Summary page
+  // Navigation handler to route directly to Data Summary page on a new tab with date highlighting
   const handleStockClick = (row) => {
-    const cleanSym = stripSymbolSuffix(row.symbol);
-    if (onOpenStockAnalytics) {
-      onOpenStockAnalytics({
-        symbol: row.symbol,
-        exchange: row.exchange || exchange || "NSE",
-        indice: indexVal || "ALL",
-        timeframe: timeframe || "Daily",
-      });
-    } else if (onOpenStrategy) {
-      onOpenStrategy({
-        symbol: row.symbol,
-        script: cleanSym,
-        timeframe,
-      });
-    } else if (onOpenPointer) {
-      onOpenPointer({
-        symbol: row.symbol,
-        script: cleanSym,
-        timeframe,
-      });
-    }
+    openStockAnalyticsInNewTab({
+      symbol: row.symbol,
+      exchange: row.exchange || exchange || "NSE",
+      indice: indexVal || "ALL",
+      timeframe: timeframe || "Daily",
+      highlightDate: row.rawDate || row.date || row.rawTrendDate || row.trendDate || actionDate,
+    });
   };
 
   return (
@@ -280,7 +267,7 @@ export default function NewTrendReportPage({
         </div> */}
 
         {/* EXCHANGE */}
-        <div className="ntr-control-item" style={{ minWidth: 110 }}>
+        <div className="ntr-control-item" style={{ minWidth: 140 }}>
           <label className="ntr-label">Exchange</label>
           <SearchableSelect
             options={[{ value: "ALL", label: "ALL" }, ...availableExchanges.map((ex) => ({ value: ex, label: ex }))]}
@@ -291,7 +278,7 @@ export default function NewTrendReportPage({
         </div>
 
         {/* INDEX */}
-        <div className="ntr-control-item ntr-wide-item" style={{ minWidth: 240 }}>
+        <div className="ntr-control-item ntr-wide-item" style={{ minWidth: 260 }}>
           <label className="ntr-label">Index</label>
           <SearchableSelect
             options={[{ value: "ALL", label: "ALL (All Stocks)" }, ...indexOptions]}
@@ -302,7 +289,7 @@ export default function NewTrendReportPage({
         </div>
 
         {/* TIMEFRAME */}
-        <div className="ntr-control-item" style={{ minWidth: 130 }}>
+        <div className="ntr-control-item" style={{ minWidth: 160 }}>
           <label className="ntr-label">Timeframe</label>
           <SearchableSelect
             options={TIMEFRAMES.map((tf) => ({ value: tf, label: tf }))}
