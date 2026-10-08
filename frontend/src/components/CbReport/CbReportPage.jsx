@@ -349,16 +349,16 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
               </tr>
               {/* Row 2: Sub-Columns */}
               <tr>
-                <th className="th-sub sub-bullish" title="Type 1: Day 1 Close > Avg & Day 2 Close > Prev High">
+                <th className="th-sub sub-bullish" title="Ordinary Bullish CB: HLC HIGHER occurred first -> CB made after HLC Higher (Day 1 Close > Avg & Day 2 Close > Prev High)">
                   Ordinary
                 </th>
-                <th className="th-sub sub-bullish" title="Type 2: Day 1 Close > Avg & Day 2 Close > Prev High + Day 2 HLC HIGHER">
+                <th className="th-sub sub-bullish" title="Advanced Bullish CB: CB formed & Next Day compulsory HLC HIGHER formed">
                   Advanced CB
                 </th>
-                <th className="th-sub sub-bearish" title="Type 1: Day 1 Close < Avg & Day 2 Close < Prev Low">
+                <th className="th-sub sub-bearish" title="Ordinary Bearish CB: HLC LOWER occurred first -> CB made after HLC Lower (Day 1 Close < Avg & Day 2 Close < Prev Low)">
                   Ordinary
                 </th>
-                <th className="th-sub sub-bearish" title="Type 2: Day 1 Close < Avg & Day 2 Close < Prev Low + Day 2 HLC LOWER">
+                <th className="th-sub sub-bearish" title="Advanced Bearish CB: CB formed & Next Day compulsory HLC LOWER formed">
                   Advanced CB
                 </th>
               </tr>
@@ -386,11 +386,11 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                 processedData.map((row, idx) => {
                   const cleanSym = stripSymbolSuffix(row.symbol);
                   // Strict 1-of-4 classification
-                  const isAdvBull = Boolean(row.isAdvancedBullish || (row.isBullish && (row.cbType === "CB WITH STATUS" || row.statusBadge?.includes("HIGHER"))));
-                  const isOrdBull = !isAdvBull && Boolean(row.isOrdinaryBullish || (row.isBullish && row.cbType === "ORDINARY CB") || (row.isBullish && !row.isBearish));
+                  const isAdvBull = Boolean(row.isAdvancedBullish || row.isBullishCbWithStatus);
+                  const isOrdBull = !isAdvBull && Boolean(row.isOrdinaryBullish || (row.isBullish && !row.isBearish));
 
-                  const isAdvBear = Boolean(row.isAdvancedBearish || (row.isBearish && (row.cbType === "CB WITH STATUS" || row.statusBadge?.includes("LOWER"))));
-                  const isOrdBear = !isAdvBear && Boolean(row.isOrdinaryBearish || (row.isBearish && row.cbType === "ORDINARY CB") || (row.isBearish && !row.isBullish));
+                  const isAdvBear = Boolean(row.isAdvancedBearish || row.isBearishCbWithStatus);
+                  const isOrdBear = !isAdvBear && Boolean(row.isOrdinaryBearish || (row.isBearish && !row.isBullish));
 
                   return (
                     <tr key={row.symbol || idx} className="cb-row">
@@ -416,7 +416,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isOrdBull ? (
                           <span
                             className="cb-signal-pill pill-bullish-ord"
-                            title={`Triggered: Day 1 Close (₹${row.prevClose}) > Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) > Prev High (₹${row.prevHigh})`}
+                            title={`Ordinary CB: HLC HIGHER occurred first, then Day 1 Close (₹${row.prevClose}) > Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) > Prev High (₹${row.prevHigh})`}
                           >
                              Ordinary
                           </span>
@@ -430,7 +430,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isAdvBull ? (
                           <span
                             className="cb-signal-pill pill-bullish-adv"
-                            title={`Triggered: Day 1 Close > Avg & Day 2 Close > Prev High + ON DAY 2 HLC HIGHER FORMED`}
+                            title={`Advanced CB: CB formed & Next Day compulsory HLC HIGHER formed`}
                           >
                              Advanced CB
                           </span>
@@ -444,7 +444,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isOrdBear ? (
                           <span
                             className="cb-signal-pill pill-bearish-ord"
-                            title={`Triggered: Day 1 Close (₹${row.prevClose}) < Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) < Prev Low (₹${row.prevLow})`}
+                            title={`Ordinary CB: HLC LOWER occurred first, then Day 1 Close (₹${row.prevClose}) < Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) < Prev Low (₹${row.prevLow})`}
                           >
                              Ordinary
                           </span>
@@ -458,7 +458,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isAdvBear ? (
                           <span
                             className="cb-signal-pill pill-bearish-adv"
-                            title={`Triggered: Day 1 Close < Avg & Day 2 Close < Prev Low + ON DAY 2 HLC LOWER FORMED`}
+                            title={`Advanced CB: CB formed & Next Day compulsory HLC LOWER formed`}
                           >
                              Advanced CB
                           </span>
