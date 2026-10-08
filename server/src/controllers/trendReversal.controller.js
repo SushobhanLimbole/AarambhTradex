@@ -101,10 +101,13 @@ function evaluateReversal(candlesUpToPrev, currCandle) {
   const prevCandle = candlesUpToPrev[candlesUpToPrev.length - 1];
   const { runningTrend } = getRunningHlcTrend(candlesUpToPrev);
 
+  const cHigh = Number(currCandle.high) || 0;
+  const cLow = Number(currCandle.low) || 0;
   const cClose = Number(currCandle.close) || 0;
-  const pClose = Number(prevCandle.close) || 0;
+
   const pHigh = Number(prevCandle.high) || 0;
   const pLow = Number(prevCandle.low) || 0;
+  const pClose = Number(prevCandle.close) || 0;
   const pAvg = (pHigh + pLow + pClose) / 3;
 
   const prevStrategy = calculateStrategyData({
@@ -117,10 +120,21 @@ function evaluateReversal(candlesUpToPrev, currCandle) {
   const isHlcLowerRunning = runningTrend === "HLC LOWER RUNNING";
   const isHlcHigherRunning = runningTrend === "HLC HIGHER RUNNING";
 
-  // 1. Bullish Reversal: Prior trend is HLC LOWER RUNNING + Today's Close > Previous Close AND Today's Close > Previous Average
-  const isBullishReversal = isHlcLowerRunning && cClose > pClose && cClose > pAvg;
-  // 2. Bearish Reversal: Prior trend is HLC HIGHER RUNNING + Today's Close < Previous Close AND Today's Close < Previous Average
-  const isBearishReversal = isHlcHigherRunning && cClose < pClose && cClose < pAvg;
+  // Check if current candle itself forms HLC Higher or HLC Lower
+  const isCurrHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+  const isCurrHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
+
+  // 1. Bullish Reversal (Sell to Buy Reversal / Bullish Zone Trigger):
+  //    - Prior trend is HLC LOWER RUNNING
+  //    - Today's Close > Previous Close AND Today's Close > Previous Average (GREEN ZONE)
+  //    - Rule: If today's candle itself forms HLC HIGHER, don't add it as a reversal trigger (move to next)
+  const isBullishReversal = isHlcLowerRunning && cClose > pClose && cClose > pAvg && !isCurrHlcHigher;
+
+  // 2. Bearish Reversal (Buy to Sell Reversal / Bearish Zone Trigger):
+  //    - Prior trend is HLC HIGHER RUNNING (e.g. 15 Sept HLC Higher)
+  //    - Today's Close < Previous Close AND Today's Close < Previous Average (RED ZONE)
+  //    - Rule: If today's candle itself forms HLC LOWER, don't add it as a reversal trigger (move to next stock)
+  const isBearishReversal = isHlcHigherRunning && cClose < pClose && cClose < pAvg && !isCurrHlcLower;
 
   const ygrBand = evaluateYgrPosition(cClose, prevStrategy.triggers);
 
@@ -165,8 +179,11 @@ function runReversalBacktest(candles) {
     const pClose = Number(prev.close) || 0;
     const pAvg = (pHigh + pLow + pClose) / 3;
 
-    const isBullish = cClose > pClose && cClose > pAvg;
-    const isBearish = cClose < pClose && cClose < pAvg;
+    const isCurrHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
+    const isCurrHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
+
+    const isBullish = runningTrend === "HLC LOWER RUNNING" && cClose > pClose && cClose > pAvg && !isCurrHlcHigher;
+    const isBearish = runningTrend === "HLC HIGHER RUNNING" && cClose < pClose && cClose < pAvg && !isCurrHlcLower;
 
     if (isBullish) {
       bullTotal++;
@@ -182,10 +199,8 @@ function runReversalBacktest(candles) {
     }
 
     // Update running trend for next iteration
-    const isHlcHigher = cHigh > pHigh && cLow > pLow && cClose > pClose && cClose > pHigh;
-    const isHlcLower = cHigh < pHigh && cLow < pLow && cClose < pClose && cClose < pLow;
-    if (isHlcHigher) runningTrend = "HLC HIGHER RUNNING";
-    else if (isHlcLower) runningTrend = "HLC LOWER RUNNING";
+    if (isCurrHlcHigher) runningTrend = "HLC HIGHER RUNNING";
+    else if (isCurrHlcLower) runningTrend = "HLC LOWER RUNNING";
   }
 
   const bullishAccuracy = bullTotal > 0 ? Number(((bullHits / bullTotal) * 100).toFixed(1)) : 0;
