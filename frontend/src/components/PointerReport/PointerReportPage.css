@@ -1,0 +1,270 @@
+/* =========================================================================
+   Pointer Report Page — Aarambh TradeX Glassmorphism + Symbols Page Styling
+   ========================================================================= */
+
+.pointer-report-page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  padding: 16px 24px 24px 24px;
+  background: #f8fafc;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Back Button */
+.pointer-back-hub-btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.15s ease;
+}
+
+.pointer-back-hub-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Controls Toolbar (#0f172a) */
+.pointer-report-toolbar {
+  background: #0f172a;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+  padding: 14px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+}
+
+.pointer-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.pointer-search-wrap {
+  position: relative;
+  min-width: 240px;
+  flex: 1;
+  max-width: 380px;
+}
+
+.pointer-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.pointer-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #f8fafc;
+  background: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.pointer-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.pointer-search-input:focus {
+  background: #0f172a;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.pointer-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.pointer-search-clear:hover {
+  color: #f8fafc;
+}
+
+.pointer-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pointer-select-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.pointer-date-input {
+  padding: 7px 10px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f8fafc;
+  background: #1e293b;
+  outline: none;
+  transition: border-color 0.2s ease;
+  color-scheme: dark;
+}
+
+.pointer-date-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.pointer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pointer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.pointer-btn-ghost {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+.pointer-btn-ghost:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.pointer-btn-export {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.pointer-btn-export:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.pointer-btn-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pointer-btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.pointer-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+/* Table Row Cursor & Pointer Styles */
+.pointer-table-row {
+  cursor: pointer;
+}
+
+.pointer-scenario-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  width: fit-content;
+}
+
+.pointer-scenario-badge .ptr-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.pointer-badge-rising-jack {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.pointer-badge-falling-duck {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.pointer-badge-table-tennis {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pointer-badge-table-top {
+  background: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.pointer-badge-upward-rot {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.pointer-badge-none {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Highlighted / Selected Row in Pointer Table */
+.pointer-table-row.row-selected-highlight,
+tr.symbols-table-row.pointer-table-row.row-selected-highlight {
+  background-color: #dbeafe !important;
+  box-shadow: inset 4px 0 0 #2563eb !important;
+}
+
+.pointer-table-row.row-selected-highlight td,
+tr.symbols-table-row.pointer-table-row.row-selected-highlight td {
+  background-color: #dbeafe !important;
+}

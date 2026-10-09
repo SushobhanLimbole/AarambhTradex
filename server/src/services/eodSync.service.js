@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { getCandles } from "@mathieuc/tradingview/data";
 import pool from "../config/mysql.js";
 import { defaultRateLimiter } from "./rateLimiter.js";
 import { isIndianMarketHoliday, isPhantomOrUnopenedCandle } from "../utils/holidayUtils.js";
@@ -12,12 +13,11 @@ const yahooFinance = new YahooFinance({
 });
 
 export const GLOBAL_TARGET_ASSETS = [
-  { symbol: "BTC-USD", exchange: "CRYPTO", indice: "Crypto", name: "Bitcoin USD" },
-  { symbol: "ETH-USD", exchange: "CRYPTO", indice: "Crypto", name: "Ethereum USD" },
-  { symbol: "SOL-USD", exchange: "CRYPTO", indice: "Crypto", name: "Solana USD" },
-  { symbol: "XRP-USD", exchange: "CRYPTO", indice: "Crypto", name: "XRP USD" },
-  { symbol: "XAUUSD=X", exchange: "METALS", indice: "Metals", name: "Gold Spot (USD)" },
-  { symbol: "XAGUSD=X", exchange: "METALS", indice: "Metals", name: "Silver Spot (USD)" },
+  { symbol: "DELTAIN:BTCUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Bitcoin Delta Perpetual" },
+  { symbol: "DELTAIN:ETHUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Ethereum Delta Perpetual" },
+  { symbol: "DELTAIN:XRPUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "XRP Delta Perpetual" },
+  { symbol: "DELTAIN:SOLUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Solana Delta Perpetual" },
+  { symbol: "DELTAIN:XAUTUSD.P", exchange: "METALS", indice: "Metals", name: "Gold (XAUT) Delta Perpetual" },
 ];
 
 /**
@@ -320,15 +320,14 @@ async function bulkUpsertHistoricalCandles(records) {
 
 /**
  * ============================================================================
- * 2. GLOBAL ASSETS EOD INGESTION (CRYPTO & SPOT METALS)
+ * 2. GLOBAL ASSETS EOD INGESTION (TRADINGVIEW CRYPTO & METALS)
  * ============================================================================
- * Fetches latest settled daily candles for BTC-USD, ETH-USD, XAUUSD=X, etc.
+ * Fetches latest settled daily candles for DELTAIN:BTCUSD.P, DELTAIN:ETHUSD.P, etc.
  */
 export async function syncGlobalEOD(options = {}) {
   const startTime = Date.now();
-  const targetDateStr = formatDateStr(options.date);
   console.log(
-    `[EODSync] [${new Date().toISOString()}] Starting Global Assets EOD sync (Crypto & Metals)...`
+    `[EODSync] [${new Date().toISOString()}] Starting Global Assets EOD sync (TradingView DELTAIN Crypto & Metals)...`
   );
 
   const assets = GLOBAL_TARGET_ASSETS;
@@ -336,138 +335,68 @@ export async function syncGlobalEOD(options = {}) {
   let syncedCount = 0;
   let failedCount = 0;
 
-  const targetDateObj = new Date(targetDateStr);
-  const period1 = new Date(targetDateObj.getTime() - 4 * 86400000); // 4 days buffer
-  const period2 = new Date(targetDateObj.getTime() + 1 * 86400000);
-
-  defaultRateLimiter.clearFailedQueue();
-
   for (const asset of assets) {
-    const ySymbol = resolveYahooSymbol(asset.symbol, asset.exchange);
     try {
-      const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {
-        return await yahooFinance.historical(ySymbol, {
-          period1,
-          period2,
-          interval: "1d",
-        });
-      }, asset.symbol);
+      console.log(`[EODSync] Fetching TradingView data for ${asset.symbol}...`);
+      const rawCandles = await getCandles({
+        symbol: asset.symbol,
+        timeframe: "D",
+        count: 20,
+      });
 
       if (rawCandles && rawCandles.length > 0) {
-        // Upsert all fetched recent candles for global assets to ensure continuity
         for (const c of rawCandles) {
-          if (c && !isPhantomOrUnopenedCandle(c)) {
+          if (c && c.time && c.close !== undefined) {
+            const dateStr = new Date(c.time * 1000).toISOString().slice(0, 10);
+            const open = Number(Number(c.open).toFixed(4));
+            const high = Number(Number(c.high).toFixed(4));
+            const low = Number(Number(c.low).toFixed(4));
+            const close = Number(Number(c.close).toFixed(4));
+            const adjClose = close;
+            const volume = Number(c.volume ?? 0);
+
             candleBatch.push([
               asset.symbol,
-              formatDateStr(c.date),
-              Number(c.open.toFixed(4)),
-              Number(c.high.toFixed(4)),
-              Number(c.low.toFixed(4)),
-              Number(c.close.toFixed(4)),
-              c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-              c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
+              dateStr,
+              open,
+              high,
+              low,
+              close,
+              adjClose,
+              volume,
             ]);
           }
         }
         syncedCount++;
+        console.log(`[EODSync] ✓ Successfully retrieved ${rawCandles.length} candles for ${asset.symbol}`);
       }
     } catch (err) {
       failedCount++;
       console.error(
-        `[EODSync] [${new Date().toISOString()}] Error syncing global asset ${asset.symbol}:`,
+        `[EODSync] [${new Date().toISOString()}] Error fetching TradingView data for ${asset.symbol}:`,
         err.message
       );
     }
+
+    // Small delay between symbol requests
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
-  // Bulk Upsert Pass 1 into global_assets
+  // Bulk Upsert into global_assets
   if (candleBatch.length > 0) {
-    await bulkUpsertGlobalAssets(candleBatch.splice(0, candleBatch.length));
-  }
-
-  // Multi-pass retry for global assets if any failed due to rate limits/network
-  const maxRetryPasses = options.maxRetryPasses !== undefined ? options.maxRetryPasses : 2;
-  let retryPass = 0;
-  let totalRecovered = 0;
-
-  while (retryPass < maxRetryPasses) {
-    const retryable = defaultRateLimiter.getRetryableFailedQueue();
-    if (!retryable || retryable.length === 0) break;
-
-    retryPass++;
-    const cooldownSec = 15 * retryPass;
-    console.warn(
-      `[EODSync] [${new Date().toISOString()}] ⚠️ Found ${retryable.length} failed global assets. Waiting ${cooldownSec}s cooldown before Retry Pass ${retryPass}...`
-    );
-    await new Promise((resolve) => setTimeout(resolve, cooldownSec * 1000));
-
-    const retrySet = new Set(retryable.map((r) => r.identifier));
-    const assetsToRetry = assets.filter(
-      (a) => retrySet.has(a.symbol) || retrySet.has(resolveYahooSymbol(a.symbol, a.exchange))
-    );
-
-    defaultRateLimiter.clearFailedQueue();
-    let recoveredInPass = 0;
-
-    for (const asset of assetsToRetry) {
-      const ySymbol = resolveYahooSymbol(asset.symbol, asset.exchange);
-      try {
-        const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {
-          return await yahooFinance.historical(ySymbol, {
-            period1,
-            period2,
-            interval: "1d",
-          });
-        }, asset.symbol);
-
-        if (rawCandles && rawCandles.length > 0) {
-          for (const c of rawCandles) {
-            if (c && !isPhantomOrUnopenedCandle(c)) {
-              candleBatch.push([
-                asset.symbol,
-                formatDateStr(c.date),
-                Number(c.open.toFixed(4)),
-                Number(c.high.toFixed(4)),
-                Number(c.low.toFixed(4)),
-                Number(c.close.toFixed(4)),
-                c.adjClose !== undefined && c.adjClose !== null && !isNaN(Number(c.adjClose)) ? Number(c.adjClose.toFixed(4)) : Number(c.close.toFixed(4)),
-                c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
-              ]);
-            }
-          }
-          recoveredInPass++;
-          totalRecovered++;
-          syncedCount++;
-          failedCount = Math.max(0, failedCount - 1);
-        }
-      } catch (err) {
-        // Still failed
-      }
-    }
-
-    if (candleBatch.length > 0) {
-      await bulkUpsertGlobalAssets(candleBatch.splice(0, candleBatch.length));
-    }
-
-    console.log(
-      `[EODSync] [${new Date().toISOString()}] Global Assets Retry Pass ${retryPass} completed. Recovered ${recoveredInPass}/${assetsToRetry.length} assets.`
-    );
+    await bulkUpsertGlobalAssets(candleBatch);
   }
 
   const durationMs = Date.now() - startTime;
   console.log(
-    `[EODSync] [${new Date().toISOString()}] Finished Global Assets sync in ${(durationMs / 1000).toFixed(1)}s. Total assets: ${assets.length}, Synced: ${syncedCount} (Recovered: ${totalRecovered}), Failed: ${failedCount}.`
+    `[EODSync] [${new Date().toISOString()}] Global Assets EOD sync completed. Synced: ${syncedCount}, Failed: ${failedCount}, Records: ${candleBatch.length}, Duration: ${durationMs}ms`
   );
 
   return {
-    success: true,
-    market: "GLOBAL",
-    totalSymbols: assets.length,
+    success: failedCount === 0,
     syncedCount,
     failedCount,
-    recoveredCount: totalRecovered,
-    retryPassesRun: retryPass,
-    recordsInserted: syncedCount,
+    recordsInserted: candleBatch.length,
     durationMs,
   };
 }
@@ -518,8 +447,12 @@ export async function reconcileHistoricalData(options = {}) {
 
   for (let i = 0; i < allSymbols.length; i++) {
     const item = allSymbols[i];
-    const isGlobal = item.exchange === "CRYPTO" || item.exchange === "METALS";
-    const ySymbol = isGlobal ? item.symbol : resolveYahooSymbol(item.symbol, item.exchange);
+    const isGlobal = item.exchange === "CRYPTO" || item.exchange === "METALS" || item.symbol.startsWith("DELTAIN:");
+    if (isGlobal) {
+      // Global assets are updated via syncGlobalEOD using TradingView SDK
+      continue;
+    }
+    const ySymbol = resolveYahooSymbol(item.symbol, item.exchange);
 
     try {
       const rawCandles = await defaultRateLimiter.executeWithRetry(async () => {

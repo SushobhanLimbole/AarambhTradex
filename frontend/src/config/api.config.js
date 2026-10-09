@@ -64,4 +64,7 @@ export const ENDPOINTS = {
   DD_REPORT: {
     SCAN: `${API_BASE_URL}/dd-report`,
   },
+  POINTER_REPORT: {
+    SCAN: `${API_BASE_URL}/pointer-report`,
+  },
 };
