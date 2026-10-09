@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import "./ScreenerPage.css";
 import screenerService from "../../services/screenerService.js";
 import stockService from "../../services/stockService.js";
@@ -164,9 +164,14 @@ export default function ScreenerPage({
   const [cmp2EndDate, setCmp2EndDate] = useState(savedState?.cmp2EndDate || initialCmp2.endDate);
   const [cmp2Timeframe, setCmp2Timeframe] = useState(savedState?.cmp2Timeframe || initialCmp2.timeframe);
 
-  // Pattern & Multi-Trigger State
+  // Pattern & Multi-Trigger State - safely ensure array
+  const initialTriggers = Array.isArray(savedState?.selectedTriggers)
+    ? savedState.selectedTriggers
+    : typeof savedState?.selectedTriggers === "string"
+    ? savedState.selectedTriggers.split(",").map((s) => s.trim()).filter(Boolean)
+    : ["Y1"];
   const [pattern, setPattern] = useState(savedState?.pattern || "Table Top");
-  const [selectedTriggers, setSelectedTriggers] = useState(savedState?.selectedTriggers || ["Y1"]);
+  const [selectedTriggers, setSelectedTriggers] = useState(initialTriggers.length > 0 ? initialTriggers : ["Y1"]);
 
   // Results & Execution State
   const [loading, setLoading] = useState(false);
@@ -255,27 +260,80 @@ export default function ScreenerPage({
     };
   }, []);
 
+  // Dynamic Index / Asset options based on selected exchange (e.g. Crypto, Metals)
+  const dropdownIndexOptions = useMemo(() => {
+    const ex = String(selectedExchange || "").toUpperCase();
+    if (ex === "CRYPTO") {
+      return [
+        { value: "ALL", label: "All Crypto Assets" },
+        { value: "DELTAIN:BTCUSD.P", label: "BTCUSD - Bitcoin Delta Perpetual" },
+        { value: "DELTAIN:ETHUSD.P", label: "ETHUSD - Ethereum Delta Perpetual" },
+        { value: "DELTAIN:SOLUSD.P", label: "SOLUSD - Solana Delta Perpetual" },
+        { value: "DELTAIN:XRPUSD.P", label: "XRPUSD - XRP Delta Perpetual" },
+      ];
+    }
+    if (ex === "METALS") {
+      return [
+        { value: "ALL", label: "All Metals Assets" },
+        { value: "DELTAIN:XAUTUSD.P", label: "XAUTUSD - Gold (XAUT) Delta Perpetual" },
+      ];
+    }
+
+    const rawIndices = Array.isArray(availableIndices) && availableIndices.length > 0
+      ? availableIndices
+      : [];
+
+    const stringIndices = rawIndices
+      .map((item) => (typeof item === "object" && item !== null ? item.value || item.name || item.label : String(item || "")))
+      .filter(Boolean);
+
+    if (ex === "NSE" || ex === "BSE") {
+      const filtered = stringIndices.filter(
+        (i) => i.toLowerCase() !== "crypto" && i.toLowerCase() !== "metals" && i.toUpperCase() !== "ALL"
+      );
+      return [
+        { value: "ALL", label: "All Indices" },
+        ...filtered.map((idx) => ({ value: idx, label: idx })),
+      ];
+    }
+    const nonAll = stringIndices.filter((i) => i.toUpperCase() !== "ALL");
+    return [
+      { value: "ALL", label: "All Indices & Assets" },
+      ...nonAll.map((idx) => ({ value: idx, label: idx })),
+    ];
+  }, [selectedExchange, availableIndices]);
+
+  const handleExchangeChange = (newEx) => {
+    setSelectedExchange(newEx);
+    setSelectedIndice("ALL");
+  };
+
   // Toggle individual trigger in/out of selection
   const handleToggleTrigger = (trig) => {
     setSelectedTriggers((prev) => {
-      if (prev.includes(trig)) {
-        const updated = prev.filter((t) => t !== trig);
+      const arr = Array.isArray(prev) ? prev : ["Y1"];
+      if (arr.includes(trig)) {
+        const updated = arr.filter((t) => t !== trig);
         return updated.length > 0 ? updated : ["Y1"];
       } else {
-        return [...prev, trig];
+        return [...arr, trig];
       }
     });
   };
 
   // Toggle entire category
   const handleToggleCategory = (catTriggers) => {
-    const allSelected = catTriggers.every((t) => selectedTriggers.includes(t));
-    if (allSelected) {
-      const remaining = selectedTriggers.filter((t) => !catTriggers.includes(t));
-      setSelectedTriggers(remaining.length > 0 ? remaining : ["Y1"]);
-    } else {
-      setSelectedTriggers((prev) => Array.from(new Set([...prev, ...catTriggers])));
-    }
+    const list = Array.isArray(catTriggers) ? catTriggers : [];
+    setSelectedTriggers((prev) => {
+      const arr = Array.isArray(prev) ? prev : ["Y1"];
+      const allSelected = list.every((t) => arr.includes(t));
+      if (allSelected) {
+        const remaining = arr.filter((t) => !list.includes(t));
+        return remaining.length > 0 ? remaining : ["Y1"];
+      } else {
+        return Array.from(new Set([...arr, ...list]));
+      }
+    });
   };
 
   // Select all available triggers
@@ -464,7 +522,7 @@ export default function ScreenerPage({
               <select
                 className="apple-select-input"
                 value={selectedExchange}
-                onChange={(e) => setSelectedExchange(e.target.value)}
+                onChange={(e) => handleExchangeChange(e.target.value)}
               >
                 {availableExchanges.map((ex) => (
                   <option key={`ex-${ex}`} value={ex}>
@@ -475,16 +533,21 @@ export default function ScreenerPage({
             </div>
 
             <div className="screener-input-group">
-              <label className="input-label">Index / Sector</label>
+              <label className="input-label">
+                {selectedExchange === "CRYPTO"
+                  ? "Crypto Asset"
+                  : selectedExchange === "METALS"
+                  ? "Metals Asset"
+                  : "Index / Sector"}
+              </label>
               <select
                 className="apple-select-input"
                 value={selectedIndice}
                 onChange={(e) => setSelectedIndice(e.target.value)}
               >
-                <option value="ALL">All Indices</option>
-                {availableIndices.map((idx) => (
-                  <option key={`idx-${idx}`} value={idx}>
-                    {idx}
+                {dropdownIndexOptions.map((opt) => (
+                  <option key={`idx-${opt.value}`} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>

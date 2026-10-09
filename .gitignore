@@ -1,3 +1,5 @@
 niftyCsv/
+dumps/
 *.sql
 .DS_Store
+node_modules/

@@ -44,6 +44,12 @@ export const INDEX_NAME_MAP = {
   "^BSESN": "S&P BSE SENSEX",
   "BSESN": "S&P BSE SENSEX",
   "SENSEX": "S&P BSE SENSEX",
+
+  "DELTAIN:BTCUSD.P": "BTCUSD (Delta)",
+  "DELTAIN:ETHUSD.P": "ETHUSD (Delta)",
+  "DELTAIN:XRPUSD.P": "XRPUSD (Delta)",
+  "DELTAIN:SOLUSD.P": "SOLUSD (Delta)",
+  "DELTAIN:XAUTUSD.P": "XAUTUSD (Delta)",
 };
 
 /**
@@ -70,6 +76,8 @@ export const stripSymbolSuffix = (symbol) => {
   let s = raw;
   // Strip leading ^ prefix (e.g. ^NSEI -> NSEI, ^BSESN -> BSESN)
   s = s.replace(/^\^/, "");
+  // Strip leading DELTAIN: prefix
+  s = s.replace(/^DELTAIN:/i, "");
   // Strip dot suffixes like .NS, .BO, .NSE, .BSE, .IN, etc. (case-insensitive)
   s = s.replace(/\.(NS|BO|NSE|BSE|IN|IS|ns|bo|nse|bse)$/i, "");
   // Strip global assets metals suffix =X (e.g. XAUUSD=X -> XAUUSD, XAGUSD=X -> XAGUSD)

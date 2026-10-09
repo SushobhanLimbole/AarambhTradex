@@ -11,32 +11,37 @@ export async function getFilteredSymbols({ exchange, indice } = {}) {
   const normExch = exchange ? String(exchange).trim().toUpperCase() : "ALL";
   const normInd = indice ? String(indice).trim() : "ALL";
 
-  let query = "SELECT DISTINCT s.symbol, s.exchange FROM symbols s";
+  let query = `
+    SELECT 
+      s.symbol, 
+      s.company_name, 
+      s.exchange, 
+      GROUP_CONCAT(DISTINCT i.index_name ORDER BY i.index_name SEPARATOR ', ') as indice
+    FROM symbols s
+    LEFT JOIN index_constituents ic ON s.symbol = ic.symbol
+    LEFT JOIN indices i ON ic.index_id = i.index_id
+  `;
   const params = [];
   const conditions = [];
 
   const hasExchangeFilter = normExch !== "ALL" && normExch !== "ALL EXCHANGES" && normExch !== "";
   const hasIndiceFilter = normInd !== "ALL" && normInd !== "ALL INDICES" && normInd !== "" && normInd.toUpperCase() !== "TOP 500";
 
-  if (hasIndiceFilter) {
-    query += `
-      JOIN index_constituents ic ON s.symbol = ic.symbol
-      JOIN indices i ON ic.index_id = i.index_id
-    `;
-    conditions.push("LOWER(i.index_name) = LOWER(?)");
-    params.push(normInd);
-  }
-
   if (hasExchangeFilter) {
     conditions.push("s.exchange = ?");
     params.push(normExch);
+  }
+
+  if (hasIndiceFilter) {
+    conditions.push("LOWER(i.index_name) = LOWER(?)");
+    params.push(normInd);
   }
 
   if (conditions.length > 0) {
     query += ` WHERE ${conditions.join(" AND ")}`;
   }
 
-  query += " ORDER BY s.symbol ASC";
+  query += " GROUP BY s.symbol, s.company_name, s.exchange ORDER BY s.symbol ASC";
 
   const [rows] = await pool.query(query, params);
   return rows;

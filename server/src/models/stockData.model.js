@@ -17,6 +17,16 @@ import pool from "../config/mysql.js";
 const DEFAULT_TABLE_NAME = process.env.MYSQL_STOCK_TABLE || "historical_candles";
 
 export const GLOBAL_SYMBOLS = new Set([
+  "DELTAIN:BTCUSD.P",
+  "DELTAIN:ETHUSD.P",
+  "DELTAIN:XRPUSD.P",
+  "DELTAIN:SOLUSD.P",
+  "DELTAIN:XAUTUSD.P",
+  "BTCUSD.P",
+  "ETHUSD.P",
+  "XRPUSD.P",
+  "SOLUSD.P",
+  "XAUTUSD.P",
   "BTC-USD",
   "ETH-USD",
   "SOL-USD",
@@ -30,8 +40,11 @@ export function isGlobalAsset(symbol, exchange) {
     const ex = String(exchange).toUpperCase();
     if (ex === "CRYPTO" || ex === "METALS") return true;
   }
-  if (symbol && GLOBAL_SYMBOLS.has(String(symbol).trim().toUpperCase())) {
-    return true;
+  if (symbol) {
+    const s = String(symbol).trim().toUpperCase();
+    if (GLOBAL_SYMBOLS.has(s) || s.startsWith("DELTAIN:") || s.endsWith(".P")) {
+      return true;
+    }
   }
   return false;
 }
@@ -44,7 +57,7 @@ export function resolveTableName(exchange, symbol, defaultTable = DEFAULT_TABLE_
   }
   if (symbol) {
     const sym = String(symbol).trim().toUpperCase();
-    if (GLOBAL_SYMBOLS.has(sym)) return "global_assets";
+    if (GLOBAL_SYMBOLS.has(sym) || sym.startsWith("DELTAIN:") || sym.endsWith(".P")) return "global_assets";
   }
   return defaultTable;
 }

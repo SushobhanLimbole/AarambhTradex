@@ -78,9 +78,8 @@ function buildScreenerQuery(startDate, endDate, exchange, indice) {
       p.push(normExch);
     }
     if (hasIndiceFilter && normInd.toLowerCase() !== "crypto" && normInd.toLowerCase() !== "metals") {
-      q += " JOIN `index_constituents` ic ON s.`symbol` = ic.`symbol` JOIN `indices` i ON ic.`index_id` = i.`index_id`";
-      where += " AND (LOWER(i.`index_name`) = LOWER(?) OR LOWER(i.`index_name`) LIKE LOWER(?))";
-      p.push(normInd, `%${normInd}%`);
+      where += " AND (t.`symbol` = ? OR s.`symbol` = ? OR t.`symbol` LIKE ?)";
+      p.push(normInd, normInd, `%${normInd}%`);
     }
     q += ` ${where} ORDER BY t.\`symbol\` ASC, t.\`date\` ASC`;
     return { query: q, params: p };

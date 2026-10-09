@@ -9,6 +9,7 @@ import TrendReversalPage from "../TrendReversal";
 import CbReportPage from "../CbReport";
 import HighestClosingPage from "../HighestClosing";
 import DdReportPage from "../DdReport";
+import PointerReportPage from "../PointerReport";
 import PointerPage from "../Pointer/PointerPage";
 import StrategyPage from "../Strategy/StrategyPage";
 import ScreenerPage from "../Screener/ScreenerPage";
@@ -95,6 +96,7 @@ export default function MainLayout() {
 
   const REPORT_TABS = [
     "reporthub",
+    "pointer-report",
     "trend-report",
     "ab-top-bottom",
     "trend-reversal",
@@ -336,11 +338,24 @@ export default function MainLayout() {
             onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "dd-report")}
           />
         )}
+        {activeTab === "pointer-report" && (
+          <PointerReportPage
+            onBack={handleBack}
+            onOpenPointer={(row) => handleOpenPointerOrStrategy(row, "pointer-report")}
+            onOpenStrategy={(row) => handleOpenPointerOrStrategy(row, "pointer-report")}
+          />
+        )}
         {activeTab === "reporthub" && (
           <ReportHubPage
             onSelectReportCard={(card) => {
               if (!card) return;
               switch (card.id) {
+                case "pointer_breakout_report_1":
+                  handleTabChange("screener");
+                  break;
+                case "pointer_report":
+                  handleTabChange("pointer-report");
+                  break;
                 case "status_report":
                 case "new_trend_report":
                   handleTabChange("trend-report");
@@ -359,9 +374,6 @@ export default function MainLayout() {
                   break;
                 case "dd":
                   handleTabChange("dd-report");
-                  break;
-                case "pointer_breakout_report_1":
-                  handleTabChange("screener");
                   break;
                 default:
                   break;
