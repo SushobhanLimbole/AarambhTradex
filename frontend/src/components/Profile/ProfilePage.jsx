@@ -4,9 +4,15 @@ import { useAuth } from "../../context/AuthContext";
 import strategyAccessService from "../../services/strategyAccessService";
 import authService from "../../services/authService";
 import Toast from "../Common/Toast";
+import AdminPage from "../Admin/AdminPage";
 
-export default function ProfilePage() {
+export default function ProfilePage({ onBack }) {
   const { user, logout, setUser } = useAuth();
+
+  if (user?.isAdmin) {
+    return <AdminPage onBack={onBack} />;
+  }
+
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [submitting, setSubmitting] = useState(false);

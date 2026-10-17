@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "./CbReportPage.css";
 import cbReportService from "../../services/cbReportService.js";
 import stockService from "../../services/stockService.js";
@@ -52,6 +52,11 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isTimeoutError, setIsTimeoutError] = useState(false);
+  const [scanSeconds, setScanSeconds] = useState(0);
+
+  const abortControllerRef = useRef(null);
+  const clientCacheRef = useRef(new Map());
 
   // 1. Fetch metadata on mount
   useEffect(() => {
@@ -102,12 +107,44 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
       }
     }
     loadMeta();
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
-  // 2. Fetch Report
-  const handleFetchReport = useCallback(async () => {
+  // 2. Fetch Report with client caching, timer, and cancellation
+  const handleFetchReport = useCallback(async (forceRefresh = false) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const cacheKey = `${exchange}_${indexVal}_${timeframe}_${actionDate || "latest"}`;
+    if (!forceRefresh && clientCacheRef.current.has(cacheKey)) {
+      const cached = clientCacheRef.current.get(cacheKey);
+      setReportData(cached.data);
+      if (cached.rawActionDate && !actionDate) {
+        setActionDate(cached.rawActionDate);
+      }
+      setError("");
+      setIsTimeoutError(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setScanSeconds(0);
     setError("");
+    setIsTimeoutError(false);
+
+    const timer = setInterval(() => {
+      setScanSeconds((s) => s + 1);
+    }, 1000);
+
     try {
       const res = await cbReportService.getCbReport({
         exchange,
@@ -115,10 +152,18 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
         timeframe,
         actionDate: actionDate || undefined,
         filterType: "ALL",
+      }, {
+        signal: controller.signal,
       });
+
+      clearInterval(timer);
 
       if (res?.data && Array.isArray(res.data)) {
         setReportData(res.data);
+        clientCacheRef.current.set(cacheKey, {
+          data: res.data,
+          rawActionDate: res.rawActionDate,
+        });
         if (res.rawActionDate && !actionDate) {
           setActionDate(res.rawActionDate);
         }
@@ -126,10 +171,21 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
         setReportData([]);
       }
     } catch (err) {
+      clearInterval(timer);
+      if (err.name === "AbortError") {
+        return;
+      }
       console.error("CB Report Error:", err);
-      setError(err.message || "Failed to load Comparative Study report.");
+      const is504 = err.status === 504 || (err.message && (err.message.includes("504") || err.message.toLowerCase().includes("timed out")));
+      setIsTimeoutError(is504);
+      if (is504) {
+        setError("Gateway Timeout (504): Scanning 2,300+ stocks took longer than the server limit. Click retry below, or select a focused index for instant results.");
+      } else {
+        setError(err.message || "Failed to load Comparative Study report.");
+      }
       setReportData([]);
     } finally {
+      clearInterval(timer);
       setLoading(false);
     }
   }, [exchange, indexVal, timeframe, actionDate]);
@@ -279,17 +335,57 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
         <button
           type="button"
           className="cb-run-btn"
-          onClick={handleFetchReport}
+          onClick={() => handleFetchReport(true)}
           disabled={loading}
         >
-          {loading ? "Scanning..." : "RUN SCANNER"}
+          {loading ? `Scanning... (${scanSeconds}s)` : "RUN SCANNER"}
         </button>
       </div>
 
-      {/* Error Banner */}
+      {/* Error Banner with 504 Recovery Actions */}
       {error && (
-        <div className="cb-error-banner">
-          <span>⚠️</span> {error}
+        <div className={`cb-error-banner ${isTimeoutError ? "cb-timeout-banner" : ""}`}>
+          <div className="cb-error-content">
+            <span className="cb-error-icon">⚠️</span>
+            <div className="cb-error-text">
+              <strong>{isTimeoutError ? "Gateway Timeout (Status 504)" : "Notice"}</strong>
+              <p>{error}</p>
+            </div>
+          </div>
+          {isTimeoutError && (
+            <div className="cb-error-actions">
+              <button
+                type="button"
+                className="cb-retry-btn"
+                onClick={() => handleFetchReport(true)}
+                disabled={loading}
+              >
+                ↻ Retry Scanner
+              </button>
+              <span className="cb-switch-label">Or choose a faster index:</span>
+              <button
+                type="button"
+                className="cb-quick-filter-btn"
+                onClick={() => setIndexVal("NIFTY 50")}
+              >
+                NIFTY 50 (50 stocks)
+              </button>
+              <button
+                type="button"
+                className="cb-quick-filter-btn"
+                onClick={() => setIndexVal("F&O")}
+              >
+                F&amp;O (210 stocks)
+              </button>
+              <button
+                type="button"
+                className="cb-quick-filter-btn"
+                onClick={() => setIndexVal("TOP 500")}
+              >
+                TOP 500
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -369,7 +465,50 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                   <td colSpan={7} className="cb-empty-cell">
                     <div className="cb-loading-box">
                       <span className="cb-spinner">⏳</span>
-                      <span>Calculating Comparative Study (Ordinary &amp; Advanced CB) Matrices...</span>
+                      <span>
+                        Calculating Comparative Study (Ordinary &amp; Advanced CB) Matrices...
+                        {scanSeconds > 0 && ` (${scanSeconds}s elapsed)`}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : isTimeoutError ? (
+                <tr>
+                  <td colSpan={7} className="cb-empty-cell">
+                    <div className="cb-loading-box cb-timeout-box">
+                      <span className="cb-spinner">⚠️</span>
+                      <strong style={{ fontSize: "15px", color: "#b91c1c" }}>
+                        Scanning Timed Out (Status 504)
+                      </strong>
+                      <p style={{ margin: "6px 0 14px", color: "#64748b", maxWidth: "480px" }}>
+                        The server gateway timed out while processing 2,300+ stocks. Click retry below, or choose a focused index for instant results.
+                      </p>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                        <button
+                          type="button"
+                          className="cb-run-btn"
+                          style={{ margin: 0, padding: "0 16px", height: "36px" }}
+                          onClick={() => handleFetchReport(true)}
+                        >
+                          ↻ Retry Scanner
+                        </button>
+                        <button
+                          type="button"
+                          className="cb-back-btn"
+                          style={{ margin: 0, padding: "0 14px", height: "36px" }}
+                          onClick={() => setIndexVal("NIFTY 50")}
+                        >
+                          Scan NIFTY 50
+                        </button>
+                        <button
+                          type="button"
+                          className="cb-back-btn"
+                          style={{ margin: 0, padding: "0 14px", height: "36px" }}
+                          onClick={() => setIndexVal("F&O")}
+                        >
+                          Scan F&amp;O (210)
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>

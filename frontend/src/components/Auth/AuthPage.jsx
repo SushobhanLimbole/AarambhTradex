@@ -73,7 +73,9 @@ function StockTicker() {
 
     const fetchLiveQuotes = async () => {
       try {
-        const res = await fetch("/api/market/live-quotes");
+        const res = await fetch("/api/market/live-quotes", {
+          signal: AbortSignal.timeout(6000),
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -258,7 +260,18 @@ export default function AuthPage() {
       } catch (_) {}
       setToast({ message: "Signed in successfully! Welcome back.", type: "success" });
     } catch (err) {
-      setServerLoginError(err.message || "Authentication failed. Please check your credentials.");
+      const is504 = err.status === 504 || (err.message && (err.message.includes("504") || err.message.toLowerCase().includes("timed out")));
+      if (is504) {
+        setServerLoginError({
+          is504: true,
+          message: "Gateway Timeout (504): The server was busy processing market data. Please click Retry below.",
+        });
+      } else {
+        setServerLoginError({
+          is504: false,
+          message: err.message || "Authentication failed. Please check your credentials.",
+        });
+      }
     } finally {
       setLoginSubmitting(false);
     }
@@ -293,8 +306,34 @@ export default function AuthPage() {
           </p>
 
           {serverLoginError && (
-            <div className="amu-server-error">
-              <span>⚠️</span> {serverLoginError}
+            <div className="amu-server-error" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>⚠️</span>
+                <span>{typeof serverLoginError === "object" ? serverLoginError.message : serverLoginError}</span>
+              </div>
+              {serverLoginError?.is504 && (
+                <button
+                  type="button"
+                  onClick={handleLoginSubmit}
+                  disabled={loginSubmitting}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "#fee2e2",
+                    color: "#b91c1c",
+                    border: "1px solid #f87171",
+                    borderRadius: "6px",
+                    padding: "4px 12px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    fontWeight: "700",
+                    marginTop: "2px",
+                  }}
+                >
+                  ↻ {loginSubmitting ? "Retrying..." : "Retry Sign In"}
+                </button>
+              )}
             </div>
           )}
 

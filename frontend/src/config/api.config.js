@@ -8,6 +8,8 @@ export const ENDPOINTS = {
     ADMIN_CREATE_USER: `${API_BASE_URL}/auth/admin/create-user`,
     ADMIN_USERS: `${API_BASE_URL}/auth/admin/users`,
     ADMIN_DELETE_USER: (id) => `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(id)}`,
+    ADMIN_RESET_PASSWORD: (id) => `${API_BASE_URL}/auth/admin/users/${encodeURIComponent(id)}/reset-password`,
+    CHANGE_PASSWORD: `${API_BASE_URL}/auth/change-password`,
   },
   STRATEGY_ACCESS: {
     REQUEST: `${API_BASE_URL}/strategy-access/request`,

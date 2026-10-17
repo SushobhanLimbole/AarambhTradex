@@ -6,7 +6,7 @@ export const cbReportService = {
    * Fetch CB (Ordinary CB & CB with Status) institutional report
    * @param {Object} params - { exchange, indice, timeframe, actionDate, filterType }
    */
-  async getCbReport(params = {}) {
+  async getCbReport(params = {}, options = {}) {
     const query = new URLSearchParams();
     if (params.exchange && params.exchange !== "ALL") query.append("exchange", params.exchange);
     if (params.indice && params.indice !== "ALL") query.append("indice", params.indice);
@@ -17,6 +17,7 @@ export const cbReportService = {
     const url = `${ENDPOINTS.CB_REPORT.SCAN}?${query.toString()}`;
     return await apiClient(url, {
       method: "GET",
+      ...options,
     });
   },
 };

@@ -47,6 +47,13 @@ export default function Navbar({ activeTab, setActiveTab }) {
         {user?.isAdmin && (
           <>
             <button
+              className={`nav-btn ${activeTab === "admin" ? "active" : ""}`}
+              onClick={() => setActiveTab("admin")}
+            >
+              <span>🛡️</span>
+              <span>Admin</span>
+            </button>
+            <button
               className={`nav-btn ${activeTab === "requests" ? "active" : ""}`}
               onClick={() => setActiveTab("requests")}
             >

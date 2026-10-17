@@ -15,6 +15,35 @@ const TIMEFRAME_OPTIONS = [
   { value: "5-Yearly", label: "5-Yearly" },
 ];
 
+// Preset indices with stock counts (identical to Status Report)
+const PRESET_INDICES = [
+  { value: "COMMODITY-IND", label: "COMMODITY-IND (9 stocks)", count: 9 },
+  { value: "CRYPTO", label: "CRYPTO (11 stocks)", count: 11 },
+  { value: "DOLLAR", label: "DOLLAR (12 stocks)", count: 12 },
+  { value: "F&O", label: "F&O (210 stocks)", count: 210 },
+  { value: "NIFTY 50", label: "NIFTY 50 (50 stocks)", count: 50 },
+  { value: "NIFTY AUTO", label: "NIFTY AUTO (15 stocks)", count: 15 },
+  { value: "NIFTY BANK", label: "NIFTY BANK (12 stocks)", count: 12 },
+  { value: "NIFTY CONSUMER DURABLE", label: "NIFTY CONSUMER DURABLE (13 stocks)", count: 13 },
+  { value: "NIFTY ENERGY", label: "NIFTY ENERGY (37 stocks)", count: 37 },
+  { value: "NIFTY FINANCE SERVICE", label: "NIFTY FINANCE SERVICE (20 stocks)", count: 20 },
+  { value: "NIFTY FMCG", label: "NIFTY FMCG (15 stocks)", count: 15 },
+  { value: "NIFTY HEALTHCARE", label: "NIFTY HEALTHCARE (20 stocks)", count: 20 },
+  { value: "NIFTY INDIA VIX", label: "NIFTY INDIA VIX (0 stocks)", count: 0 },
+  { value: "NIFTY IT", label: "NIFTY IT (10 stocks)", count: 10 },
+  { value: "NIFTY MEDIA", label: "NIFTY MEDIA (8 stocks)", count: 8 },
+  { value: "NIFTY METAL", label: "NIFTY METAL (15 stocks)", count: 15 },
+  { value: "NIFTY MIDCAP", label: "NIFTY MIDCAP (33 stocks)", count: 33 },
+  { value: "NIFTY OIL & GAS", label: "NIFTY OIL & GAS (13 stocks)", count: 13 },
+  { value: "NIFTY PHARMA", label: "NIFTY PHARMA (19 stocks)", count: 19 },
+  { value: "NIFTY PRIVATE BANK", label: "NIFTY PRIVATE BANK (10 stocks)", count: 10 },
+  { value: "NIFTY PSU BANK", label: "NIFTY PSU BANK (12 stocks)", count: 12 },
+  { value: "NIFTY REAL ESTATE", label: "NIFTY REAL ESTATE (10 stocks)", count: 10 },
+  { value: "NSE-INDICES", label: "NSE-INDICES (20 stocks)", count: 20 },
+  { value: "OTHER", label: "OTHER (736 stocks)", count: 736 },
+  { value: "TOP 500", label: "TOP 500 (500 stocks)", count: 500 },
+];
+
 export default function PointerReportPage({ onOpenStrategy, onOpenPointer, onBack }) {
   // Filter States
   const [exchange, setExchange] = useState("ALL");
@@ -25,6 +54,7 @@ export default function PointerReportPage({ onOpenStrategy, onOpenPointer, onBac
 
   // Data & Metadata States
   const [reportData, setReportData] = useState([]);
+  const [indexOptions, setIndexOptions] = useState(PRESET_INDICES);
   const [meta, setMeta] = useState({
     exchanges: ["NSE", "BSE", "CRYPTO", "METALS"],
     indices: [],
@@ -47,10 +77,10 @@ export default function PointerReportPage({ onOpenStrategy, onOpenPointer, onBac
 
   const indiceOptions = useMemo(() => {
     return [
-      { value: "ALL", label: "All Indices" },
-      ...meta.indices.map((idx) => ({ value: idx, label: idx })),
+      { value: "ALL", label: "ALL (All Stocks)" },
+      ...indexOptions,
     ];
-  }, [meta.indices]);
+  }, [indexOptions]);
 
   const pageSizeOptions = useMemo(
     () => [
@@ -75,6 +105,41 @@ export default function PointerReportPage({ onOpenStrategy, onOpenPointer, onBac
             indices: res.data.indices || [],
             totalSymbols: res.data.totalSymbols || 0,
           });
+
+          if (Array.isArray(res.data.indicesWithCounts) && res.data.indicesWithCounts.length > 0) {
+            const liveMap = new Map();
+            res.data.indicesWithCounts.forEach((item) => {
+              const cleanKey = item.name.toUpperCase().replace(/\s+/g, " ").trim();
+              liveMap.set(cleanKey, item);
+            });
+
+            const merged = PRESET_INDICES.map((p) => {
+              const key = p.value.toUpperCase();
+              if (liveMap.has(key)) {
+                const live = liveMap.get(key);
+                return {
+                  value: live.name,
+                  label: `${live.name.toUpperCase()} (${live.count} stocks)`,
+                  count: live.count,
+                };
+              }
+              return p;
+            });
+
+            res.data.indicesWithCounts.forEach((item) => {
+              const key = item.name.toUpperCase().replace(/\s+/g, " ").trim();
+              const exists = merged.some((m) => m.value.toUpperCase() === key);
+              if (!exists) {
+                merged.push({
+                  value: item.name,
+                  label: `${item.name.toUpperCase()} (${item.count} stocks)`,
+                  count: item.count,
+                });
+              }
+            });
+
+            setIndexOptions(merged);
+          }
         }
       } catch (err) {
         console.warn("Failed to load symbols meta:", err);
@@ -306,7 +371,7 @@ export default function PointerReportPage({ onOpenStrategy, onOpenPointer, onBac
               value={indice}
               onChange={(e) => setIndice(e.target.value)}
               compact
-              style={{ minWidth: 180 }}
+              style={{ minWidth: 260 }}
             />
           </div>
 

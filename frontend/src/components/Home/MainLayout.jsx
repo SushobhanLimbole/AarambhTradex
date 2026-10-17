@@ -16,6 +16,7 @@ import ScreenerPage from "../Screener/ScreenerPage";
 import ProfilePage from "../Profile/ProfilePage";
 import StrategyAccessRequestsPage from "../Admin/StrategyAccessRequestsPage";
 import DataSyncPage from "../Admin/DataSyncPage";
+import AdminPage from "../Admin/AdminPage";
 import { stripSymbolSuffix } from "../../utils/symbolUtils.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -419,6 +420,7 @@ export default function MainLayout() {
             onOpenStockAnalytics={handleSelectSymbolFromScreener}
           />
         )}
+        {activeTab === "admin" && <AdminPage onBack={handleBack} />}
         {activeTab === "requests" && <StrategyAccessRequestsPage onBack={handleBack} />}
         {activeTab === "datasync" && <DataSyncPage onBack={handleBack} />}
         {activeTab === "profile" && <ProfilePage onBack={handleBack} />}

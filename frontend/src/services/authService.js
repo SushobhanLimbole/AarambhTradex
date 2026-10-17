@@ -79,6 +79,30 @@ export const authService = {
   },
 
   /**
+   * Admin: Reset a user's password (or admin's own password)
+   * @param {string} userId
+   * @param {string} newPassword
+   */
+  async adminResetPassword(userId, newPassword) {
+    return await apiClient(ENDPOINTS.AUTH.ADMIN_RESET_PASSWORD(userId), {
+      method: "POST",
+      body: { newPassword },
+    });
+  },
+
+  /**
+   * Change current user's password
+   * @param {string} currentPassword
+   * @param {string} newPassword
+   */
+  async changePassword(currentPassword, newPassword) {
+    return await apiClient(ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+      method: "POST",
+      body: { currentPassword, newPassword },
+    });
+  },
+
+  /**
    * Logout user and clear stored token
    */
   logout() {
