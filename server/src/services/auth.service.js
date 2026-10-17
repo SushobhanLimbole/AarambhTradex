@@ -160,3 +160,57 @@ export const deleteUserById = async (userId) => {
     return deleted;
 };
 
+/**
+ * Reset password for a specific user (admin action)
+ */
+export const resetUserPassword = async (userId, newPassword) => {
+    if (!newPassword || newPassword.length < 6) {
+        const error = new Error("Password must be at least 6 characters long");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    user.password = newPassword;
+    await user.save();
+    return user.toJSON();
+};
+
+/**
+ * Change password for currently authenticated user
+ */
+export const changePassword = async (userId, currentPassword, newPassword) => {
+    if (!newPassword || newPassword.length < 6) {
+        const error = new Error("New password must be at least 6 characters long");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (currentPassword) {
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            const error = new Error("Current password is incorrect");
+            error.statusCode = 400;
+            throw error;
+        }
+    }
+
+    user.password = newPassword;
+    await user.save();
+    return user.toJSON();
+};
+
+

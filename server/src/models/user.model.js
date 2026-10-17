@@ -72,9 +72,10 @@ export class User {
    */
   static async findOne(query = {}) {
     if (query.email) {
+      const cleanEmail = query.email.trim().toLowerCase();
       const [rows] = await pool.query(
-        "SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1",
-        [query.email.trim()]
+        "SELECT * FROM users WHERE email = ? LIMIT 1",
+        [cleanEmail]
       );
       if (rows && rows.length > 0) {
         return new User(rows[0]);

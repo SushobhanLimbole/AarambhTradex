@@ -26,6 +26,14 @@ import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js
  *    - Supports Daily, Weekly, Monthly, Quarterly, Half-Yearly, Yearly
  */
 
+// In-memory cache for high-volume comparative study queries (TTL: 3 minutes)
+const responseCache = new Map();
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
+// Cached max date to avoid 5s partition table scans
+let cachedMaxDate = null;
+const MAX_DATE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 const formatDateOutput = (dStr) => {
   if (!dStr) return "—";
   try {
@@ -122,13 +130,16 @@ function evaluateCbAtIndex(candles, currIdx) {
     prevDayWasBearishCb = pClose < ppLow && ppClose < ppAvg;
   }
 
-  // Determine prevailing trend prior to this CB setup (up to index currIdx - 1)
+  // Determine prevailing trend prior to this CB setup:
+  // Fast reverse lookup: nearest previous candle that established HLC Higher or Lower
   let priorTrend = null;
-  for (let k = 1; k < currIdx; k++) {
+  for (let k = currIdx - 1; k >= 1; k--) {
     if (checkHlcHigher(candles[k], candles[k - 1])) {
       priorTrend = "HLC HIGHER";
+      break;
     } else if (checkHlcLower(candles[k], candles[k - 1])) {
       priorTrend = "HLC LOWER";
+      break;
     }
   }
 
@@ -228,7 +239,7 @@ function evaluateCbAtIndex(candles, currIdx) {
 }
 
 /**
- * Run linear single-pass backtesting across candle sequence
+ * Fast single-pass backtesting across candle sequence
  */
 function runCbBacktest(candles) {
   if (!candles || candles.length < 4) {
@@ -295,19 +306,50 @@ export const getCbReport = async (req, res, next) => {
 
     const tableName = resolveMarketTable(exchange, indice);
 
-    // 1. Resolve date ceiling
-    let targetDate = actionDate;
-    if (!targetDate) {
-      const [maxRes] = await pool.query(`SELECT MAX(\`date\`) as maxDate FROM \`${tableName}\``);
-      targetDate = maxRes[0]?.maxDate;
-    }
-    const targetDateStr = targetDate ? (typeof targetDate === "string" ? targetDate.slice(0, 10) : new Date(targetDate).toISOString().slice(0, 10)) : null;
+    // 1. Resolve date ceiling with fast cached lookup
+    let targetDateStr = null;
+    if (actionDate) {
+      targetDateStr = typeof actionDate === "string" ? actionDate.slice(0, 10) : new Date(actionDate).toISOString().slice(0, 10);
+    } else {
+      const now = Date.now();
+      if (cachedMaxDate && (now - cachedMaxDate.time < MAX_DATE_CACHE_TTL_MS)) {
+        targetDateStr = cachedMaxDate.date;
+      } else {
+        // Fast index lookup on high-liquidity stock
+        try {
+          const [r] = await pool.query(
+            `SELECT \`date\` FROM \`${tableName}\` WHERE \`symbol\` = 'RELIANCE' ORDER BY \`date\` DESC LIMIT 1`
+          );
+          if (r && r.length > 0 && r[0].date) {
+            targetDateStr = typeof r[0].date === "string" ? r[0].date.slice(0, 10) : new Date(r[0].date).toISOString().slice(0, 10);
+          }
+        } catch (_) {}
 
-    // 2. Fetch distinct symbols matching exchange & index
+        if (!targetDateStr) {
+          const [maxRes] = await pool.query(`SELECT MAX(\`date\`) as maxDate FROM \`${tableName}\``);
+          targetDateStr = maxRes[0]?.maxDate
+            ? (typeof maxRes[0].maxDate === "string" ? maxRes[0].maxDate.slice(0, 10) : new Date(maxRes[0].maxDate).toISOString().slice(0, 10))
+            : null;
+        }
+
+        if (targetDateStr) {
+          cachedMaxDate = { date: targetDateStr, time: now };
+        }
+      }
+    }
+
+    // 2. Check response cache
+    const cacheKey = `${exchange}_${indice}_${timeframe}_${targetDateStr || 'latest'}_${filterType}_${limit}`;
+    const cachedEntry = responseCache.get(cacheKey);
+    if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL_MS)) {
+      return res.status(200).json(cachedEntry.payload);
+    }
+
+    // 3. Fetch distinct symbols matching exchange & index
     const symbolRows = await getFilteredSymbols({ exchange, indice });
 
     if (!symbolRows || symbolRows.length === 0) {
-      return res.status(200).json({
+      const emptyPayload = {
         success: true,
         summary: {
           ordinaryBullishCb: 0,
@@ -317,21 +359,36 @@ export const getCbReport = async (req, res, next) => {
           totalScanned: 0,
           backtest: { overallAccuracy: 0, bullishAccuracy: 0, bearishAccuracy: 0 },
         },
-        actionDate: targetDateStr,
+        actionDate: targetDateStr ? formatDateOutput(targetDateStr) : "—",
+        rawActionDate: targetDateStr,
         timeframe,
         data: [],
-      });
+      };
+      return res.status(200).json(emptyPayload);
     }
 
     const matchedSymbols = symbolRows.map((r) => r.symbol);
 
-    // 3. Query historical records (past 730 days for robust timeframe calculations)
+    // 4. Query historical records with optimized timeframe window
+    // Daily needs ~60-90 days, Weekly ~210 days, Monthly ~450 days, else 730 days
+    const tfLower = String(timeframe).toLowerCase();
+    let dayInterval = 90;
+    if (tfLower === "daily") {
+      dayInterval = 90;
+    } else if (tfLower === "weekly") {
+      dayInterval = 210;
+    } else if (tfLower === "monthly") {
+      dayInterval = 450;
+    } else {
+      dayInterval = 730;
+    }
+
     const placeholders = matchedSymbols.map(() => "?").join(",");
     let dateCondition = "";
     const queryParams = [...matchedSymbols];
 
     if (targetDateStr) {
-      dateCondition = "AND `date` >= DATE_SUB(?, INTERVAL 730 DAY) AND `date` <= ?";
+      dateCondition = `AND \`date\` >= DATE_SUB(?, INTERVAL ${dayInterval} DAY) AND \`date\` <= ?`;
       queryParams.push(targetDateStr, targetDateStr);
     }
 
@@ -347,11 +404,14 @@ export const getCbReport = async (req, res, next) => {
 
     // Group rows by symbol
     const candlesBySymbol = new Map();
-    for (const row of allCandleRows) {
-      if (!candlesBySymbol.has(row.symbol)) {
-        candlesBySymbol.set(row.symbol, []);
+    for (let i = 0; i < allCandleRows.length; i++) {
+      const row = allCandleRows[i];
+      let arr = candlesBySymbol.get(row.symbol);
+      if (!arr) {
+        arr = [];
+        candlesBySymbol.set(row.symbol, arr);
       }
-      candlesBySymbol.get(row.symbol).push(row);
+      arr.push(row);
     }
 
     const reportRecords = [];
@@ -365,28 +425,27 @@ export const getCbReport = async (req, res, next) => {
     let aggregateBearHits = 0;
     let aggregateBearTotal = 0;
 
-    for (const sym of matchedSymbols) {
+    // Process symbols in chunks with setImmediate to avoid blocking the event loop
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < matchedSymbols.length; i++) {
+      if (i > 0 && i % CHUNK_SIZE === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+
+      const sym = matchedSymbols[i];
       const symDaily = candlesBySymbol.get(sym);
       if (!symDaily || symDaily.length < 2) continue;
 
       let candles = symDaily;
-      if (String(timeframe).toLowerCase() !== "daily") {
+      if (tfLower !== "daily") {
         candles = StockDataModel.resampleCandles(symDaily, timeframe);
       }
 
       if (!candles || candles.length < 2) continue;
 
       const currCandle = candles[candles.length - 1];
-      const prevCandle = candles[candles.length - 2];
-
       const cbRes = evaluateCbAtIndex(candles, candles.length - 1);
       if (!cbRes) continue;
-
-      const bt = runCbBacktest(candles);
-      aggregateBullHits += bt.bullHits;
-      aggregateBullTotal += bt.bullTotal;
-      aggregateBearHits += bt.bearHits;
-      aggregateBearTotal += bt.bearTotal;
 
       if (cbRes.isOrdinaryBullishCb) ordBullCount++;
       if (cbRes.isBullishCbWithStatus) statusBullCount++;
@@ -401,6 +460,13 @@ export const getCbReport = async (req, res, next) => {
       if (filterType === "ORDINARY_CB" && !cbRes.isOrdinaryBullishCb && !cbRes.isOrdinaryBearishCb) continue;
       if (filterType === "BULLISH" && !cbRes.isBullish) continue;
       if (filterType === "BEARISH" && !cbRes.isBearish) continue;
+
+      // Run backtest only on breakout stocks to save hundreds of millions of cycles
+      const bt = runCbBacktest(candles);
+      aggregateBullHits += bt.bullHits;
+      aggregateBullTotal += bt.bullTotal;
+      aggregateBearHits += bt.bearHits;
+      aggregateBearTotal += bt.bearTotal;
 
       reportRecords.push({
         symbol: sym,
@@ -436,7 +502,7 @@ export const getCbReport = async (req, res, next) => {
       ? Number((((aggregateBullHits + aggregateBearHits) / (aggregateBullTotal + aggregateBearTotal)) * 100).toFixed(1))
       : 0;
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       summary: {
         ordinaryBullishCb: ordBullCount,
@@ -460,8 +526,26 @@ export const getCbReport = async (req, res, next) => {
       filterType,
       count: reportRecords.length,
       data: reportRecords,
+    };
+
+    // Cache the successful payload
+    responseCache.set(cacheKey, {
+      payload,
+      timestamp: Date.now(),
     });
+
+    // Clean old cache entries if Map grows
+    if (responseCache.size > 50) {
+      const oldestKey = responseCache.keys().next().value;
+      responseCache.delete(oldestKey);
+    }
+
+    return res.status(200).json(payload);
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  getCbReport,
 };

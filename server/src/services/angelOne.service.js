@@ -106,6 +106,7 @@ async function getSmartApiSession(forceRefresh = false) {
       "X-MACAddress": "fe80::216e:6507:4bfe:37ff",
       "X-PrivateKey": apiKey,
     },
+    signal: AbortSignal.timeout(5000),
     body: JSON.stringify({
       clientcode: clientCode,
       password: password,
@@ -139,80 +140,100 @@ export async function getLiveTickerQuotes() {
     return cachedQuotes;
   }
 
-  let session = await getSmartApiSession();
+  try {
+    let session = await getSmartApiSession();
 
-  // Group tokens by exchange
-  const exchangeTokens = {};
-  for (const inst of TICKER_INSTRUMENTS) {
-    if (!exchangeTokens[inst.exchange]) {
-      exchangeTokens[inst.exchange] = [];
+    // Group tokens by exchange
+    const exchangeTokens = {};
+    for (const inst of TICKER_INSTRUMENTS) {
+      if (!exchangeTokens[inst.exchange]) {
+        exchangeTokens[inst.exchange] = [];
+      }
+      exchangeTokens[inst.exchange].push(inst.token);
     }
-    exchangeTokens[inst.exchange].push(inst.token);
-  }
 
-  const quoteUrl = "https://apiconnect.angelone.in/rest/secure/angelbroking/market/v1/quote/";
+    const quoteUrl = "https://apiconnect.angelone.in/rest/secure/angelbroking/market/v1/quote/";
 
-  async function executeQuoteRequest(token) {
-    return await fetch(quoteUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-UserType": "USER",
-        "X-SourceID": "WEB",
-        "X-ClientLocalIP": "127.0.0.1",
-        "X-ClientPublicIP": "106.193.147.98",
-        "X-MACAddress": "fe80::216e:6507:4bfe:37ff",
-        "X-PrivateKey": session.apiKey,
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        mode: "FULL",
-        exchangeTokens,
-      }),
-    });
-  }
+    async function executeQuoteRequest(token) {
+      return await fetch(quoteUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "X-UserType": "USER",
+          "X-SourceID": "WEB",
+          "X-ClientLocalIP": "127.0.0.1",
+          "X-ClientPublicIP": "106.193.147.98",
+          "X-MACAddress": "fe80::216e:6507:4bfe:37ff",
+          "X-PrivateKey": session.apiKey,
+          "Authorization": `Bearer ${token}`,
+        },
+        signal: AbortSignal.timeout(5000),
+        body: JSON.stringify({
+          mode: "FULL",
+          exchangeTokens,
+        }),
+      });
+    }
 
-  let res = await executeQuoteRequest(session.jwtToken);
+    let res = await executeQuoteRequest(session.jwtToken);
 
-  // If token expired or unauthorized, refresh session and retry once
-  if (res.status === 401 || res.status === 403) {
-    session = await getSmartApiSession(true);
-    res = await executeQuoteRequest(session.jwtToken);
-  }
+    // If token expired or unauthorized, refresh session and retry once
+    if (res.status === 401 || res.status === 403) {
+      session = await getSmartApiSession(true);
+      res = await executeQuoteRequest(session.jwtToken);
+    }
 
-  const json = await res.json();
-  if (!json.status && json.errorcode === "AG8001") {
-    // Re-authenticate on invalid token code
-    session = await getSmartApiSession(true);
-    res = await executeQuoteRequest(session.jwtToken);
-  }
+    const json = await res.json();
+    if (!json.status && json.errorcode === "AG8001") {
+      // Re-authenticate on invalid token code
+      session = await getSmartApiSession(true);
+      res = await executeQuoteRequest(session.jwtToken);
+    }
 
-  const fetchedList = json.data?.fetched || [];
+    const fetchedList = json.data?.fetched || [];
 
-  // Index fetched quotes by exchange + symbolToken
-  const quoteMap = new Map();
-  for (const q of fetchedList) {
-    const key = `${q.exchange}:${q.symbolToken}`;
-    quoteMap.set(key, q);
-  }
+    // Index fetched quotes by exchange + symbolToken
+    const quoteMap = new Map();
+    for (const q of fetchedList) {
+      const key = `${q.exchange}:${q.symbolToken}`;
+      quoteMap.set(key, q);
+    }
 
-  // Strict live data mapping
-  const results = TICKER_INSTRUMENTS.map((inst) => {
-    const key = `${inst.exchange}:${inst.token}`;
-    const q = quoteMap.get(key);
+    // Strict live data mapping
+    const results = TICKER_INSTRUMENTS.map((inst) => {
+      const key = `${inst.exchange}:${inst.token}`;
+      const q = quoteMap.get(key);
 
-    if (q && isFinite(parseFloat(q.ltp))) {
-      const price = parseFloat(q.ltp);
-      const close = parseFloat(q.close);
-      let changePct = parseFloat(q.percentChange);
-      let netChange = parseFloat(q.netChange);
+      if (q && isFinite(parseFloat(q.ltp))) {
+        const price = parseFloat(q.ltp);
+        const close = parseFloat(q.close);
+        let changePct = parseFloat(q.percentChange);
+        let netChange = parseFloat(q.netChange);
 
-      if (!isFinite(changePct) && isFinite(close) && close > 0) {
-        changePct = ((price - close) / close) * 100;
-        netChange = price - close;
+        if (!isFinite(changePct) && isFinite(close) && close > 0) {
+          changePct = ((price - close) / close) * 100;
+          netChange = price - close;
+        }
+
+        return {
+          symbol: inst.symbol,
+          label: inst.label,
+          sub: inst.sub,
+          currency: inst.currency,
+          exchange: inst.exchange,
+          token: inst.token,
+          price,
+          close: isFinite(close) ? close : null,
+          netChange: isFinite(netChange) ? netChange : 0,
+          changePct: isFinite(changePct) ? changePct : 0,
+          up: (isFinite(changePct) ? changePct : 0) >= 0,
+          unavailable: false,
+          isLive: true,
+        };
       }
 
+      // Only live data: if not returned, mark unavailable without fabricating numbers
       return {
         symbol: inst.symbol,
         label: inst.label,
@@ -220,40 +241,48 @@ export async function getLiveTickerQuotes() {
         currency: inst.currency,
         exchange: inst.exchange,
         token: inst.token,
-        price,
-        close: isFinite(close) ? close : null,
-        netChange: isFinite(netChange) ? netChange : 0,
-        changePct: isFinite(changePct) ? changePct : 0,
-        up: (isFinite(changePct) ? changePct : 0) >= 0,
-        unavailable: false,
-        isLive: true,
+        price: null,
+        changePct: null,
+        netChange: null,
+        up: true,
+        unavailable: true,
+        isLive: false,
       };
-    }
+    });
 
-    // Only live data: if not returned, mark unavailable without fabricating numbers
-    return {
-      symbol: inst.symbol,
-      label: inst.label,
-      sub: inst.sub,
-      currency: inst.currency,
-      exchange: inst.exchange,
-      token: inst.token,
-      price: null,
-      changePct: null,
-      netChange: null,
-      up: true,
-      unavailable: true,
-      isLive: false,
+    cachedQuotes = {
+      success: true,
+      provider: "AngelOne SmartAPI",
+      timestamp: new Date().toISOString(),
+      quotes: results,
     };
-  });
+    lastQuoteFetchTime = now;
 
-  cachedQuotes = {
-    success: true,
-    provider: "AngelOne SmartAPI",
-    timestamp: new Date().toISOString(),
-    quotes: results,
-  };
-  lastQuoteFetchTime = now;
-
-  return cachedQuotes;
+    return cachedQuotes;
+  } catch (error) {
+    console.warn("Angel One live quotes fetch issue (returning cached/fallback):", error.message);
+    if (cachedQuotes) {
+      return cachedQuotes;
+    }
+    // Return safe fallback quotes structure
+    return {
+      success: true,
+      provider: "AngelOne SmartAPI (Offline)",
+      timestamp: new Date().toISOString(),
+      quotes: TICKER_INSTRUMENTS.map((inst) => ({
+        symbol: inst.symbol,
+        label: inst.label,
+        sub: inst.sub,
+        currency: inst.currency,
+        exchange: inst.exchange,
+        token: inst.token,
+        price: null,
+        changePct: null,
+        netChange: null,
+        up: true,
+        unavailable: true,
+        isLive: false,
+      })),
+    };
+  }
 }

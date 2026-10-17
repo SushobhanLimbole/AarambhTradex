@@ -13,8 +13,11 @@ const pool = mysql.createPool({
   database: process.env.MYSQL_DATABASE || "aarambh_tradex",
   port: Number(process.env.MYSQL_PORT) || 3306,
   waitForConnections: true,
-  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 10,
+  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 25,
   queueLimit: 0,
+  connectTimeout: 10000, // 10s connection timeout
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
   dateStrings: true, // Keep dates as 'YYYY-MM-DD' strings instead of converting to UTC Date objects
 });
 

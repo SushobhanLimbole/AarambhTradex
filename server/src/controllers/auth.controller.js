@@ -142,3 +142,60 @@ export const adminDeleteUser = async (req, res, next) => {
     }
 };
 
+/**
+ * Admin: Reset a user's password (or admin's own password)
+ */
+export const adminResetPassword = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { newPassword } = req.body;
+
+        if (!newPassword) {
+            const error = new Error("New password is required");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const user = await authService.resetUserPassword(id, newPassword);
+
+        return res.status(200).json({
+            success: true,
+            message: `Password for '${user.name}' has been successfully reset.`,
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Update authenticated user's own password
+ */
+export const updateOwnPassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user.id || req.user._id;
+
+        if (!newPassword) {
+            const error = new Error("New password is required");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const user = await authService.changePassword(userId, currentPassword, newPassword);
+
+        return res.status(200).json({
+            success: true,
+            message: "Password updated successfully",
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
