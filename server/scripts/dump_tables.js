@@ -30,9 +30,10 @@ async function dumpTable(tableName) {
   const filePath = path.join(dumpDir, `${tableName}.sql`);
   fs.writeFileSync(
     filePath,
-    `-- Dump of table ${tableName}\n-- Generated on: ${new Date().toISOString()}\n\nDROP TABLE IF EXISTS \`${tableName}\`;\n\n` +
+    `-- Dump of table ${tableName}\n-- Generated on: ${new Date().toISOString()}\n\nSET FOREIGN_KEY_CHECKS = 0;\nSET UNIQUE_CHECKS = 0;\n\nDROP TABLE IF EXISTS \`${tableName}\`;\n\n` +
       createSql +
-      insertSql
+      insertSql +
+      `SET UNIQUE_CHECKS = 1;\nSET FOREIGN_KEY_CHECKS = 1;\n`
   );
   const stats = fs.statSync(filePath);
   console.log(`✓ Successfully dumped ${tableName} (${rows.length} rows, ${(stats.size / 1024).toFixed(1)} KB) -> ${filePath}`);
@@ -43,6 +44,8 @@ async function run() {
   await dumpTable("global_assets");
   await dumpTable("symbols");
   await dumpTable("index_constituents");
+  await dumpTable("temp_metals_data");
+  await dumpTable("temp_delta_perps_data");
   console.log("All table dumps completed successfully.");
   process.exit(0);
 }

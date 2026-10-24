@@ -2,7 +2,7 @@ import YahooFinance from "yahoo-finance2";
 import { getCandles } from "@mathieuc/tradingview/data";
 import pool from "../config/mysql.js";
 import { defaultRateLimiter } from "./rateLimiter.js";
-import { isIndianMarketHoliday, isPhantomOrUnopenedCandle } from "../utils/holidayUtils.js";
+import { isIndianMarketHoliday, isMetalsMarketHoliday, isPhantomOrUnopenedCandle } from "../utils/holidayUtils.js";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["ripHistorical", "yahooSurvey"],
@@ -17,7 +17,11 @@ export const GLOBAL_TARGET_ASSETS = [
   { symbol: "DELTAIN:ETHUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Ethereum Delta Perpetual" },
   { symbol: "DELTAIN:XRPUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "XRP Delta Perpetual" },
   { symbol: "DELTAIN:SOLUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Solana Delta Perpetual" },
-  { symbol: "DELTAIN:XAUTUSD.P", exchange: "METALS", indice: "Metals", name: "Gold (XAUT) Delta Perpetual" },
+  { symbol: "DELTAIN:XAUTUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Gold (XAUT) Delta Perpetual" },
+  { symbol: "DELTAIN:PAXGUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Paxos Gold (PAXG) Delta Perpetual" },
+  { symbol: "DELTAIN:SLVONUSD.P", exchange: "CRYPTO", indice: "Crypto", name: "Silver (SLVON) Delta Perpetual" },
+  { symbol: "OANDA:XAUUSD", exchange: "METALS", indice: "Metals", name: "Gold / US Dollar (OANDA)" },
+  { symbol: "OANDA:XAGUSD", exchange: "METALS", indice: "Metals", name: "Silver / US Dollar (OANDA)" },
 ];
 
 /**
@@ -347,7 +351,20 @@ export async function syncGlobalEOD(options = {}) {
       if (rawCandles && rawCandles.length > 0) {
         for (const c of rawCandles) {
           if (c && c.time && c.close !== undefined) {
-            const dateStr = new Date(c.time * 1000).toISOString().slice(0, 10);
+            const isOanda = asset.symbol.startsWith("OANDA:");
+            const d = new Date((c.time + (isOanda ? 14400 : 0)) * 1000);
+            const dateStr = d.toISOString().slice(0, 10);
+            const dow = d.getUTCDay();
+
+            // Metals market holiday & weekend filter
+            if (asset.exchange === "METALS") {
+              if (dow === 0 || dow === 6) continue;
+              const isHoliday = isIndianMarketHoliday(dateStr).isHoliday || isMetalsMarketHoliday(dateStr).isHoliday;
+              if (isHoliday || (!isOanda && isPhantomOrUnopenedCandle(c))) {
+                continue;
+              }
+            }
+
             const open = Number(Number(c.open).toFixed(4));
             const high = Number(Number(c.high).toFixed(4));
             const low = Number(Number(c.low).toFixed(4));
@@ -447,7 +464,7 @@ export async function reconcileHistoricalData(options = {}) {
 
   for (let i = 0; i < allSymbols.length; i++) {
     const item = allSymbols[i];
-    const isGlobal = item.exchange === "CRYPTO" || item.exchange === "METALS" || item.symbol.startsWith("DELTAIN:");
+    const isGlobal = item.exchange === "CRYPTO" || item.exchange === "METALS" || item.symbol.startsWith("DELTAIN:") || item.symbol.startsWith("OANDA:");
     if (isGlobal) {
       // Global assets are updated via syncGlobalEOD using TradingView SDK
       continue;

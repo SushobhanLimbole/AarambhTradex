@@ -445,16 +445,16 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
               </tr>
               {/* Row 2: Sub-Columns */}
               <tr>
-                <th className="th-sub sub-bullish" title="Ordinary Bullish CB: HLC HIGHER occurred first -> CB made after HLC Higher (Day 1 Close > Avg & Day 2 Close > Prev High)">
+                <th className="th-sub sub-bullish" title="Ordinary Bullish CB: Day 1 & Day 2 under HLC Higher; Day 1 Close > Avg & Day 2 Close > Day 1 High">
                   Ordinary
                 </th>
-                <th className="th-sub sub-bullish" title="Advanced Bullish CB: CB formed & Next Day compulsory HLC HIGHER formed">
+                <th className="th-sub sub-bullish" title="Advanced Bullish CB: Day 1 under HLC Lower & Day 2 forms HLC Higher; Day 1 Close > Avg & Day 2 Close > Day 1 High">
                   Advanced CB
                 </th>
-                <th className="th-sub sub-bearish" title="Ordinary Bearish CB: HLC LOWER occurred first -> CB made after HLC Lower (Day 1 Close < Avg & Day 2 Close < Prev Low)">
+                <th className="th-sub sub-bearish" title="Ordinary Bearish CB: Day 1 & Day 2 under HLC Lower; Day 1 Close < Avg & Day 2 Close < Day 1 Low">
                   Ordinary
                 </th>
-                <th className="th-sub sub-bearish" title="Advanced Bearish CB: CB formed & Next Day compulsory HLC LOWER formed">
+                <th className="th-sub sub-bearish" title="Advanced Bearish CB: Day 1 under HLC Higher & Day 2 forms HLC Lower; Day 1 Close < Avg & Day 2 Close < Day 1 Low">
                   Advanced CB
                 </th>
               </tr>
@@ -555,7 +555,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isOrdBull ? (
                           <span
                             className="cb-signal-pill pill-bullish-ord"
-                            title={`Ordinary CB: HLC HIGHER occurred first, then Day 1 Close (₹${row.prevClose}) > Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) > Prev High (₹${row.prevHigh})`}
+                            title={`Ordinary Bullish CB: Day 1 & 2 under HLC Higher (Day 1 Close ₹${row.prevClose} > Avg ₹${row.prevAvg} & Day 2 Close ₹${row.price} > Prev High ₹${row.prevHigh})`}
                           >
                              Ordinary
                           </span>
@@ -569,7 +569,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isAdvBull ? (
                           <span
                             className="cb-signal-pill pill-bullish-adv"
-                            title={`Advanced CB: CB formed & Next Day compulsory HLC HIGHER formed`}
+                            title={`Advanced Bullish CB: Day 1 under HLC Lower & Day 2 forms HLC Higher (Day 1 Close ₹${row.prevClose} > Avg ₹${row.prevAvg} & Day 2 Close ₹${row.price} > Prev High ₹${row.prevHigh})`}
                           >
                              Advanced CB
                           </span>
@@ -583,7 +583,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isOrdBear ? (
                           <span
                             className="cb-signal-pill pill-bearish-ord"
-                            title={`Ordinary CB: HLC LOWER occurred first, then Day 1 Close (₹${row.prevClose}) < Avg (₹${row.prevAvg}) & Day 2 Close (₹${row.price}) < Prev Low (₹${row.prevLow})`}
+                            title={`Ordinary Bearish CB: Day 1 & 2 under HLC Lower (Day 1 Close ₹${row.prevClose} < Avg ₹${row.prevAvg} & Day 2 Close ₹${row.price} < Prev Low ₹${row.prevLow})`}
                           >
                              Ordinary
                           </span>
@@ -597,7 +597,7 @@ export default function CbReportPage({ onOpenStrategy, onOpenPointer, onOpenStoc
                         {isAdvBear ? (
                           <span
                             className="cb-signal-pill pill-bearish-adv"
-                            title={`Advanced CB: CB formed & Next Day compulsory HLC LOWER formed`}
+                            title={`Advanced Bearish CB: Day 1 under HLC Higher & Day 2 forms HLC Lower (Day 1 Close ₹${row.prevClose} < Avg ₹${row.prevAvg} & Day 2 Close ₹${row.price} < Prev Low ₹${row.prevLow})`}
                           >
                              Advanced CB
                           </span>

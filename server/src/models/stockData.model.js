@@ -22,11 +22,19 @@ export const GLOBAL_SYMBOLS = new Set([
   "DELTAIN:XRPUSD.P",
   "DELTAIN:SOLUSD.P",
   "DELTAIN:XAUTUSD.P",
+  "DELTAIN:PAXGUSD.P",
+  "DELTAIN:SLVONUSD.P",
+  "OANDA:XAUUSD",
+  "OANDA:XAGUSD",
   "BTCUSD.P",
   "ETHUSD.P",
   "XRPUSD.P",
   "SOLUSD.P",
   "XAUTUSD.P",
+  "PAXGUSD.P",
+  "SLVONUSD.P",
+  "XAUUSD",
+  "XAGUSD",
   "BTC-USD",
   "ETH-USD",
   "SOL-USD",
@@ -42,7 +50,7 @@ export function isGlobalAsset(symbol, exchange) {
   }
   if (symbol) {
     const s = String(symbol).trim().toUpperCase();
-    if (GLOBAL_SYMBOLS.has(s) || s.startsWith("DELTAIN:") || s.endsWith(".P")) {
+    if (GLOBAL_SYMBOLS.has(s) || s.startsWith("DELTAIN:") || s.startsWith("OANDA:") || s.endsWith(".P")) {
       return true;
     }
   }
@@ -57,7 +65,7 @@ export function resolveTableName(exchange, symbol, defaultTable = DEFAULT_TABLE_
   }
   if (symbol) {
     const sym = String(symbol).trim().toUpperCase();
-    if (GLOBAL_SYMBOLS.has(sym) || sym.startsWith("DELTAIN:") || sym.endsWith(".P")) return "global_assets";
+    if (GLOBAL_SYMBOLS.has(sym) || sym.startsWith("DELTAIN:") || sym.startsWith("OANDA:") || sym.endsWith(".P")) return "global_assets";
   }
   return defaultTable;
 }
