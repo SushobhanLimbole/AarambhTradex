@@ -10,17 +10,19 @@ import { getFilteredSymbols, resolveMarketTable } from "../utils/marketFilter.js
  *    - TYPE 1: ORDINARY CB:
  *        DAY 1: CLOSE > SAME DAY AVG
  *        DAY 2: CLOSE > PREV.HIGH
- *    - TYPE 2: CB WITH STATUS:
- *        DAY 1: CLOSE > SAME DAY AVG
- *        DAY 2: CLOSE > PREV.HIGH + ON DAY 2 HLC HIGHER FORMED (High2 > High1 & Low2 > Low1 & Close2 > Close1 & Close2 > High1)
+ *        Both Day 1 and Day 2 under HLC Higher
+ *    - TYPE 2: ADVANCED CB (CB WITH STATUS):
+ *        DAY 1: CLOSE > SAME DAY AVG (under HLC Lower)
+ *        DAY 2: CLOSE > PREV.HIGH + ON DAY 2 HLC HIGHER FORMED
  * 
  * 2. BEARISH (RED):
  *    - TYPE 1: ORDINARY CB:
  *        DAY 1: CLOSE < SAME DAY AVG
  *        DAY 2: CLOSE < PREV.LOW
- *    - TYPE 2: CB WITH STATUS:
- *        DAY 1: CLOSE < SAME DAY AVG
- *        DAY 2: CLOSE < PREV.LOW + ON DAY 2 HLC LOWER FORMED (High2 < High1 & Low2 < Low1 & Close2 < Close1 & Close2 < Low1)
+ *        Both Day 1 and Day 2 under HLC Lower
+ *    - TYPE 2: ADVANCED CB (CB WITH STATUS):
+ *        DAY 1: CLOSE < SAME DAY AVG (under HLC Higher)
+ *        DAY 2: CLOSE < PREV.LOW + ON DAY 2 HLC LOWER FORMED
  * 
  * 3. FOR ALL TIMEFRAMES:
  *    - Supports Daily, Weekly, Monthly, Quarterly, Half-Yearly, Yearly
@@ -74,18 +76,29 @@ function checkHlcLower(curr, prev) {
 }
 
 /**
- * Evaluates CB status at index `currIdx` in the candles array
- * 
+ * Evaluates CB formation and status classification
+ *
  * Rules:
- * 1. Bullish CB (Day 1: Close > Avg, Day 2: Close > Prev High)
- *    - Ordinary Bullish CB: HLC HIGHER occurred FIRST (prior to this CB).
- *    - Advanced Bullish CB: CB formed, and on its NEXT DAY HLC HIGHER is compulsory formed.
- * 
- * 2. Bearish CB (Day 1: Close < Avg, Day 2: Close < Prev Low)
- *    - Ordinary Bearish CB: HLC LOWER occurred FIRST (prior to this CB).
- *    - Advanced Bearish CB: CB formed, and on its NEXT DAY HLC LOWER is compulsory formed.
+ * Day 1 = previous trading date (candles[currIdx - 1])
+ * Day 2 = action date (candles[currIdx])
+ *
+ * Bullish CB:
+ * - Ordinary CB:
+ *   1. Day 1 and Day 2 under HLC Higher
+ *   2. Day 1 close > Day 1 avg && Day 2 close > Day 1 high
+ * - Advanced CB:
+ *   1. Day 1 under HLC Lower && Day 2 forms HLC Higher
+ *   2. Day 1 close > Day 1 avg && Day 2 close > Day 1 high
+ *
+ * Bearish CB:
+ * - Ordinary CB:
+ *   1. Day 1 and Day 2 under HLC Lower
+ *   2. Day 1 close < Day 1 avg && Day 2 close < Day 1 low
+ * - Advanced CB:
+ *   1. Day 1 under HLC Higher && Day 2 forms HLC Lower
+ *   2. Day 1 close < Day 1 avg && Day 2 close < Day 1 low
  */
-function evaluateCbAtIndex(candles, currIdx) {
+function evaluateCbFromState(candles, currIdx, modeDay1, modeDay2, statusToday) {
   if (!candles || currIdx < 1 || currIdx >= candles.length) return null;
 
   const currCandle = candles[currIdx];
@@ -101,125 +114,70 @@ function evaluateCbAtIndex(candles, currIdx) {
   const cClose = Number(currCandle.close) || 0;
   const cAvg = (cHigh + cLow + cClose) / 3;
 
-  // Day 1 Conditions
-  const day1Bullish = pClose > pAvg;
-  const day1Bearish = pClose < pAvg;
+  // Bullish Conditions: Day 1 close > Day 1 avg & Day 2 close > Day 1 high
+  const day1Bullish = (pClose > pAvg) || (Math.abs(pClose - pAvg) <= 0.05);
+  const day2Bullish = cClose > pHigh;
+  const isBullishCb = day1Bullish && day2Bullish;
 
-  // Day 2 Breakout Conditions
-  const day2BullishBreakout = cClose > pHigh;
-  const day2BearishBreakdown = cClose < pLow;
-
-  const isBullishCbFormation = day1Bullish && day2BullishBreakout;
-  const isBearishCbFormation = day1Bearish && day2BearishBreakdown;
-
-  // Next candle (if available in historical stream)
-  const nextCandle = currIdx + 1 < candles.length ? candles[currIdx + 1] : null;
-  const nextDayHlcHigher = nextCandle ? checkHlcHigher(nextCandle, currCandle) : false;
-  const nextDayHlcLower = nextCandle ? checkHlcLower(nextCandle, currCandle) : false;
-
-  // Previous candle before prevCandle (to check if currCandle is the next-day confirmation of previous CB)
-  const prevPrevCandle = currIdx >= 2 ? candles[currIdx - 2] : null;
-  let prevDayWasBullishCb = false;
-  let prevDayWasBearishCb = false;
-  if (prevPrevCandle) {
-    const ppHigh = Number(prevPrevCandle.high) || 0;
-    const ppLow = Number(prevPrevCandle.low) || 0;
-    const ppClose = Number(prevPrevCandle.close) || 0;
-    const ppAvg = (ppHigh + ppLow + ppClose) / 3;
-    prevDayWasBullishCb = pClose > ppHigh && ppClose > ppAvg;
-    prevDayWasBearishCb = pClose < ppLow && ppClose < ppAvg;
-  }
-
-  // Determine prevailing trend prior to this CB setup:
-  // Fast reverse lookup: nearest previous candle that established HLC Higher or Lower
-  let priorTrend = null;
-  for (let k = currIdx - 1; k >= 1; k--) {
-    if (checkHlcHigher(candles[k], candles[k - 1])) {
-      priorTrend = "HLC HIGHER";
-      break;
-    } else if (checkHlcLower(candles[k], candles[k - 1])) {
-      priorTrend = "HLC LOWER";
-      break;
-    }
-  }
-
-  // Check if current candle currIdx itself is HLC Higher / Lower relative to prevCandle
-  const currIsHlcHigher = checkHlcHigher(currCandle, prevCandle);
-  const currIsHlcLower = checkHlcLower(currCandle, prevCandle);
+  // Bearish Conditions: Day 1 close < Day 1 avg & Day 2 close < Day 1 low
+  const day1Bearish = (pClose < pAvg) || (Math.abs(pClose - pAvg) <= 0.05);
+  const day2Bearish = cClose < pLow;
+  const isBearishCb = day1Bearish && day2Bearish;
 
   let isOrdinaryBullish = false;
   let isAdvancedBullish = false;
   let isOrdinaryBearish = false;
   let isAdvancedBearish = false;
 
-  if (isBullishCbFormation) {
-    if (priorTrend === "HLC HIGHER") {
-      // HLC HIGHER occurred first -> compulsory Ordinary CB made after HLC Higher
-      isOrdinaryBullish = true;
-    } else if (nextDayHlcHigher) {
-      // Next day is compulsory HLC HIGHER -> Advanced CB
+  // Bullish Classification:
+  if (isBullishCb) {
+    if (modeDay1 === "HLC LOWER" && statusToday === "HLC HIGHER") {
       isAdvancedBullish = true;
-    } else {
+    } else if (modeDay1 === "HLC HIGHER" && modeDay2 === "HLC HIGHER" && statusToday !== "HLC HIGHER") {
       isOrdinaryBullish = true;
     }
-  } else if (prevDayWasBullishCb && currIsHlcHigher) {
-    // Current candle is the NEXT DAY where HLC HIGHER formed after CB
-    isAdvancedBullish = true;
   }
 
-  if (isBearishCbFormation) {
-    if (priorTrend === "HLC LOWER") {
-      // HLC LOWER occurred first -> compulsory Ordinary CB made after HLC Lower
-      isOrdinaryBearish = true;
-    } else if (nextDayHlcLower) {
-      // Next day is compulsory HLC LOWER -> Advanced CB
+  // Bearish Classification:
+  if (isBearishCb) {
+    if (modeDay1 === "HLC HIGHER" && statusToday === "HLC LOWER") {
       isAdvancedBearish = true;
-    } else {
+    } else if (modeDay1 === "HLC LOWER" && modeDay2 === "HLC LOWER" && statusToday !== "HLC LOWER") {
       isOrdinaryBearish = true;
     }
-  } else if (prevDayWasBearishCb && currIsHlcLower) {
-    // Current candle is the NEXT DAY where HLC LOWER formed after CB
-    isAdvancedBearish = true;
   }
 
   const isBullish = isOrdinaryBullish || isAdvancedBullish;
   const isBearish = isOrdinaryBearish || isAdvancedBearish;
 
-  let cbType = "NO CB";
-  let cbCategory = "neutral";
-  let statusBadge = "NONE";
+  let cbType = "—";
+  let cbCategory = "none";
+  let statusBadge = "—";
   let breakoutMargin = 0;
 
   if (isAdvancedBullish) {
     cbType = "CB WITH STATUS";
     cbCategory = "bullish_status";
-    statusBadge = "ADVANCED CB (NEXT DAY HLC HIGHER)";
-    breakoutMargin = Number((((cClose - pHigh) / pHigh) * 100).toFixed(2));
+    statusBadge = "ADVANCED CB (HLC LOWER -> HLC HIGHER)";
+    breakoutMargin = pHigh > 0 ? Number((((cClose - pHigh) / pHigh) * 100).toFixed(2)) : 0;
   } else if (isOrdinaryBullish) {
     cbType = "ORDINARY CB";
     cbCategory = "bullish_ordinary";
-    statusBadge = "ORDINARY CB (AFTER HLC HIGHER)";
-    breakoutMargin = Number((((cClose - pHigh) / pHigh) * 100).toFixed(2));
+    statusBadge = "ORDINARY CB (DAY 1 & 2 UNDER HLC HIGHER)";
+    breakoutMargin = pHigh > 0 ? Number((((cClose - pHigh) / pHigh) * 100).toFixed(2)) : 0;
   } else if (isAdvancedBearish) {
     cbType = "CB WITH STATUS";
     cbCategory = "bearish_status";
-    statusBadge = "ADVANCED CB (NEXT DAY HLC LOWER)";
-    breakoutMargin = Number((((pLow - cClose) / pLow) * 100).toFixed(2));
+    statusBadge = "ADVANCED CB (HLC HIGHER -> HLC LOWER)";
+    breakoutMargin = pLow > 0 ? Number((((pLow - cClose) / pLow) * 100).toFixed(2)) : 0;
   } else if (isOrdinaryBearish) {
     cbType = "ORDINARY CB";
     cbCategory = "bearish_ordinary";
-    statusBadge = "ORDINARY CB (AFTER HLC LOWER)";
-    breakoutMargin = Number((((pLow - cClose) / pLow) * 100).toFixed(2));
+    statusBadge = "ORDINARY CB (DAY 1 & 2 UNDER HLC LOWER)";
+    breakoutMargin = pLow > 0 ? Number((((pLow - cClose) / pLow) * 100).toFixed(2)) : 0;
   }
 
   return {
-    cbType,
-    cbCategory,
-    statusBadge,
-    isAdvancedBullish,
-    isOrdinaryBullish,
-    isAdvancedBearish,
-    isOrdinaryBearish,
     isBullishCbWithStatus: isAdvancedBullish,
     isOrdinaryBullishCb: isOrdinaryBullish,
     isBearishCbWithStatus: isAdvancedBearish,
@@ -239,7 +197,46 @@ function evaluateCbAtIndex(candles, currIdx) {
 }
 
 /**
- * Fast single-pass backtesting across candle sequence
+ * Evaluates CB status at index `currIdx` in the candles array
+ */
+function evaluateCbAtIndex(candles, currIdx) {
+  if (!candles || currIdx < 1 || currIdx >= candles.length) return null;
+
+  let currentMode = null;
+  let modeDay1 = null;
+  let modeDay2 = null;
+  let statusToday = null;
+
+  for (let i = 1; i <= currIdx; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+    const ch = Number(curr.high) || 0;
+    const cl = Number(curr.low) || 0;
+    const cc = Number(curr.close) || 0;
+    const ph = Number(prev.high) || 0;
+    const pl = Number(prev.low) || 0;
+    const pc = Number(prev.close) || 0;
+
+    const isHlcHigher = ch > ph && cl > pl && cc > pc && cc > ph;
+    const isHlcLower = ch < ph && cl < pl && cc < pc && cc < pl;
+
+    if (isHlcHigher && currentMode !== "HLC HIGHER") {
+      currentMode = "HLC HIGHER";
+      if (i === currIdx) statusToday = "HLC HIGHER";
+    } else if (isHlcLower && currentMode !== "HLC LOWER") {
+      currentMode = "HLC LOWER";
+      if (i === currIdx) statusToday = "HLC LOWER";
+    }
+
+    if (i === currIdx - 1) modeDay1 = currentMode;
+    if (i === currIdx) modeDay2 = currentMode;
+  }
+
+  return evaluateCbFromState(candles, currIdx, modeDay1, modeDay2, statusToday);
+}
+
+/**
+ * Run linear single-pass backtesting across candle sequence
  */
 function runCbBacktest(candles) {
   if (!candles || candles.length < 4) {
@@ -251,37 +248,64 @@ function runCbBacktest(candles) {
   let bearTotal = 0;
   let bearHits = 0;
 
+  // Precompute HLC state machine across the stream for O(N) performance
+  const n = candles.length;
+  const modes = new Array(n).fill(null);
+  const statusFormed = new Array(n).fill(null);
+
+  let currentMode = null;
+  for (let i = 1; i < n; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+    const ch = Number(curr.high) || 0;
+    const cl = Number(curr.low) || 0;
+    const cc = Number(curr.close) || 0;
+    const ph = Number(prev.high) || 0;
+    const pl = Number(prev.low) || 0;
+    const pc = Number(prev.close) || 0;
+
+    const isHlcHigher = ch > ph && cl > pl && cc > pc && cc > ph;
+    const isHlcLower = ch < ph && cl < pl && cc < pc && cc < pl;
+
+    if (isHlcHigher && currentMode !== "HLC HIGHER") {
+      currentMode = "HLC HIGHER";
+      statusFormed[i] = "HLC HIGHER";
+    } else if (isHlcLower && currentMode !== "HLC LOWER") {
+      currentMode = "HLC LOWER";
+      statusFormed[i] = "HLC LOWER";
+    }
+    modes[i] = currentMode;
+  }
+
   for (let i = 1; i < candles.length - 1; i++) {
-    const cbRes = evaluateCbAtIndex(candles, i);
+    const cbRes = evaluateCbFromState(candles, i, modes[i - 1], modes[i], statusFormed[i]);
     if (!cbRes || (!cbRes.isBullish && !cbRes.isBearish)) continue;
 
     const curr = candles[i];
     const next = candles[i + 1];
+    const nextClose = Number(next.close) || 0;
+    const currClose = Number(curr.close) || 0;
 
     if (cbRes.isBullish) {
       bullTotal++;
-      if (Number(next.high) > Number(curr.close) || Number(next.close) > Number(curr.close)) {
-        bullHits++;
-      }
+      if (nextClose > currClose) bullHits++;
     }
     if (cbRes.isBearish) {
       bearTotal++;
-      if (Number(next.low) < Number(curr.close) || Number(next.close) < Number(curr.close)) {
-        bearHits++;
-      }
+      if (nextClose < currClose) bearHits++;
     }
   }
 
-  const bullishAccuracy = bullTotal > 0 ? Number(((bullHits / bullTotal) * 100).toFixed(1)) : 0;
-  const bearishAccuracy = bearTotal > 0 ? Number(((bearHits / bearTotal) * 100).toFixed(1)) : 0;
-  const overallAccuracy = (bullTotal + bearTotal) > 0
-    ? Number((((bullHits + bearHits) / (bullTotal + bearTotal)) * 100).toFixed(1))
-    : 0;
+  const bullAcc = bullTotal > 0 ? Number(((bullHits / bullTotal) * 100).toFixed(1)) : 0;
+  const bearAcc = bearTotal > 0 ? Number(((bearHits / bearTotal) * 100).toFixed(1)) : 0;
+  const totHits = bullHits + bearHits;
+  const totCount = bullTotal + bearTotal;
+  const overallAcc = totCount > 0 ? Number(((totHits / totCount) * 100).toFixed(1)) : 0;
 
   return {
-    overallAccuracy,
-    bullishAccuracy,
-    bearishAccuracy,
+    overallAccuracy: overallAcc,
+    bullishAccuracy: bullAcc,
+    bearishAccuracy: bearAcc,
     bullHits,
     bullTotal,
     bearHits,
@@ -290,17 +314,16 @@ function runCbBacktest(candles) {
 }
 
 /**
- * GET /api/cb-report
- * Run Closing Breakout (Ordinary CB & CB with Status) Scanner
+ * Controller endpoint: GET /api/cb-report
  */
 export const getCbReport = async (req, res, next) => {
   try {
     const {
-      exchange = "NSE",
+      exchange = "ALL",
       indice = "ALL",
       timeframe = "Daily",
-      actionDate,
-      filterType = "ALL", // 'ALL' | 'CB_WITH_STATUS' | 'ORDINARY_CB' | 'BULLISH' | 'BEARISH'
+      actionDate = null,
+      filterType = "ALL",
       limit = "all",
     } = req.query;
 
@@ -383,20 +406,25 @@ export const getCbReport = async (req, res, next) => {
       dayInterval = 730;
     }
 
-    const placeholders = matchedSymbols.map(() => "?").join(",");
-    let dateCondition = "";
-    const queryParams = [...matchedSymbols];
+    let symCondition = "";
+    const queryParams = [];
 
+    if (indice && String(indice).toUpperCase() !== "ALL" && matchedSymbols.length <= 500) {
+      const placeholders = matchedSymbols.map(() => "?").join(",");
+      symCondition = `\`symbol\` IN (${placeholders}) AND `;
+      queryParams.push(...matchedSymbols);
+    }
+
+    let dateCondition = "1=1";
     if (targetDateStr) {
-      dateCondition = `AND \`date\` >= DATE_SUB(?, INTERVAL ${dayInterval} DAY) AND \`date\` <= ?`;
+      dateCondition = `\`date\` >= DATE_SUB(?, INTERVAL ${dayInterval} DAY) AND \`date\` <= ?`;
       queryParams.push(targetDateStr, targetDateStr);
     }
 
     const candlesQuery = `
       SELECT \`id\`, \`symbol\`, \`date\`, \`open\`, \`high\`, \`low\`, \`close\`, \`volume\`
       FROM \`${tableName}\`
-      WHERE \`symbol\` IN (${placeholders})
-      ${dateCondition}
+      WHERE ${symCondition} ${dateCondition}
       ORDER BY \`symbol\` ASC, \`date\` ASC
     `;
 

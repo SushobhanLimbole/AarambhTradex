@@ -270,12 +270,16 @@ export default function ScreenerPage({
         { value: "DELTAIN:ETHUSD.P", label: "ETHUSD - Ethereum Delta Perpetual" },
         { value: "DELTAIN:SOLUSD.P", label: "SOLUSD - Solana Delta Perpetual" },
         { value: "DELTAIN:XRPUSD.P", label: "XRPUSD - XRP Delta Perpetual" },
+        { value: "DELTAIN:XAUTUSD.P", label: "XAUTUSD - Gold (XAUT) Delta Perpetual" },
+        { value: "DELTAIN:PAXGUSD.P", label: "PAXGUSD - Paxos Gold Delta Perpetual" },
+        { value: "DELTAIN:SLVONUSD.P", label: "SLVONUSD - Silver Delta Perpetual" },
       ];
     }
     if (ex === "METALS") {
       return [
         { value: "ALL", label: "All Metals Assets" },
-        { value: "DELTAIN:XAUTUSD.P", label: "XAUTUSD - Gold (XAUT) Delta Perpetual" },
+        { value: "OANDA:XAUUSD", label: "XAUUSD - Gold / US Dollar (OANDA)" },
+        { value: "OANDA:XAGUSD", label: "XAGUSD - Silver / US Dollar (OANDA)" },
       ];
     }
 

@@ -50,6 +50,10 @@ export const INDEX_NAME_MAP = {
   "DELTAIN:XRPUSD.P": "XRPUSD (Delta)",
   "DELTAIN:SOLUSD.P": "SOLUSD (Delta)",
   "DELTAIN:XAUTUSD.P": "XAUTUSD (Delta)",
+  "DELTAIN:PAXGUSD.P": "PAXGUSD (Delta)",
+  "DELTAIN:SLVONUSD.P": "SLVONUSD (Delta)",
+  "OANDA:XAUUSD": "XAUUSD (OANDA)",
+  "OANDA:XAGUSD": "XAGUSD (OANDA)",
 };
 
 /**
@@ -76,8 +80,8 @@ export const stripSymbolSuffix = (symbol) => {
   let s = raw;
   // Strip leading ^ prefix (e.g. ^NSEI -> NSEI, ^BSESN -> BSESN)
   s = s.replace(/^\^/, "");
-  // Strip leading DELTAIN: prefix
-  s = s.replace(/^DELTAIN:/i, "");
+  // Strip leading DELTAIN: or OANDA: prefix
+  s = s.replace(/^(DELTAIN|OANDA):/i, "");
   // Strip dot suffixes like .NS, .BO, .NSE, .BSE, .IN, etc. (case-insensitive)
   s = s.replace(/\.(NS|BO|NSE|BSE|IN|IS|ns|bo|nse|bse)$/i, "");
   // Strip global assets metals suffix =X (e.g. XAUUSD=X -> XAUUSD, XAGUSD=X -> XAGUSD)
